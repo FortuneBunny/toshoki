@@ -173,6 +173,7 @@ function statusText(world) {
   const sc = world.scenario;
   out.push(`ランクの基準: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`);
   out.push(`このシナリオ: 輸送手段 ${world.allowedTransports.map((t) => TRANSPORTS[t].name).join('・')} / 商人は最大${sc.maxMerchants ?? 4}人 / 工房 ${(sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes).map((b) => BUILDINGS[b].name).join('・') || 'なし'}${(sc.buildings || []).includes('road') ? ' / 道の整備あり' : ''}（費用は shop）`);
+  out.push(`使える建設: 区画の施設 ${G.districtEnabled(world) ? 'あり' : 'なし'} / 道を敷く ${G.pathsAllowed(world) ? `${G.pathsAllowed(world)}本まで` : 'なし'} / 交易所 ${G.postsAllowed(world) ? `${G.postsAllowed(world)}つまで` : 'なし'} / 技術 ${G.techList(world).length ? G.techList(world).map((t) => t.name).join('・') : 'なし'}`);
   out.push('目標（全部が同時にそろった時に達成。銀・資産・町の人口や段階は、一度届いても下回ると戻る）:');
   G.goalsStatus(world).forEach((g, i) => {
     out.push(`  ${g.done ? '✔' : '□'} ${g.text}  [${'█'.repeat(Math.round(g.p * 10))}${'░'.repeat(10 - Math.round(g.p * 10))}] ${Math.round(g.p * 100)}%`);
@@ -217,7 +218,7 @@ function merchantLine(world, m) {
     ? `移動中 → ${world.cities[m.travel.to].name}（あと約${Math.max(1, Math.ceil(m.travel.totalDays - m.travel.elapsed))}日${m.guards ? `、護衛${m.guards}` : ''}）`
     : `${world.cities[m.city].name}(${m.city})に滞在`;
   const order = m.order ? (m.order.paused ? ' [定期便:停止中]' : ' [定期便]') : '';
-  return `#${m.id} ${m.name}${m.talent ? `【${G.TALENTS[m.talent].name}】` : ''} ${t.name} ${G.cargoUsed(m)}/${t.cap}  ${where}${order}  積荷: ${cargo}  累計損益 ${Math.round(m.lifetime)}`;
+  return `#${m.id} ${m.name}${m.talent ? `【${G.TALENTS[m.talent].name}】` : ''} ${t.name} ${G.cargoUsed(m)}/${G.cargoCap(m)}  ${where}${order}  積荷: ${cargo}  累計損益 ${Math.round(m.lifetime)}`;
 }
 
 function marketText(world, m) {
@@ -241,7 +242,7 @@ function marketText(world, m) {
   }
   const t = TRANSPORTS[m.transport];
   return [
-    `■ ${city.name}の市場（${G.tierName(G.cityTier(city))}、人口 ${Math.floor(city.pop)}、糖度 ${Math.round(city.glucose)}${city.rush ? '、🍬ラッシュ中' : ''}${city.crash ? '、💥クラッシュ中' : ''}）  ${m.name} 積載 ${G.cargoUsed(m)}/${t.cap}  銀 ${Math.floor(world.player.silver)}`,
+    `■ ${city.name}の市場（${G.tierName(G.cityTier(city))}、人口 ${Math.floor(city.pop)}、糖度 ${Math.round(city.glucose)}${city.rush ? '、🍬ラッシュ中' : ''}${city.crash ? '、💥クラッシュ中' : ''}）  ${m.name} 積載 ${G.cargoUsed(m)}/${G.cargoCap(m)}  銀 ${Math.floor(world.player.silver)}`,
     table(['品物', '積荷(仕入値)', '売値(あなたが売る)', '全部売ると(損益)', '買値(あなたが買う)', '町の在庫', '1日の消費', '基準', '相場の推移'], rows, [2, 3, 4, 5, 6, 7]),
     '※ 売値・買値は1個目の値段。たくさん売るほど売値は下がり、たくさん買うほど買値は上がる。買うときの合計は quote で確認できる。',
   ].join('\n');
