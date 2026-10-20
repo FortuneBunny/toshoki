@@ -64,6 +64,17 @@ function parseArgs(argv) {
   return { opts, pos };
 }
 
+// ラッシュまでの目安: 糖度140以上と、その日の甘味の摂取（必要量に対する割合）75%以上の両方
+function rushGap(glucose, sweet) {
+  if (glucose === undefined) return 'ラッシュの目安は町を見ないと分からない';
+  const g = Math.round(glucose);
+  const s = Math.round(sweet * 100);
+  const need = [];
+  if (g < 140) need.push(`糖度をあと${140 - g}（今${g}。食べ物を何種類も届ける）`);
+  if (s < 75) need.push(`甘味の摂取をあと${75 - s}%（今${s}%＝今日の甘味の必要量のうち食べた割合。甘味を2種類以上まとめて届ける）`);
+  return need.length ? `ラッシュまで ${need.join('、')}` : '条件はそろっている（明日にもラッシュ）';
+}
+
 // 今いる町: --at、または商人のいる町が1つならそこ
 function hereCity(world, opts) {
   if (opts.at) return opts.at;
@@ -159,7 +170,7 @@ function statusText(world) {
       const k = world.player.knowledge[c.id];
       const here = world.player.merchants.some((m) => m.city === c.id);
       const adv = here ? G.dietAdvice(world, c).slice(0, 3) : [];
-      out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、甘味の摂取 ${Math.round(((here ? c.sweetLevel : k?.sweetLevel) || 0) * 100)}/75` : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
+      out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、${rushGap(here ? c.glucose : k?.glucose, (here ? c.sweetLevel : k?.sweetLevel) || 0)}` : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
     }
   });
   out.push('商人:');
@@ -264,7 +275,7 @@ function cityText(world, id) {
     const diet = Object.entries(c.diet || {}).sort((a, b) => b[1] - a[1]);
     if (diet.length) out.push(`食卓（糖度への寄与）: ${diet.map(([g, v]) => `${GOODS[g].name} +${Math.round(v * 100)}`).join(' / ')}`);
     const missingFood = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && G.dailyDemand(c, g, false) > 0 && !(c.diet?.[g] > 0.02));
-    out.push(`甘味の摂取: ${Math.round((c.sweetLevel || 0) * 100)}（75以上かつ糖度140以上でシュガーラッシュ）`);
+    out.push(`シュガーラッシュまで: ${rushGap(c.glucose, c.sweetLevel || 0)}`);
     out.push(`※ 1種類の食べ物で上げられる糖度は50まで、甘味は1種類45まで。種類を増やすほど糖度が上がる。${missingFood.length ? `今足りない食べ物: ${missingFood.map((g) => GOODS[g].name).join('、')}` : ''}`);
     const adv = G.dietAdvice(world, c).slice(0, 6);
     if (adv.length) out.push(`伸びしろ（1日あたりの目安量で、糖度がどれだけ上がるか）: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join(' / ')}`);
@@ -583,7 +594,7 @@ function run(world, cmd, pos, opts) {
     case 'sites': {
       const allowed = G.postsAllowed(world);
       if (!allowed) { out.push('このシナリオでは交易所を開けない'); break; }
-      out.push(`■ 交易所の候補（開いた数 ${G.postsFounded(world)}/${allowed}、次の費用 ${G.postCost(world)}銀。道か水辺から2マス以内、ほかの町から14マス以上）`);
+      out.push(`■ 交易所の候補（開いた数 ${G.postsFounded(world)}/${allowed}、次の費用 ${G.postCost(world)}銀。道か水辺から2マス以内、ほかの町から14マス以上）。交易所は人口${G.POST_POP}人の集落から始まり、最初の産出は1日2個ほど。食べ物と甘味を届けて育てる拠点`);
       for (const s of G.foundSites(world)) out.push(`  ${s.x},${s.y}  採れそうな品: ${s.goods.map((g) => GOODS[g].name).join('・')}  一番近い町: ${world.cities[s.near].name}（${s.nearDist}マス）`);
       break;
     }
