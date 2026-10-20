@@ -146,7 +146,7 @@ function statusText(world) {
   out.push(`■ ${world.scenario.no}. ${world.scenario.title}   ${G.dateString(world.day)}（${world.day}日目 / 期限 ${world.scenario.deadline}日）`);
   if (pl.heirloom) out.push(`家訓: ${G.heirloomText(pl.heirloom)}`);
   out.push(`銀 ${Math.floor(pl.silver)}   資産 ${Math.floor(G.netWorth(world))}（銀＋品物×基準の8割＋輸送手段・工房×半額）   評判 Lv${pl.repLevel}（${pl.rep}）   連続黒字 ${pl.streak}`);
-  if (world.scenario.goods.some((id) => ['sea', 'river'].length) && world.edges.some((e) => e.monsoon)) out.push(`季節: ${G.SEASON_NAMES[G.seasonOf(world)]}`);
+  if (world.scenario.goods.some((id) => ['sea', 'river'].length) && world.edges.some((e) => e.monsoon)) out.push(`季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（切り替わるまで あと${180 - (world.day % 180)}日。夏は東へ、冬は西へ追い風）`);
   const sc = world.scenario;
   out.push(`ランクの基準: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`);
   out.push(`このシナリオ: 輸送手段 ${world.allowedTransports.map((t) => TRANSPORTS[t].name).join('・')} / 商人は最大${sc.maxMerchants ?? 4}人 / 工房 ${(sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes).map((b) => BUILDINGS[b].name).join('・') || 'なし'}${(sc.buildings || []).includes('road') ? ' / 道の整備あり' : ''}（費用は shop）`);
@@ -186,7 +186,7 @@ function merchantLine(world, m) {
     ? `移動中 → ${world.cities[m.travel.to].name}（あと約${Math.max(1, Math.ceil(m.travel.totalDays - m.travel.elapsed))}日${m.guards ? `、護衛${m.guards}` : ''}）`
     : `${world.cities[m.city].name}(${m.city})に滞在`;
   const order = m.order ? (m.order.paused ? ' [定期便:停止中]' : ' [定期便]') : '';
-  return `#${m.id} ${m.name} ${t.name} ${G.cargoUsed(m)}/${t.cap}  ${where}${order}  積荷: ${cargo}  累計損益 ${Math.round(m.lifetime)}`;
+  return `#${m.id} ${m.name}${m.talent ? `【${G.TALENTS[m.talent].name}】` : ''} ${t.name} ${G.cargoUsed(m)}/${t.cap}  ${where}${order}  積荷: ${cargo}  累計損益 ${Math.round(m.lifetime)}`;
 }
 
 function marketText(world, m) {
@@ -335,7 +335,7 @@ function buildableText(world, id) {
     if (!world.scenario.goods.includes(p.good)) continue;
     const nativeOnly = ['food', 'sweet'].includes(GOODS[p.good].kind) && !(c.district.native || []).includes(p.good);
     const tiles = nativeOnly ? [] : G.placeableTiles(c, tier, k);
-    const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
+    const cost = G.producerCost(world, k);
     if (nativeOnly) { out.push(`  ${k}（${p.name}）: この町の土地では育たない（食べ物と甘味は元から作っている品だけ増産できる）`); continue; }
     out.push(`  ${k}（${p.name}）: ${cost}銀＋維持費${G.BALANCE.producerUpkeep}/日  ${GOODS[p.good].name} +${p.rate}/日（${G.BALANCE.producerBuildDays}日後から）  働き手${p.workers}人  ${tiles.length ? `置けるマス ${tiles.length}か所: ${tiles.slice(0, 6).map(([x, y]) => G.coordName(x, y)).join(' ')}` : '置けるマスがない'}`);
   }
@@ -467,11 +467,12 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   travel <町id> [--guards n] [--nowait]  出発して、到着か事件まで日を進める（--nowait なら時間を進めない）
   wait <日数> [-m 番号]                日を進める（最大120日。手動の商人の到着や重要な出来事で止まる。-m を付けるとその商人が町に着いたら止まる）
   shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
-  hire [confirm] [--at 町]             商人を雇う（confirm なしなら費用だけ表示。定期便が回っている町でも雇える）
+  hire [番号] [confirm] [--at 町]      商人を雇う（confirm なしなら費用と候補3人の才能を表示。定期便が回っている町でも雇える）
   transport <種類> [confirm]           輸送手段を買い替える（camel, cart, dhow, carrack）
   build <種類> [confirm]               今いる町に工房を建てる（mill, confectionery, winery, malthouse）
   workshops                            工房の一覧（レシピ、生産数、倉庫）
   workshop <番号> on|off|autobuy|noautobuy
+  workshop <番号> recipe <レシピ名|auto>  作るものを1つに固定（例: 粗糖のまま売りたいときは 粗糖づくり）
   load <品物> <数|all>                 倉庫 → 商人 へ積む（例: load whitesugar all）
   unload <品物> <数|all>               商人 → 倉庫 へ下ろす（工房の材料を入れる。例: unload cane all）
   road <道の番号> [confirm]            小道を街道に整備する
@@ -662,10 +663,17 @@ function run(world, cmd, pos, opts) {
     }
     case 'hire': {
       const cost = G.hireCost(world);
-      if (pos[0] !== 'confirm') { out.push(`商人を雇うと ${cost} 銀（銀 ${Math.floor(world.player.silver)} → ${Math.floor(world.player.silver - cost)}）。上限 ${world.scenario.maxMerchants ?? 4} 人。確定するには: hire confirm`); break; }
+      const cands = G.hireCandidates(world);
+      if (!pos.includes('confirm')) {
+        out.push(`商人を雇うと ${cost} 銀（銀 ${Math.floor(world.player.silver)} → ${Math.floor(world.player.silver - cost)}）。上限 ${world.scenario.maxMerchants ?? 4} 人。候補:`);
+        cands.forEach((c, i) => out.push(`  ${i + 1}. ${c.name}【${G.TALENTS[c.talent].name}】${G.TALENTS[c.talent].text}`));
+        out.push('確定するには: hire <候補の番号> confirm（例: hire 2 confirm。番号を省くと1番）');
+        break;
+      }
+      const pick = Math.max(0, (parseInt(pos.find((p) => /^\d+$/.test(p)) || '1', 10) || 1) - 1);
       const atCity = opts.at || (opts.merchant ? pickMerchant(world, opts).city : world.player.merchants.find((x) => !x.travel)?.city);
       if (!atCity) throw new Error('どの町で雇うか --at <町id> で指定する（商人が滞在している町か、定期便が回っている町）');
-      const r = after(G.hireMerchant(world, atCity));
+      const r = after(G.hireMerchant(world, atCity, pick));
       out.push(`雇った（${r.cost}銀）。新しい商人の番号は #${r.merchant}（-m ${r.merchant} で操作）`);
       break;
     }
@@ -688,6 +696,16 @@ function run(world, cmd, pos, opts) {
     }
     case 'workshop': {
       const map = { on: { active: true }, off: { active: false }, autobuy: { autoBuy: true }, noautobuy: { autoBuy: false } };
+      if (pos[1] === 'recipe') {
+        // レシピを1つに固定する（例: workshop 1 recipe 粗糖づくり）。auto で元に戻す
+        const b = world.player.buildings.find((x) => x.id === Number(pos[0]));
+        if (!b) throw new Error('その工房はない');
+        const names = BUILDINGS[b.type].recipes.map((r) => r.name);
+        if (pos[2] !== 'auto' && !names.includes(pos[2])) throw new Error(`レシピ: ${names.join('・')}・auto（上から順に試す）`);
+        after(G.setBuilding(world, pos[0], { recipe: pos[2] === 'auto' ? null : pos[2] }));
+        out.push(pos[2] === 'auto' ? 'レシピを自動（上から順に試す）に戻した' : `レシピを「${pos[2]}」だけにした`);
+        break;
+      }
       after(G.setBuilding(world, pos[0], map[pos[1]] || {}));
       out.push('設定した');
       break;
@@ -783,7 +801,7 @@ function run(world, cmd, pos, opts) {
       if (!xy) throw new Error('座標を A1〜L12 の形で指定（区画は district で見られる）');
       const at = hereCity(world, opts);
       if (!at) throw new Error('どの町か --at <町id> で指定する');
-      const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
+      const cost = G.producerCost(world, type);
       if (pos[2] !== 'confirm') {
         const why = G.placeCheck(world.cities[at], G.cityTier(world.cities[at]), type, xy[0], xy[1]);
         out.push(why ? `✖ ${pos[1]} には置けない: ${why}` : `${world.cities[at].name}の ${pos[1]} に${p.name}: ${cost}銀。${GOODS[p.good].name}が毎日 +${p.rate}（町の市場に出る）。確定するには: place ${type} ${pos[1]} confirm`);

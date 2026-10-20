@@ -85,6 +85,16 @@ async function selftestWorkshop(app, { step, click, wait, log, errors }) {
     click('footer .btn', '決定');
     if (w().edges.length !== before + 1) throw new Error('道が増えない');
   });
+  await step('商人を雇う: 候補3人から才能で選ぶ', () => {
+    w().player.silver += 2000;
+    app.state.selCity = 'toumitsu'; app.render();
+    click('.side .btn', '商人を雇う');
+    const cards = document.querySelectorAll('.hire-card');
+    if (cards.length < 2) throw new Error(`候補 ${cards.length}`);
+    cards[1].querySelector('.btn').click();
+    const m = w().player.merchants[w().player.merchants.length - 1];
+    if (!m.talent || w().player.merchants.length < 2) throw new Error('才能つきの商人が増えない');
+  });
   await step('交易所を開く: 候補地を選んで確定', () => {
     w().player.silver += 3000;
     app.startFound();

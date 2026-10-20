@@ -92,7 +92,7 @@ export function findPath(world, from, to, transportId) {
       const d = tileDays(world, k, transportId, x - px) * (x !== px && y !== py ? Math.SQRT2 : 1);
       steps.push(d);
       total += d;
-      if (grid.terrain[k] === T.SAND) desertDays += d;
+      if (needsFood(grid, k)) desertDays += d;
       if (grid.terrain[k] === T.WATER) water = true;
       danger = Math.max(danger, grid.danger[k]);
     }
@@ -153,9 +153,11 @@ export function travelTile(m) {
   return t.tiles[Math.min(t.i, t.tiles.length - 1)];
 }
 
+export const needsFood = (grid, k) => grid.terrain[k] === T.SAND && grid.path[k] < P.ROAD && !grid.cityAt.has(k);
+
 function eatProvisions(world, m) {
   // 端数は持ち越して、まとまったら1個食べる
-  m.hunger = (m.hunger || 0) + cargoCap(m) * B.provisionPerCap;
+  m.hunger = (m.hunger || 0) + cargoCap(m) * B.provisionPerCap * (m.talent === 'desert' ? 0.5 : 1);
   let left = Math.floor(m.hunger);
   if (left <= 0) return false;
   m.hunger -= left;
@@ -192,7 +194,7 @@ function banditCheck(world, m, danger) {
   const p = B.banditBase * danger * (world.player.mods?.safety ?? 1);
   if (!chance(world, p)) return;
   const power = randInt(world, B.banditPower[0], Math.round(B.banditPower[1] * Math.min(1.5, (1 + danger) / 2)));
-  const guard = m.guards * B.guardPower;
+  const guard = (m.guards + (m.talent === 'strong' ? 2 : 0)) * B.guardPower;
   if (guard >= power) {
     world.player.rep += 10;
     world.stats.banditsRepelled = (world.stats.banditsRepelled || 0) + 1;
@@ -218,8 +220,13 @@ export function stepTravel(world, m) {
   const grid = world.grid;
   const [x, y] = travelTile(m);
   const k = gridKey(x, y);
+  // 才能: 健脚（陸）・船乗り（船）は1日に進む量が増える。砂漠の民は砂嵐でも遅れにくい
   let budget = 1;
-  if (grid.terrain[k] === T.SAND && eatProvisions(world, m)) budget = 1 / B.starveSlow;
+  if (m.talent === 'swift' && !isShip(m.transport)) budget = 1.15;
+  if (m.talent === 'sailor' && isShip(m.transport)) budget = 1.15;
+  if (m.talent === 'desert' && grid.terrain[k] === T.SAND && inStorm(world, x, y)) budget = 1.6;
+  // 食料が要るのは、街道のない砂地だけ（街道には井戸と隊商宿がある）
+  if (needsFood(grid, k) && eatProvisions(world, m)) budget /= B.starveSlow;
   banditCheck(world, m, grid.danger[k]);
   world.player.silver -= m.guards * B.guardWage;
   t.elapsed += 1;

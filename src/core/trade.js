@@ -7,6 +7,15 @@ import { emit } from './events.js';
 import { observe } from './knowledge.js';
 
 // lines: [{ good, qty }]  qty > 0 は買い、qty < 0 は売り
+// 才能による値段の補正（買い: 値切り上手、売り: 目利き・甘党）
+export function talentPrice(m, good, buying) {
+  if (buying) return m.talent === 'haggler' ? 0.95 : 1;
+  let f = 1;
+  if (m.talent === 'appraiser') f *= 1.04;
+  if (m.talent === 'sweettooth' && GOODS[good]?.kind === 'sweet') f *= 1.08;
+  return f;
+}
+
 export function previewTrade(world, m, lines) {
   const city = world.cities[m.city];
   const errors = [];
@@ -21,14 +30,14 @@ export function previewTrade(world, m, lines) {
     if (qty > 0) {
       const avail = Math.floor(city.stock[good] || 0);
       if (qty > avail) errors.push(`${city.name}の${g.name}は${avail}個しかない`);
-      const cost = quote(world, city, good, Math.min(qty, avail));
+      const cost = quote(world, city, good, Math.min(qty, avail)) * talentPrice(m, good, true);
       silverDelta -= cost;
       rows.push({ good, qty, total: -cost });
     } else {
       const have = m.cargo[good] || 0;
       if (-qty > have) errors.push(`${g.name}は${have}個しか積んでいない`);
       if (!cityWants(city, good)) errors.push(`${city.name}では${g.name}を買い取ってもらえない`);
-      const gain = quote(world, city, good, -Math.min(-qty, have));
+      const gain = quote(world, city, good, -Math.min(-qty, have)) * talentPrice(m, good, false);
       silverDelta += gain;
       rows.push({ good, qty, total: gain });
     }
@@ -52,7 +61,7 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
     if (!qty) continue;
     const g = GOODS[good];
     if (qty > 0) {
-      const cost = quote(world, city, good, qty);
+      const cost = quote(world, city, good, qty) * talentPrice(m, good, true);
       const have = m.cargo[good] || 0;
       m.cost[good] = ((m.cost[good] || 0) * have + cost) / (have + qty);
       m.cargo[good] = have + qty;
@@ -68,7 +77,7 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       // 読み的中: 出発時に知っていた相場より高く売れたか
       const expected = m.expected?.city === city.id ? m.expected.prices[good] : undefined;
       const actualMid = midPrice(city, good);
-      const gain = quote(world, city, good, qty);
+      const gain = quote(world, city, good, qty) * talentPrice(m, good, false);
       const basis = (m.cost[good] || 0) * n;
       const p = gain - basis;
       profit += p;

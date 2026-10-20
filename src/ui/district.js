@@ -38,7 +38,7 @@ export function openDistrict(app, cityId) {
       const nativeOnly = ['food', 'sweet'].includes(G.GOODS[p.good].kind) && !(d.native || []).includes(p.good);
       if (nativeOnly) continue;
       const n = G.placeableTiles(city, tier, k).length;
-      const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
+      const cost = G.producerCost(world, k);
       add(palette, h('button', {
         class: `btn small district-item ${selected === k ? 'primary' : ''}`, disabled: !canBuild || !n || undefined,
         title: n ? `${p.name}: ${G.GOODS[p.good].name}が毎日 +${p.rate}（町の市場に出る）。働き手 ${p.workers}人` : `${p.name}を置けるマスがない`,

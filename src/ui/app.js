@@ -441,7 +441,7 @@ function renderMerchants() {
     const card = h('div', { class: `mcard ${app.state.selMerchant === m.id ? 'sel' : ''}`, onclick: () => { app.state.selMerchant = m.id; if (!m.travel) app.state.selCity = m.city; app.render(); } },
       h('img', { class: 'portrait', src: `assets/svg/transport/${m.portrait}.svg`, alt: '' }),
       h('div', { class: 'info' },
-        h('div', { class: 'name' }, h('span', {}, `${m.id}. ${m.name}`), h('span', { class: 'dim', style: { fontWeight: 500, fontSize: '12px' } }, icon(`transport/${m.transport}`, 'icon-sm'), ` ${used}/${cap}`)),
+        h('div', { class: 'name' }, h('span', { title: m.talent ? G.TALENTS[m.talent].text : '' }, `${m.id}. ${m.name}`, m.talent ? h('small', { class: 'talent' }, ` ${G.TALENTS[m.talent].name}`) : null), h('span', { class: 'dim', style: { fontWeight: 500, fontSize: '12px' } }, icon(`transport/${m.transport}`, 'icon-sm'), ` ${used}/${cap}`)),
         h('div', { class: 'where' }, where, m.order ? (m.order.paused ? ' ・定期便(停止)' : ' ・定期便') : ''),
         h('div', { class: 'cargo-bar' }, h('i', { style: { width: `${(used / cap) * 100}%` } })),
         m.travel ? h('div', { class: 'progress-bar' }, h('i', { style: { width: `${Math.min(100, (m.travel.elapsed / Math.max(1, m.travel.totalDays)) * 100)}%` } })) : null,

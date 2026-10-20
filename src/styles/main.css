@@ -348,3 +348,8 @@ input[type=number] { width: 70px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+.hire-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.hire-card { background: var(--panel-2, #2a1f14); border: 1px solid #6b5223; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.hire-card .portrait { width: 64px; height: 64px; }
+.hire-card .talent, small.talent { color: #ffd166; font-weight: 900; }

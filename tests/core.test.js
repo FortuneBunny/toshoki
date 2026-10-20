@@ -253,3 +253,19 @@ test('交易所: 候補地に開くと新しい町ができ、育ち、セーブ
   assert.equal(w2.grid.cityAt.get(G.gridKey(site.x, site.y)), r.id);
   assert.equal(G.foundPost(G.createWorld('s2', { seed: 1 }), 40, 40).ok, false, 's2 では開けない');
 });
+
+test('商人の才能: 候補3人から選ぶと才能がつき、値切り上手は買値が安い', () => {
+  const w = G.createWorld('s2', { seed: 1 });
+  w.player.silver = 5000;
+  const cands = G.hireCandidates(w);
+  assert.equal(cands.length, 3);
+  assert.deepEqual(G.hireCandidates(w), cands, '同じ状態なら候補は変わらない');
+  const r = G.hireMerchant(w, 'mugi', 2);
+  assert.ok(r.ok);
+  const m = G.getMerchant(w, r.merchant);
+  assert.equal(m.talent, cands[2].talent);
+  const plain = G.previewTrade(w, w.player.merchants[0], [{ good: 'wheat', qty: 10 }]).silverDelta;
+  m.talent = 'haggler';
+  const cheap = G.previewTrade(w, m, [{ good: 'wheat', qty: 10 }]).silverDelta;
+  assert.ok(Math.abs(cheap) < Math.abs(plain));
+});

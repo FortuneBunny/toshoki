@@ -1,3 +1,5 @@
+import { hashSeed } from './rng.js';
+import { TALENTS, TALENT_IDS } from '../data/talents.js';
 // プレイヤーの操作。ブラウザの UI と CLI は必ずここを通す。
 // どの関数も { ok: true, ... } か { ok: false, error } を返す。
 import { GOODS } from '../data/goods.js';
@@ -65,8 +67,11 @@ export function travel(world, mid, to, { guards = 0 } = {}) {
 export function routeInfo(world, mid, to) {
   const m = getMerchant(world, mid);
   const from = m.travel ? m.travel.to : m.city;
-  const r = findPath(world, from, to, m.transport);
+  let r = findPath(world, from, to, m.transport);
   if (!r) return null;
+  // 才能: 健脚・船乗りは日数が縮む
+  const ship = TRANSPORTS[m.transport].modes.includes('sea');
+  if ((m.talent === 'swift' && !ship) || (m.talent === 'sailor' && ship)) r = { ...r, days: Math.max(1, Math.round(r.total / 1.15)) };
   return { ...r, danger: r.edges.reduce((s, e) => Math.max(s, e.danger), 0), desertDays: r.edges.filter((e) => e.kind === 'desert').length };
 }
 
@@ -102,6 +107,26 @@ export function buyTransport(world, mid, type) {
 
 const NAMES = [['ライラ', 'merchant-2'], ['ユースフ', 'merchant-3'], ['ナシル', 'merchant-4'], ['ザフラ', 'merchant-2'], ['オマル', 'merchant-1'], ['ファリダ', 'merchant-2']];
 
+// 雇う候補: 3人。才能は種と雇った人数から決まる（選び直しで変わらない）
+export function hireCandidates(world) {
+  const n = world.player.merchants.length;
+  let t = hashSeed(`hire:${world.seed}:${world.scenarioId}:${n}`);
+  const rnd = () => { t = (t + 0x6d2b79f5) >>> 0; let r = Math.imul(t ^ (t >>> 15), t | 1); r ^= r + Math.imul(r ^ (r >>> 7), r | 61); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
+  // そのシナリオで意味のある才能だけ
+  const ships = world.allowedTransports.some((x) => TRANSPORTS[x].modes.includes('sea'));
+  const desert = world.edges.some((e) => e.kind === 'desert') || Object.values(world.cities).some((c) => c.tags.includes('desert'));
+  const pool = TALENT_IDS.filter((id) => (id !== 'sailor' || ships) && (id !== 'desert' || desert) && (id !== 'strong' || world.scenario.bandits));
+  const out = [];
+  const used = new Set(world.player.merchants.map((m) => m.name));
+  const names = NAMES.filter(([nm]) => !used.has(nm));
+  while (out.length < 3 && pool.length) {
+    const talent = pool.splice(Math.floor(rnd() * pool.length), 1)[0];
+    const [name, portrait] = names[(out.length + n) % names.length] || NAMES[out.length];
+    out.push({ name, portrait, talent });
+  }
+  return out;
+}
+
 // 費用（家訓の補正込み）
 export function hireCost(world) {
   return Math.round(B.merchantHireCost * world.player.merchants.length * (world.player.mods?.hireCost ?? 1));
@@ -115,6 +140,12 @@ export function districtEnabled(world) {
   return world.scenario.district !== false;
 }
 
+// 生産施設の費用: 高い品を作る施設ほど高い（産出の値打ちの18日分が下限。すぐ元が取れないように）
+export function producerCost(world, type) {
+  const p = PRODUCERS[type];
+  return Math.round(Math.max(p.cost, GOODS[p.good].base * p.rate * 18) * (world.player.mods?.buildCost ?? 1));
+}
+
 export function placeProducer(world, cityId, type, x, y) {
   const city = world.cities[cityId];
   const p = PRODUCERS[type];
@@ -126,7 +157,7 @@ export function placeProducer(world, cityId, type, x, y) {
   if (!hasPresence(world, cityId)) return fail('置くには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   const why = placeCheck(city, cityTier(city), type, x, y);
   if (why) return fail(why);
-  const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
+  const cost = producerCost(world, type);
   if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
   world.player.silver -= cost;
   addBuilding(city, { type, x, y, owner: 'town', rate: p.rate, placed: true, readyDay: world.day + B.producerBuildDays });
@@ -202,7 +233,7 @@ export function expandMarket(world, cityId) {
   return { ok: true, cost };
 }
 
-export function hireMerchant(world, cityId) {
+export function hireMerchant(world, cityId, pick = 0) {
   const city = world.cities[cityId];
   if (!city) return fail('不明な町');
   if (!hasPresence(world, cityId)) return fail('雇うには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
@@ -211,9 +242,11 @@ export function hireMerchant(world, cityId) {
   const cost = hireCost(world);
   if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
   world.player.silver -= cost;
-  const [name, portrait] = NAMES[(world.player.merchants.length - 1) % NAMES.length];
+  const cand = hireCandidates(world)[Number(pick) || 0] || hireCandidates(world)[0];
+  const { name, portrait, talent } = cand;
   const m = addMerchant(world, { name, portrait, city: cityId });
-  emit(world, { type: 'hire', merchant: m.id, big: true, text: `${name}が一族の商人に加わった！` });
+  m.talent = talent;
+  emit(world, { type: 'hire', merchant: m.id, big: true, text: `${name}（${TALENTS[talent].name}）が一族の商人に加わった！` });
   return { ok: true, merchant: m.id, cost };
 }
 

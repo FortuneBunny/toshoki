@@ -96,7 +96,7 @@ function cityPanel(app, id) {
       if (!world.scenario.goods.includes(p.good)) continue;
       if (['food', 'sweet'].includes(GOODS[p.good].kind) && !(c.district.native || []).includes(p.good)) continue;
       if (!G.placeableTiles(c, tier, k).length) continue;
-      opts.push(h('button', { class: 'btn tiny', title: `${p.name}: ${GOODS[p.good].name} +${p.rate}/日、働き手${p.workers}人`, onclick: () => app.startBuild(id, 'producer', k) }, goodIcon(p.good, 'icon-sm'), ` ${p.name} ${Math.round(p.cost * (world.player.mods?.buildCost ?? 1))}`));
+      opts.push(h('button', { class: 'btn tiny', title: `${p.name}: ${GOODS[p.good].name} +${p.rate}/日、働き手${p.workers}人`, onclick: () => app.startBuild(id, 'producer', k) }, goodIcon(p.good, 'icon-sm'), ` ${p.name} ${G.producerCost(world, k)}`));
     }
     for (const k of Object.keys(G.CIVICS)) {
       if (G.civicCheck(world, id, k)) continue;
@@ -118,7 +118,7 @@ function cityPanel(app, id) {
     const max = world.scenario.maxMerchants ?? 4;
     if (world.player.merchants.length < max) {
       const cost = G.hireCost(world);
-      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`商人を雇う（${cost}銀）`, `${c.name}で新しい商人を雇います。給金は1日${G.BALANCE.merchantWage}銀。最大${max}人。`, () => app.run(() => G.hireMerchant(world, id), 'hire')) }, `商人を雇う ${cost}銀`));
+      add(acts, h('button', { class: 'btn small', onclick: () => hireDialog(app, id, cost, max) }, `商人を雇う ${cost}銀`));
     }
     if (!(c.donatedUntil > world.day)) {
       const cost = G.donateCost(world, id);
@@ -425,4 +425,17 @@ export function titleScreen(app) {
     (camp.unlocked || []).length ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `解放した家訓: ${camp.unlocked.filter((k) => HEIRLOOMS[k]).map((k) => HEIRLOOMS[k].name).join('・')}（シナリオの最初に1つ選べる）`) : '');
   add(document.body, el);
   return el;
+}
+
+// 雇う: 候補3人から才能を見て選ぶ
+export function hireDialog(app, cityId, cost, max) {
+  const world = app.world;
+  app.state.modals++;
+  const cards = G.hireCandidates(world).map((c, i) => h('div', { class: 'hire-card' },
+    h('img', { src: `assets/svg/transport/${c.portrait}.svg`, class: 'portrait', alt: '' }),
+    h('div', { class: 'name' }, c.name),
+    h('div', { class: 'talent' }, G.TALENTS[c.talent].name),
+    h('div', { class: 'muted' }, G.TALENTS[c.talent].text),
+    h('button', { class: 'btn primary small', onclick: () => { md.close(); app.run(() => G.hireMerchant(world, cityId, i), 'hire'); } }, 'この人を雇う')));
+  const md = modal(app, `商人を雇う（${cost}銀・給金 1日${G.BALANCE.merchantWage}銀・最大${max}人）`, h('div', { class: 'hire-cards' }, cards), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, 'やめる')]);
 }
