@@ -332,7 +332,7 @@ export function setOrder(world, mid, order) {
     const r = findPath(world, order.stops[0].city, s.city, m.transport);
     if (!r) return fail(`${world.cities[s.city].name}へは今の輸送手段で行けない`);
   }
-  m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0, guards: Math.max(0, Math.min(12, Math.floor(order.guards || 0))) };
+  m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0, guards: Math.max(0, Math.min(12, Math.floor(order.guards || 0))), reserve: Math.max(0, Math.floor(order.reserve ?? 50)) };
   emit(world, { type: 'order', merchant: m.id, big: true, text: `${m.name}の定期便を設定した。あとは自動で回る` });
   // 始める停泊地: 今いる町（移動中なら行き先）が停泊地ならそこ。違えば、積荷を売る停泊地、なければ一番近い停泊地
   const here = m.travel ? m.travel.to : m.city;
@@ -390,7 +390,8 @@ export function upgradeRoad(world, edgeId) {
 }
 
 // 日を進める。重要な出来事が起きたら途中で止まる（CLI と自動進行の停止用）
-const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'debt']);
+// 銀が底をついたこと（debt）では止めない（status と記録で分かる。止まりすぎて操作が増えるため）
+const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck']);
 export function advance(world, days, { stopOn = STOP_TYPES } = {}) {
   const collected = [];
   for (let i = 0; i < days; i++) {

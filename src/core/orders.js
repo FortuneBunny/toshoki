@@ -76,7 +76,9 @@ export function runOrder(world, m, { depart = true } = {}) {
       const room = Math.floor((cargoCap(m) - cargoUsed(m) - reserve) / GOODS[b.good].weight);
       const want = Math.max(0, b.qty - (m.cargo[b.good] || 0));
       let n = Math.min(room, want, Math.floor(city.stock[b.good] || 0));
-      while (n > 0 && (quote(world, city, b.good, n) / n > (b.max || Infinity) || quote(world, city, b.good, n) > world.player.silver)) n = Math.floor(n * 0.7);
+      // 手元に残す銀（定期便ごと。最初は50）。砂漠の食料だけは残す銀を割っても買う
+      const budget = world.player.silver - (PROVISIONS.includes(b.good) ? 0 : (o.reserve ?? 0));
+      while (n > 0 && (quote(world, city, b.good, n) / n > (b.max || Infinity) || quote(world, city, b.good, n) > budget)) n = Math.floor(n * 0.7);
       if (n <= 0) {
         if (want > 0) {
           const unit = quote(world, city, b.good, 1);

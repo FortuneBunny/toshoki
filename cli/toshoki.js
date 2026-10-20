@@ -188,8 +188,8 @@ function statusText(world) {
   });
   out.push('商人:');
   // 毎日の出費と、今の銀で何日もつか
-  const daily = G.dailyCost(world);
-  if (daily > 0) out.push(`毎日の出費 ${fmt(daily, 1)}銀（給金・維持費）${pl.silver < daily * 20 ? `  ⚠ 売らずにいると約${Math.max(0, Math.floor(pl.silver / daily))}日で銀が尽きる` : ''}`);
+  const daily = G.dailyCost(world, { guards: true });
+  if (daily > 0) out.push(`毎日の出費 ${fmt(daily, 1)}銀（給金・維持費・護衛代）${pl.silver < daily * 20 ? `  ⚠ 売らずにいると約${Math.max(0, Math.floor(pl.silver / daily))}日で銀が尽きる` : ''}`);
   // 工房の自動仕入れが止まりそうなら、先に知らせる
   const ab = pl.buildings.filter((b) => b.active && b.autoBuy);
   if (ab.length && pl.silver < G.BALANCE.autoBuyReserve * 2) out.push(`⚠ 手元の銀 ${Math.floor(pl.silver)}。${G.BALANCE.autoBuyReserve}銀を切ると工房の自動仕入れが止まる（倉庫の製品を売って銀に戻そう）`);
@@ -286,7 +286,7 @@ function cityText(world, id) {
   if (here) {
     const tierIdx = G.cityTier(c);
     const nextPop = G.BALANCE.tierPops[tierIdx + 1];
-    out.push(`糖度 ${Math.round(c.glucose)}（目標値 ${Math.round(c.glucoseTarget)}）  1日の人口増加率 ${(G.growthPerDay(c) * 100).toFixed(2)}%${nextPop ? `  次の段階まで 人口 ${nextPop}` : ''}`);
+    out.push(`糖度 ${Math.round(c.glucose)}（目標値 ${Math.round(c.glucoseTarget)}）  1日の人口増加率 ${(G.growthPerDay(c) * 100).toFixed(2)}%${nextPop ? `  次の段階まで 人口 ${nextPop}${G.growthPerDay(c) > 0 ? `（このペースなら あと約${Math.ceil(Math.log(nextPop / c.pop) / Math.log(1 + G.growthPerDay(c)))}日）` : ''}` : ''}`);
     const why = G.growthBlocker(world, c);
     if (why) out.push(`伸びを止めているもの: ${why}`);
     out.push(`糖度の目安: 40未満=飢え（人口減） 40〜110=安定（成長） 110〜140=活況（急成長） 140以上で甘味を大量に食べるとシュガーラッシュ → その後クラッシュ`);
@@ -541,6 +541,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
                                          wait:品*数       その品がその数だけ積めるまで、この町で待つ（最大30日。空荷の往復を防ぐ）
                                        処理の順番は 下ろす → 積む → 売る → 買う
   order list                           定期便ごとの損益
+  order edit <番号> "<町 ...>"          停泊地を1つだけ書き直す（番号は order list の順）
+  order add ... --reserve <銀>          仕入れで手元に残す銀（最初は50。砂漠の食料だけは割っても買う）
   order pause [町]                     次に町に着いたら（町を書けばその町で）定期便を止める
   order clear | order resume
   heirlooms                            家訓の一覧（利点と代償、解放の条件）。new --heirloom <家訓> で1つだけ持っていける
@@ -850,13 +852,24 @@ function run(world, cmd, pos, opts) {
       // 定期便のある商人が複数いるときは、どの商人か必ず指定してもらう（取り違えを防ぐ）
       if (['clear', 'pause', 'resume'].includes(pos[0]) && !opts.merchant && world.player.merchants.filter((x) => x.order).length > 1) throw new Error(`定期便のある商人が複数いるので -m <番号> で指定する（order list で一覧）`);
       const m = pos[0] === 'clear' && !opts.merchant && world.player.merchants.filter((x) => x.order).length === 1 ? world.player.merchants.find((x) => x.order) : pickMerchant(world, opts);
+      if (pos[0] === 'edit') {
+        // order edit <停泊地の番号> "<町 ...>": 1つの停泊地だけ書き直す
+        if (!m.order) throw new Error('定期便がない');
+        const i = Number(pos[1]) - 1;
+        if (!(i >= 0 && i < m.order.stops.length) || !pos[2]) throw new Error(`order edit <1〜${m.order.stops.length}> "<町 sell:... buy:...>" [-m 番号]`);
+        m.order.stops[i] = parseStop(pos[2], world);
+        const problem = G.validateOrder(world, m.order);
+        if (problem) throw new Error(problem);
+        out.push(`停泊地${i + 1}を書き直した: ${world.cities[m.order.stops[i].city].name}`);
+        break;
+      }
       if (pos[0] === 'clear') { after(G.clearOrder(world, m.id)); out.push('定期便を解除した'); break; }
       if (pos[0] === 'resume') { after(G.resumeOrder(world, m.id)); out.push('定期便を再開した'); break; }
       if (pos[0] === 'pause') { const r = after(G.pauseOrderAtNext(world, m.id, pos[1] || null)); out.push(r.now ? '定期便を止めた（今いる町で待機）' : pos[1] ? `${world.cities[pos[1]].name}に着いたら止まる（売買は済ませる）` : '次に町に着いたら止まる'); break; }
       if (pos[0] !== 'add') throw new Error('order add|list|pause|resume|clear');
       const stops = pos.slice(1).map((p) => parseStop(p, world));
       const replaced = !!m.order;
-      after(G.setOrder(world, m.id, { stops, guards: Number(opts.guards || 0) }));
+      after(G.setOrder(world, m.id, { stops, guards: Number(opts.guards || 0), reserve: opts.reserve !== undefined ? Number(opts.reserve) : undefined }));
       if (replaced) out.push('（以前の定期便は置き換えた）');
       out.push(`定期便: ${stops.map((s) => world.cities[s.city].name).join(' → ')} → …`);
       // 売り先が買い取らない品は、先に知らせる（町が育つと買い取るものもある）

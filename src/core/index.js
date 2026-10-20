@@ -25,3 +25,4 @@ export { BALANCE } from '../data/balance.js';
 export { SCENARIOS, SCENARIO_ORDER } from '../data/scenarios.js';
 export { TALENTS, TALENT_IDS } from '../data/talents.js';
 export { HEIRLOOMS, heirloomText, heirloomFor } from '../data/heirlooms.js';
+export { validateOrder } from './orders.js';
