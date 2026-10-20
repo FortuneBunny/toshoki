@@ -644,7 +644,14 @@ function run(world, cmd, pos, opts) {
       const m = needIdle(world, opts);
       const lines = resolveAll(world, m, parseTradeLines(pos));
       const pv = G.preview(world, m.id, lines);
-      for (const r of pv.rows) out.push(`  ${r.qty > 0 ? '買' : '売'} ${gname(r.good)} ×${Math.abs(r.qty)}  ${r.total > 0 ? '+' : ''}${fmt(r.total)} 銀（1個あたり ${fmt(Math.abs(r.total / r.qty))}）`);
+      const city = world.cities[m.city];
+      for (const r of pv.rows) {
+        // 1個目と最後の1個の値段（まとめて買うほど値上がり、売るほど値下がりする）
+        const first = Math.abs(G.quote(world, city, r.good, r.qty > 0 ? 1 : -1));
+        const n = Math.abs(r.qty);
+        const last = n > 1 ? Math.abs(G.quote(world, city, r.good, r.qty) - G.quote(world, city, r.good, r.qty > 0 ? r.qty - 1 : r.qty + 1)) : first;
+        out.push(`  ${r.qty > 0 ? '買' : '売'} ${gname(r.good)} ×${n}  ${r.total > 0 ? '+' : ''}${fmt(r.total)} 銀（1個あたり ${fmt(Math.abs(r.total / r.qty))}。1個目 ${fmt(first)} → 最後の1個 ${fmt(last)}）`);
+      }
       out.push(`合計 ${pv.silverDelta >= 0 ? '+' : ''}${fmt(pv.silverDelta)} 銀 → 取引後の銀 ${Math.floor(world.player.silver + pv.silverDelta)}  積載 ${pv.cargoAfter}/${G.cargoCap(m)}`);
       if (!pv.ok) out.push('✖ ' + pv.errors.join(' / '));
       out.push('※ これは見積もり。確定するには quote を trade に替えて同じ内容を打つ。');
