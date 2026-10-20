@@ -15,6 +15,7 @@ export * from './paths.js';
 export * from './posts.js';
 export * from './techs.js';
 export * from './advice.js';
+export * from './dwelling.js';
 export { TECHS, LICENSE_RATE } from '../data/techs.js';
 export { PRODUCERS, PRODUCER_FOR, TERRAIN, RESOURCES, DISTRICT_SIZE, MARKET_RADIUS, CIVICS } from '../data/district.js';
 export { GOODS, GOOD_IDS, CATEGORIES, PROVISIONS } from '../data/goods.js';

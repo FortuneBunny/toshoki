@@ -300,3 +300,19 @@ test('目標「網」: 街道を敷くと町がつながる。目標「結ぶ」
   G.advance(w, 60);
   assert.ok(G.goalProgress(w, { type: 'link', a: 'kibi', b: 'toumitsu', count: 2 }).p > 0, '往復が数えられる');
 });
+
+test('住居の求める品: そろっていないと家が建たず、届けると建つ', () => {
+  const w = G.createWorld('s8', { seed: 1 });
+  const c = w.cities.kohaku;
+  const tier = G.cityTier(c);
+  assert.equal(c.dwellWants.length, 3);
+  assert.equal(G.dwellingStatus(c, tier).ok, false, '最初は足りない');
+  const houses = G.houseCount(c);
+  c.pop = G.housingCap(c, tier) * 0.99; // 頭打ちの近くで、新しい家が要る状態にする
+  for (let i = 0; i < 20; i++) G.advance(w, 1);
+  const stuck = G.houseCount(c);
+  // 求める品を毎日たっぷり届ける
+  for (let i = 0; i < 40; i++) { for (const g of G.dwellingStatus(c, G.cityTier(c)).wants) c.stock[g] = (c.stock[g] || 0) + 20; G.advance(w, 1); }
+  assert.ok(G.dwellingStatus(c, G.cityTier(c)).ok, '届けるとそろう');
+  assert.ok(G.houseCount(c) > stuck, `家が建つ（${houses} → ${stuck} → ${G.houseCount(c)}）`);
+});

@@ -6,6 +6,7 @@ import { jitter } from './rng.js';
 import { emit } from './events.js';
 import { districtProduction, staffing, housingCap, updateHousing, civicDemand, civicsIn, civicSatisfaction } from './district.js';
 import { CIVICS } from '../data/district.js';
+import { dwellingDemand, updateDwellingSat, dwellingStatus, assignDwelling } from './dwelling.js';
 import { gainRep } from './trade.js';
 
 export function cityTier(city) {
@@ -19,7 +20,8 @@ export const tierName = (t) => B.tierNames[t];
 // 1日の消費量の基準。withPrice=true なら価格による増減と、ラッシュとクラッシュも反映する。
 export function dailyDemand(city, id, withPrice = true) {
   const g = GOODS[id];
-  const civic = civicDemand(city, id);
+  // 需要施設と住居が求める品は、町の段階が低くても需要がある
+  const civic = civicDemand(city, id) + dwellingDemand(city, id, cityTier(city));
   if ((!g.rate || cityTier(city) < g.tier) && !civic) return 0;
   let d = (g.rate && cityTier(city) >= g.tier ? (g.rate * city.pop) / 1000 : 0) + civic;
   d *= city.demandMods?.[id] ?? 1;
@@ -177,10 +179,18 @@ export function updateCity(world, city) {
   const before = cityTier(city);
   produce(world, city);
   consume(world, city);
+  if (!city.dwellWants) assignDwelling(world, city);
+  updateDwellingSat(city, cityTier(city));
   rushCycle(world, city);
   city.pop = Math.max(20, city.pop * (1 + growthRate(city)));
+  // 住居の求める品が「1つ欠けまで」そろっていないと、新しい家は建たない（空き家は出る）
+  const dw = dwellingStatus(city, cityTier(city));
+  if (!dw.ok && !city.dwellWarned) {
+    city.dwellWarned = true;
+    emit(world, { type: 'dwelling', city: city.id, text: `${city.name}では新しい家が建たなくなった。住居が${dw.missing.map((g) => GOODS[g].name).join('・')}を求めている（1つ欠けまでそろえば建つ）` });
+  } else if (dw.ok) city.dwellWarned = false;
   if (city.district) {
-    const h = updateHousing(city, cityTier(city));
+    const h = updateHousing(city, cityTier(city), dw.ok ? 1 : 0);
     if (h.full && !city.housingWarned) {
       city.housingWarned = true;
       emit(world, { type: 'housingFull', city: city.id, bad: true, text: `${city.name}の市場の圏に、家を建てる空き地がない。人口が頭打ちになる（圏を広げるか、施設を減らす）` });

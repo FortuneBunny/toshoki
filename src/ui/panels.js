@@ -59,6 +59,7 @@ function cityPanel(app, id) {
         h('dt', {}, '人口'), h('dd', {}, `${fmt(c.pop)}${next ? ` / 次の段階 ${fmt(next)}` : ''}`),
         h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`),
         h('dt', {}, '住居'), h('dd', {}, `家 ${G.houseCount(c)}軒・住める人数 ${fmt(G.housingCap(c, tier))}${c.pop >= G.housingCap(c, tier) * 0.98 ? '（頭打ち）' : ''}`),
+        h('dt', { title: '町が育つほど求める品が増える。1つ欠けまでそろえば新しい家が建つ' }, '住居の求め'), h('dd', {}, dwellingEl(c, tier)),
         h('dt', {}, '働き手'), h('dd', { class: G.staffing(c) < 1 ? 'bad' : '' }, `${fmt(G.workersAvailable(c))}人（必要 ${fmt(G.workersNeeded(c))}）${G.staffing(c) < 1 ? ` 生産 ${Math.round(G.staffing(c) * 100)}%` : ''}`)),
       G.civicsIn(c).length ? h('div', {}, h('div', { class: 'section' }, '需要施設'), h('div', { class: 'chips' }, G.civicsIn(c).map((b) => h('span', { class: 'chip', title: `${G.CIVICS[b.type].name}: ${G.civicWants(b.type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}が届くほど成長` }, h('img', { src: `assets/svg/cities/${b.type}.svg`, class: 'icon-sm', alt: '' }), `${G.CIVICS[b.type].name} 満足度 ${Math.round((c.civicSat?.[b.type] || 0) * 100)}%`)))) : null,
       h('div', { class: 'section' }, '食卓（糖度への寄与）'),
@@ -468,4 +469,11 @@ export function techDialog(app) {
   };
   draw();
   modal(app, '技術', body, (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, '閉じる')]);
+}
+
+// 住居の求める品（○そろっている ×足りない）
+function dwellingEl(c, tier) {
+  const st = G.dwellingStatus(c, tier);
+  if (!st.wants.length) return h('span', { class: 'dim' }, (c.dwellWants || []).length ? `村になると ${(c.dwellWants || []).map((g) => GOODS[g].name).join('・')} を求める` : 'なし');
+  return h('span', {}, st.wants.map((g) => h('span', { class: `chip ${st.met.includes(g) ? 'good' : 'bad'}`, title: st.met.includes(g) ? 'そろっている' : '足りない' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${st.met.includes(g) ? '○' : '×'}`)), st.ok ? null : h('div', { class: 'bad', style: { fontSize: '11px' } }, '家が建たない（1つ欠けまでそろえば建つ）'));
 }
