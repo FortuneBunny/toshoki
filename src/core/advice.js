@@ -77,11 +77,11 @@ export function adviceText(world, mid) {
     const local = Object.entries(here.produces || {}).filter(([g, r]) => ((target.produces || {})[g] || 0) < r * 0.5 && world.scenario.goods.includes(g)).sort((a, b) => b[1] - a[1])[0]?.[0];
     const food = foodNeeded(world, m, u.desert);
     const qty = local ? Math.max(0, Math.min(Math.floor(here.stock[local] || 0), Math.floor((cargoCap(m) - cargoUsed(m) - food) / GOODS[local].weight))) : 0;
-    // 確かめに行くだけなので、手持ちの半分まで
-    let qty2 = qty;
-    while (qty2 > 0 && local && quote(world, here, local, qty2) > world.player.silver * 0.5) qty2 = Math.floor(qty2 * 0.8);
+    // 確かめに行くだけなので、少しだけ（積載の4分の1、手持ちの4分の1まで）。小さな町ではすぐ値崩れする
+    let qty2 = Math.min(qty, Math.floor(cargoCap(m) / 4));
+    while (qty2 > 0 && local && quote(world, here, local, qty2) > world.player.silver * 0.25) qty2 = Math.floor(qty2 * 0.8);
     const carry = local && qty2 >= 2 ? `ここの特産の${GOODS[local].name}を${qty2}個（約${Math.round(quote(world, here, local, qty2))}銀）積んで、` : '';
-    lines.push(`${carry}まだ相場を知らない${name(u.to)}へ行ってみる（約${u.days}日）。それを作る量の少ない町では、たいてい高く売れる${food ? `。砂漠を渡るので食料を${food}個積む` : ''}`);
+    lines.push(`${carry}まだ相場を知らない${name(u.to)}へ行ってみる（約${u.days}日）。相場が分からないので赤字の恐れもある。少なめに試し、着いたら market で確かめて売る${food ? `。砂漠を渡るので食料を${food}個積む` : ''}`);
   }
   if (!lines.length) lines.push('今いる町で見込みのある取引が見つからない。積荷を売るか、別の町へ行って相場を確かめよう');
   return lines;
