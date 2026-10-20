@@ -512,6 +512,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   build <種類> [confirm]               今いる町に工房を建てる（mill, confectionery, winery, malthouse）
   workshops                            工房の一覧（レシピ、生産数、倉庫）
   workshop <番号> on|off|autobuy|noautobuy
+  workshop <番号> maxprice <倍率>       材料の自動仕入れの上限（基準価格の何倍まで買うか。最初は1.5）
   workshop <番号> recipe <レシピ名|auto>  作るものを1つに固定（例: 粗糖のまま売りたいときは 粗糖づくり）
   load <品物> <数|all>                 倉庫 → 商人 へ積む（例: load whitesugar all）
   unload <品物> <数|all>               商人 → 倉庫 へ下ろす（工房の材料を入れる。例: unload cane all）
@@ -789,6 +790,13 @@ function run(world, cmd, pos, opts) {
     }
     case 'workshop': {
       const map = { on: { active: true }, off: { active: false }, autobuy: { autoBuy: true }, noautobuy: { autoBuy: false } };
+      if (pos[1] === 'maxprice') {
+        const v = Number(pos[2]);
+        if (!(v >= 1 && v <= 5)) throw new Error('workshop <番号> maxprice <1〜5>（基準価格の何倍まで自動で仕入れるか。最初は1.5）');
+        after(G.setBuilding(world, pos[0], { priceCap: v }));
+        out.push(`自動仕入れの上限を基準の${v}倍にした`);
+        break;
+      }
       if (pos[1] === 'recipe') {
         // レシピを1つに固定する（例: workshop 1 recipe 粗糖づくり）。auto で元に戻す
         const b = world.player.buildings.find((x) => x.id === Number(pos[0]));

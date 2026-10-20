@@ -311,7 +311,7 @@ export function donate(world, cityId) {
 export function setBuilding(world, bid, opts) {
   const b = world.player.buildings.find((x) => x.id === Number(bid));
   if (!b) return fail('その工房はない');
-  for (const k of ['active', 'autoBuy', 'recipe']) if (k in opts) b[k] = opts[k];
+  for (const k of ['active', 'autoBuy', 'recipe', 'priceCap']) if (k in opts) b[k] = opts[k];
   return { ok: true };
 }
 

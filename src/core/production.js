@@ -27,7 +27,8 @@ function tryBatch(world, b, recipe, wh, city) {
     for (const [id, n] of Object.entries(missing)) {
       if ((city.stock[id] || 0) < n) { b.why = `倉庫にも${city.name}の市場にも${GOODS[id].name}が足りない`; return false; }
       const cost = quote(world, city, id, n);
-      if (cost / n > GOODS[id].base * 1.5) { b.why = `${GOODS[id].name}の相場（${(cost / n).toFixed(1)}）が自動仕入れの上限（基準の1.5倍 = ${(GOODS[id].base * 1.5).toFixed(1)}）を超えている`; return false; }
+      const cap = b.priceCap ?? 1.5; // 自動仕入れの上限（基準の何倍まで買うか。workshop <番号> maxprice で変えられる）
+      if (cost / n > GOODS[id].base * cap) { b.why = `${GOODS[id].name}の相場（${(cost / n).toFixed(1)}）が自動仕入れの上限（基準の${cap}倍 = ${(GOODS[id].base * cap).toFixed(1)}）を超えている。上げるには workshop ${b.id} maxprice <倍率>`; return false; }
       total += cost;
     }
     if (world.player.silver - total < B.autoBuyReserve) { b.why = `手元の銀が少ないので自動仕入れを控えている（${B.autoBuyReserve}銀を残す）`; return false; }
