@@ -100,6 +100,8 @@ function statusText(world) {
   });
   out.push('商人:');
   for (const m of pl.merchants) out.push('  ' + merchantLine(world, m));
+  const stalled = world.player.buildings.filter((b) => b.active && !b.lastMade && world.day > 0);
+  for (const b of stalled) out.push(`⚠ ${world.cities[b.city].name}の${BUILDINGS[b.type].name}が止まっている: ${b.why || '材料がない'}（workshops で詳細）`);
   const active = world.contracts.filter((c) => !c.done && !c.failed);
   if (active.length) {
     out.push('大口注文:');
@@ -341,13 +343,20 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   build <種類> [confirm]               今いる町に工房を建てる（mill, confectionery, winery, malthouse）
   workshops                            工房の一覧（レシピ、生産数、倉庫）
   workshop <番号> on|off|autobuy|noautobuy
-  load <品物> <数|all>                 倉庫から商人へ積む
-  unload <品物> <数|all>               商人から倉庫へ下ろす（工房の材料はここに入れる）
+  load <品物> <数|all>                 倉庫 → 商人 へ積む（例: load whitesugar all）
+  unload <品物> <数|all>               商人 → 倉庫 へ下ろす（工房の材料を入れる。例: unload cane all）
   road <道の番号> [confirm]            小道を街道に整備する
   donate [confirm]                     今いる町に寄進する（費用は人口に比例。90日間、成長が早まる）
   order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..." [--guards n]
                                        定期便を設定（停泊地を2つ以上）。例:
                                        order add "mugi buy:wheat*20@3" "kohaku sell:wheat@5"
+                                       停泊地の書き方（町ごとに "..." で囲む）:
+                                         sell:品@最低値   その品を全部売る。最低値より安ければ売らずに持ち越す
+                                         keep:品*数       売るときに、この数だけ手元に残す（砂漠の食料など）
+                                         buy:品*数@上限値 その数になるまで買う。上限値より高ければ買わない
+                                         unload:品        積んでいる分を全部、自分の倉庫へ下ろす（工房の材料）
+                                         load:品          倉庫にある分を、積めるだけ積む（工房の製品）
+                                       処理の順番は 下ろす → 積む → 売る → 買う
   order list                           定期便ごとの損益
   order pause                          次に町に着いたら定期便を止める（その町で操作できる）
   order clear | order resume

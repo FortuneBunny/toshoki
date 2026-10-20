@@ -72,9 +72,9 @@ export function updateProduction(world) {
       if (!ok) break;
     }
     b.lastMade = made;
-    if (made === 0 && !b.idleWarned) {
-      b.idleWarned = true;
+    if (made === 0 && b.idleWarned !== (b.why || 'none')) {
+      b.idleWarned = b.why || 'none';
       emit(world, { type: 'idle', city: b.city, text: `${city.name}の${def.name}が止まっている: ${b.why || '材料がない'}（材料: ${buildingInputs(b.type).map((id) => GOODS[id].name).join('、')}。倉庫へ下ろせば動く）` });
-    } else if (made > 0) b.idleWarned = false;
+    } else if (made > 0) b.idleWarned = null;
   }
 }
