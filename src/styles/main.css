@@ -284,6 +284,8 @@ img { user-select: none; }
 .heirlooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
 .heirloom { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; cursor: pointer; }
 .heirloom:hover, .heirloom.sel { border-color: var(--honey); background: #3a2c16; }
+.heirloom.locked { opacity: 0.45; cursor: default; }
+.heirloom .good, .heirloom .bad { font-size: 12px; }
 .heirloom b { display: block; font-size: 18px; color: var(--honey); }
 .tutorial { position: absolute; left: 12px; top: 12px; max-width: 360px; background: rgba(28, 21, 14, 0.94); border: 1px solid var(--amber-deep); border-radius: 12px; padding: 8px 12px; font-size: 13px; box-shadow: var(--shadow); }
 .tutorial b { color: var(--honey); }

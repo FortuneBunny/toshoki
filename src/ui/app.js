@@ -26,7 +26,7 @@ const app = {
   map: null,
   state: { speed: 0, selCity: null, selMerchant: null, pick: null, hoverRoute: null, modals: 0 },
   settings: { fx: 1, sound: true, autoPause: true, ...readJSON(KEY_SET, {}) },
-  campaign: { cleared: {}, heirlooms: [], ...readJSON(KEY_CAMP, {}) },
+  campaign: { cleared: {}, unlocked: [], ...readJSON(KEY_CAMP, {}) },
   sfx,
   els: {},
   shownSilver: 0,
@@ -62,16 +62,53 @@ app.loadSave = () => {
   }
 };
 
-app.startScenario = (id) => {
+// 古い保存（重ねがけの家訓）から、解放済みの一覧へ移す
+if (app.campaign.heirlooms) {
+  app.campaign.unlocked = [...new Set([...(app.campaign.unlocked || []), ...app.campaign.heirlooms])];
+  delete app.campaign.heirlooms;
+}
+
+// シナリオを始める。解放済みの家訓があれば、1つだけ選んでから始める
+app.startScenario = (id, heirloom) => {
+  const unlocked = (app.campaign.unlocked || []).filter((k) => G.HEIRLOOMS[k]);
+  if (heirloom === undefined && unlocked.length) return heirloomPicker(id, unlocked);
   const seed = Math.floor(Math.random() * 1e9);
-  const w = G.createWorld(id, { seed, heirlooms: app.campaign.heirlooms });
+  const w = G.createWorld(id, { seed, heirloom: heirloom || null });
   mount(w);
-  fx.banner(`${w.scenario.no}. ${w.scenario.title}`, '目標を確かめて、最初の商いへ', 'ui/logo');
+  fx.banner(`${w.scenario.no}. ${w.scenario.title}`, heirloom ? `家訓「${G.HEIRLOOMS[heirloom].name}」を胸に` : '目標を確かめて、最初の商いへ', 'ui/logo');
 };
 
-app.inherit = (k) => {
-  app.campaign.heirlooms.push(k);
+function heirloomPicker(id, unlocked) {
+  let chosen = app.campaign.lastHeirloom && unlocked.includes(app.campaign.lastHeirloom) ? app.campaign.lastHeirloom : null;
+  const grid = h('div', { class: 'heirlooms' });
+  const draw = () => {
+    clear(grid);
+    add(grid, h('div', { class: `heirloom ${chosen === null ? 'sel' : ''}`, onclick: () => { chosen = null; draw(); } }, h('b', {}, '家訓なし'), h('div', { class: 'dim' }, '素の腕前で挑む')));
+    for (const k of Object.keys(G.HEIRLOOMS)) {
+      const x = G.HEIRLOOMS[k];
+      const ok = unlocked.includes(k);
+      add(grid, h('div', { class: `heirloom ${chosen === k ? 'sel' : ''} ${ok ? '' : 'locked'}`, onclick: () => { if (ok) { chosen = k; draw(); } } },
+        h('b', {}, ok ? x.name : '？？？'),
+        ok ? [h('div', { class: 'good' }, `＋ ${x.plus}`), h('div', { class: 'bad' }, `－ ${x.minus}`)] : h('div', { class: 'faint' }, `「${G.SCENARIOS[x.unlock].title}」を達成で解放`)));
+    }
+  };
+  draw();
+  app.state.modals++;
+  modal(app, '家訓を1つ選ぶ', h('div', {}, h('div', { class: 'dim', style: { marginBottom: '8px' } }, '一族に伝わる家訓から、ひとつだけ持っていける。どれにも利点と代償がある。'), grid), (close) => [
+    h('span', { style: { flex: 1 } }),
+    h('button', { class: 'btn ghost', onclick: close }, 'やめる'),
+    h('button', { class: 'btn primary', onclick: () => { close(); app.campaign.lastHeirloom = chosen; writeJSON(KEY_CAMP, app.campaign); app.startScenario(id, chosen); } }, 'この家訓で始める'),
+  ], { onClose: () => { if (!app.world) app.showTitle(); } });
+}
+
+// シナリオを達成したら、そのシナリオの家訓を解放する
+app.unlockHeirloom = (scenarioId) => {
+  const k = G.heirloomFor(scenarioId);
+  if (!k) return null;
+  const fresh = !(app.campaign.unlocked || []).includes(k);
+  if (fresh) app.campaign.unlocked = [...(app.campaign.unlocked || []), k];
   writeJSON(KEY_CAMP, app.campaign);
+  return { key: k, fresh };
 };
 
 app.showTitle = () => {
@@ -325,14 +362,15 @@ function renderMerchants() {
   for (const m of w.player.merchants) {
     const t = TRANSPORTS[m.transport];
     const used = G.cargoUsed(m);
+    const cap = G.cargoCap(m);
     const where = m.travel ? `→ ${w.cities[m.travel.to].name}（あと${Math.max(1, Math.ceil(m.travel.totalDays - m.travel.elapsed))}日）` : `${w.cities[m.city].name}に滞在`;
     const cargo = Object.entries(m.cargo);
     const card = h('div', { class: `mcard ${app.state.selMerchant === m.id ? 'sel' : ''}`, onclick: () => { app.state.selMerchant = m.id; if (!m.travel) app.state.selCity = m.city; app.render(); } },
       h('img', { class: 'portrait', src: `assets/svg/transport/${m.portrait}.svg`, alt: '' }),
       h('div', { class: 'info' },
-        h('div', { class: 'name' }, h('span', {}, `${m.id}. ${m.name}`), h('span', { class: 'dim', style: { fontWeight: 500, fontSize: '12px' } }, icon(`transport/${m.transport}`, 'icon-sm'), ` ${used}/${t.cap}`)),
+        h('div', { class: 'name' }, h('span', {}, `${m.id}. ${m.name}`), h('span', { class: 'dim', style: { fontWeight: 500, fontSize: '12px' } }, icon(`transport/${m.transport}`, 'icon-sm'), ` ${used}/${cap}`)),
         h('div', { class: 'where' }, where, m.order ? (m.order.paused ? ' ・定期便(停止)' : ' ・定期便') : ''),
-        h('div', { class: 'cargo-bar' }, h('i', { style: { width: `${(used / t.cap) * 100}%` } })),
+        h('div', { class: 'cargo-bar' }, h('i', { style: { width: `${(used / cap) * 100}%` } })),
         m.travel ? h('div', { class: 'progress-bar' }, h('i', { style: { width: `${Math.min(100, (m.travel.elapsed / Math.max(1, m.travel.totalDays)) * 100)}%` } })) : null,
         h('div', { style: { display: 'flex', gap: '2px', flexWrap: 'wrap', minHeight: '18px' } }, cargo.slice(0, 6).map(([g, q]) => h('span', { title: `${GOODS[g].name} ${q}` }, goodIcon(g, 'icon-sm'), h('small', { class: 'num' }, q)))),
         h('div', { class: 'acts' },
@@ -433,6 +471,7 @@ function finish() {
     const order = ['C', 'B', 'A', 'S'];
     if (!prev || order.indexOf(w.finished.rank) > order.indexOf(prev)) app.campaign.cleared[w.scenarioId] = w.finished.rank;
     writeJSON(KEY_CAMP, app.campaign);
+    w.unlockedHeirloom = app.unlockHeirloom(w.scenarioId);
   }
   app.save();
   setTimeout(() => { app.state.modals++; resultDialog(app); }, 900);
@@ -469,7 +508,8 @@ window.addEventListener('beforeunload', () => app.save());
 // 開発用: #play=s2 で直接シナリオを始める
 const direct = location.hash.match(/play=(\w+)/);
 if (direct && (G.SCENARIOS[direct[1]] || direct[1] === 'free')) {
-  app.startScenario(direct[1]);
+  if (/unlockall/.test(location.hash)) app.campaign.unlocked = Object.keys(G.HEIRLOOMS).slice(0, 4);
+  app.startScenario(direct[1], /unlockall/.test(location.hash) ? undefined : null);
   if (/open=trade/.test(location.hash)) { app.state.modals++; openTrade(app, 1); }
   if (/open=order/.test(location.hash)) { app.state.modals++; orderDialog(app, 1); }
   if (/open=city/.test(location.hash)) { app.state.selCity = app.world.player.merchants[0].city; app.render(); }

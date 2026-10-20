@@ -13,4 +13,4 @@ export { TRANSPORTS, ROUTE_KINDS } from '../data/transports.js';
 export { BUILDINGS } from '../data/buildings.js';
 export { BALANCE } from '../data/balance.js';
 export { SCENARIOS, SCENARIO_ORDER } from '../data/scenarios.js';
-export { HEIRLOOMS } from '../data/heirlooms.js';
+export { HEIRLOOMS, heirloomText, heirloomFor } from '../data/heirlooms.js';

@@ -87,7 +87,7 @@ function cityPanel(app, id) {
   if (here.length) {
     const max = world.scenario.maxMerchants ?? 4;
     if (world.player.merchants.length < max) {
-      const cost = G.BALANCE.merchantHireCost * world.player.merchants.length;
+      const cost = G.hireCost(world);
       add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`商人を雇う（${cost}銀）`, `${c.name}で新しい商人を雇います。給金は1日${G.BALANCE.merchantWage}銀。最大${max}人。`, () => app.run(() => G.hireMerchant(world, id), 'hire')) }, `商人を雇う ${cost}銀`));
     }
     if (!(c.donatedUntil > world.day)) {
@@ -97,7 +97,8 @@ function cityPanel(app, id) {
     for (const b of (world.scenario.buildings || []).filter((x) => BUILDINGS[x]?.recipes)) {
       if (world.player.buildings.some((x) => x.city === id && x.type === b)) continue;
       const def = BUILDINGS[b];
-      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`${def.name}を建てる（${def.cost}銀）`, recipeText(def), () => app.run(() => G.build(world, id, b), 'build')) }, `${def.name} ${def.cost}銀`));
+      const bc = G.buildCost(world, b);
+      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`${def.name}を建てる（${bc}銀）`, recipeText(def), () => app.run(() => G.build(world, id, b), 'build')) }, `${def.name} ${bc}銀`));
     }
   }
   if (acts.children.length) add(box, h('div', { class: 'section' }, 'この町でできること'), acts);
@@ -339,7 +340,6 @@ export function resultDialog(app) {
   const f = world.finished;
   const sc = world.scenario;
   const next = SCENARIO_ORDER[SCENARIO_ORDER.indexOf(sc.id) + 1];
-  let chosen = null;
   const body = h('div', { class: 'result' });
   if (f.win) {
     add(body, h('img', { class: 'rank-img', src: `assets/svg/ui/rank-${f.rank.toLowerCase()}.svg`, alt: `ランク${f.rank}` }),
@@ -347,14 +347,13 @@ export function resultDialog(app) {
       h('div', { class: 'dim' }, `${f.day}日目に達成（期限 ${sc.deadline}日、S基準 ${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日）`),
       h('div', { class: 'total-big', style: { margin: '6px 0' } }, `資産 ${fmt(f.score)} 銀`),
       h('div', { class: 'dim' }, `読み的中 ${world.stats.hits}回・最長連続黒字 ${world.player.maxStreak}・大口注文 ${world.stats.contracts}件・ラッシュ ${world.stats.rushes}回`));
-    if (next) {
-      const hb = h('div', { class: 'heirlooms' });
-      const draw = () => {
-        clear(hb);
-        for (const [k, x] of Object.entries(HEIRLOOMS)) add(hb, h('div', { class: `heirloom ${chosen === k ? 'sel' : ''}`, onclick: () => { chosen = k; draw(); } }, h('b', {}, x.name), x.text));
-      };
-      draw();
-      add(body, h('div', { class: 'section', style: { marginTop: '14px' } }, '家訓を1つ選んで次の世代へ受け継ぐ（重ねがけできる）'), hb);
+    const un = world.unlockedHeirloom;
+    if (un) {
+      const x = HEIRLOOMS[un.key];
+      add(body, h('div', { class: 'heirloom sel', style: { marginTop: '14px', textAlign: 'left' } },
+        h('div', { class: 'amber' }, un.fresh ? '🏯 新しい家訓を解放した' : '🏯 この家訓はすでに解放済み'),
+        h('b', {}, x.name), h('div', { class: 'good' }, `＋ ${x.plus}`), h('div', { class: 'bad' }, `－ ${x.minus}`),
+        h('div', { class: 'faint' }, '次からのシナリオで、解放した家訓を1つだけ選んで持っていける')));
     }
   } else {
     add(body, h('img', { class: 'rank-img', src: 'assets/svg/ui/rank-c.svg', alt: 'ランクC' }), h('h2', {}, '期限切れ'),
@@ -364,7 +363,7 @@ export function resultDialog(app) {
     h('button', { class: 'btn ghost', onclick: () => { close(); world.continueAfterEnd = true; app.render(); } }, 'このまま遊び続ける'),
     h('button', { class: 'btn ghost', onclick: () => { close(); app.startScenario(sc.id); } }, 'やり直す'),
     h('span', { style: { flex: 1 } }),
-    f.win && next ? h('button', { class: 'btn primary', onclick: () => { if (!chosen) return app.error('家訓を選んでください'); close(); app.inherit(chosen); app.startScenario(next); } }, '次のシナリオへ') : h('button', { class: 'btn primary', onclick: () => { close(); app.showTitle(); } }, 'タイトルへ'),
+    f.win && next ? h('button', { class: 'btn primary', onclick: () => { close(); app.startScenario(next); } }, '次のシナリオへ') : h('button', { class: 'btn primary', onclick: () => { close(); app.showTitle(); } }, 'タイトルへ'),
   ], { wide: false });
 }
 
@@ -393,7 +392,7 @@ export function titleScreen(app) {
       h('button', { class: 'btn', title: '毎回ちがう地図で遊ぶ', onclick: () => { el.remove(); app.startScenario('free'); } }, 'フリープレイ（ランダムな地図）'),
       h('button', { class: 'btn ghost', onclick: () => helpDialog(app) }, '遊び方')),
     list,
-    camp.heirlooms.length ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `受け継いだ家訓: ${camp.heirlooms.map((k) => HEIRLOOMS[k].name).join('・')}`) : '');
+    (camp.unlocked || []).length ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `解放した家訓: ${camp.unlocked.filter((k) => HEIRLOOMS[k]).map((k) => HEIRLOOMS[k].name).join('・')}（シナリオの最初に1つ選べる）`) : '');
   add(document.body, el);
   return el;
 }

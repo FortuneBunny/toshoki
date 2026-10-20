@@ -43,7 +43,9 @@ export function resolveScenario(id, seed) {
   return SCENARIOS[id];
 }
 
-export function createWorld(scenarioId, { seed = 1, heirlooms = [] } = {}) {
+export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms = [] } = {}) {
+  // 家訓は1つだけ（古い呼び出しの heirlooms 配列は先頭だけ使う）
+  const chosen = heirloom || heirlooms[0] || null;
   const sc = resolveScenario(scenarioId, seed);
   if (!sc) throw new Error(`不明なシナリオ: ${scenarioId}`);
   const world = {
@@ -61,7 +63,8 @@ export function createWorld(scenarioId, { seed = 1, heirlooms = [] } = {}) {
       buildings: [],
       warehouses: {},
       rep: 0, repLevel: 0, streak: 0, maxStreak: 0,
-      heirlooms: [...heirlooms],
+      heirloom: HEIRLOOMS[chosen] ? chosen : null,
+      mods: { ...(HEIRLOOMS[chosen]?.mods || {}) },
     },
     allowedTransports: [...(sc.transports || ['donkey'])],
     rivals: [],
@@ -105,7 +108,8 @@ export function createWorld(scenarioId, { seed = 1, heirlooms = [] } = {}) {
   }
 
   // 家訓（前のシナリオから受け継いだ特典）
-  for (const h of heirlooms) HEIRLOOMS[h]?.apply(world);
+  const mods = world.player.mods;
+  world.player.silver = Math.round(world.player.silver * (mods.startSilver ?? 1) + (mods.startBonus || 0));
 
   for (const md of sc.start.merchants) addMerchant(world, md);
   for (const rd of sc.rivals || []) {
@@ -133,6 +137,7 @@ export function createWorld(scenarioId, { seed = 1, heirlooms = [] } = {}) {
 
 export function addMerchant(world, { name, portrait, city, transport = 'donkey' }) {
   const m = {
+    capMult: world.player.mods?.cap ?? 1,
     id: world.player.merchants.length + 1, name, portrait: portrait || 'merchant-1', city, transport,
     cargo: {}, cost: {}, guards: 0, travel: null, order: null, lifetime: 0, expected: null,
   };
@@ -167,7 +172,7 @@ function upkeep(world) {
   const pl = world.player;
   let cost = 0;
   for (const m of pl.merchants) cost += B.merchantWage + TRANSPORTS[m.transport].upkeep;
-  cost *= 1 - (pl.heirloomUpkeep || 0);
+  cost = cost * (pl.mods?.upkeep ?? 1) + (pl.mods?.dailyFee || 0);
   pl.silver -= cost;
   const noCargo = pl.merchants.every((m) => !Object.keys(m.cargo).length);
   if (pl.silver < 0 && noCargo && !pl.aidUsed) {

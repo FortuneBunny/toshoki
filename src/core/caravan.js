@@ -19,7 +19,7 @@ export function canUse(edge, transportId) {
 // edge を from から渡るのにかかる日数
 export function edgeDays(world, edge, transportId, from, merchant) {
   const t = TRANSPORTS[transportId];
-  let speed = t.speed * (1 + (world.player.heirloomSpeed || 0));
+  let speed = t.speed * (1 + (world.player.mods?.speed || 0));
   if (edge.kind === 'desert') speed *= DESERT_SLOW[transportId] ?? 1;
   let days = edge.len / speed;
   if (edge.kind === 'desert' && edge.stormUntil > world.day) days *= 1.8;
@@ -74,7 +74,7 @@ export function cargoUsed(m) {
   return used;
 }
 export function cargoCap(m) {
-  return TRANSPORTS[m.transport].cap;
+  return Math.floor(TRANSPORTS[m.transport].cap * (m.capMult ?? 1));
 }
 
 export function startTravel(world, m, to) {
@@ -134,7 +134,7 @@ function eatProvisions(world, m, edge) {
 
 function banditCheck(world, m, edge) {
   if (!edge.danger || !world.scenario.bandits) return;
-  const p = B.banditBase * edge.danger * (1 - (world.player.heirloomSafety || 0));
+  const p = B.banditBase * edge.danger * (world.player.mods?.safety ?? 1);
   if (!chance(world, p)) return;
   const power = randInt(world, B.banditPower[0], Math.round(B.banditPower[1] * Math.min(1.5, (1 + edge.danger) / 2)));
   const guard = m.guards * B.guardPower;

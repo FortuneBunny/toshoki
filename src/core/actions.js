@@ -82,7 +82,7 @@ export function buyTransport(world, mid, type) {
   if (m.transport === type) return fail('すでに持っている');
   const city = world.cities[m.city];
   if (!canBuyTransportAt(world, city, type)) return fail(`${city.name}では${t.name}を買えない`);
-  if (cargoUsed(m) > t.cap) return fail('今の積荷が載り切らない');
+  if (cargoUsed(m) > Math.floor(t.cap * (m.capMult ?? 1))) return fail('今の積荷が載り切らない');
   // 今いる町から1本も通れる道がないなら買わせない（立ち往生の罠を防ぐ）
   if (!world.edges.some((e) => (e.a === m.city || e.b === m.city) && t.modes.includes(e.kind))) {
     return fail(`${city.name}からは${t.name}で通れる道がない（${t.modes.map((x) => ROUTE_KINDS[x].name).join('・')}が必要）`);
@@ -98,13 +98,21 @@ export function buyTransport(world, mid, type) {
 
 const NAMES = [['ライラ', 'merchant-2'], ['ユースフ', 'merchant-3'], ['ナシル', 'merchant-4'], ['ザフラ', 'merchant-2'], ['オマル', 'merchant-1'], ['ファリダ', 'merchant-2']];
 
+// 費用（家訓の補正込み）
+export function hireCost(world) {
+  return Math.round(B.merchantHireCost * world.player.merchants.length * (world.player.mods?.hireCost ?? 1));
+}
+export function buildCost(world, type) {
+  return Math.round(BUILDINGS[type].cost * (world.player.mods?.buildCost ?? 1));
+}
+
 export function hireMerchant(world, cityId) {
   const city = world.cities[cityId];
   if (!city) return fail('不明な町');
   if (!hasPresence(world, cityId)) return fail('雇うには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   const max = world.scenario.maxMerchants ?? 4;
   if (world.player.merchants.length >= max) return fail(`このシナリオで雇える商人は${max}人まで`);
-  const cost = B.merchantHireCost * world.player.merchants.length;
+  const cost = hireCost(world);
   if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
   world.player.silver -= cost;
   const [name, portrait] = NAMES[(world.player.merchants.length - 1) % NAMES.length];
@@ -120,8 +128,9 @@ export function build(world, cityId, type) {
   if (!(world.scenario.buildings || []).includes(type)) return fail('このシナリオでは建てられない');
   if (!hasPresence(world, cityId)) return fail('建てるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   if (world.player.buildings.some((b) => b.city === cityId && b.type === type)) return fail('すでにある');
-  if (world.player.silver < def.cost) return fail(`銀が足りない（${def.cost}必要）`);
-  world.player.silver -= def.cost;
+  const cost = buildCost(world, type);
+  if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
+  world.player.silver -= cost;
   const b = { id: world.player.buildings.length + 1, type, city: cityId, active: true, autoBuy: true, recipe: null, inputs: buildingInputs(type), made: {}, lastMade: 0 };
   world.player.buildings.push(b);
   city.buildings = world.player.buildings.filter((x) => x.city === cityId);
@@ -132,7 +141,7 @@ export function build(world, cityId, type) {
 
 // 寄進: 町に井戸と市場を寄付し、しばらくの間、成長を後押しする（食べ物が足りている町にだけ効く）
 export function donateCost(world, cityId) {
-  return Math.round(world.cities[cityId].pop * B.donateCostPerPop);
+  return Math.round(world.cities[cityId].pop * B.donateCostPerPop * (world.player.mods?.donateCost ?? 1));
 }
 export function donate(world, cityId) {
   const city = world.cities[cityId];

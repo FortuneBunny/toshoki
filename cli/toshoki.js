@@ -9,6 +9,7 @@ import * as G from '../src/core/index.js';
 import { RULES } from '../src/data/help.js';
 
 const { GOODS, TRANSPORTS, BUILDINGS, SCENARIOS, SCENARIO_ORDER, HEIRLOOMS } = G;
+const heirloomList = () => Object.entries(HEIRLOOMS).map(([k, x]) => `  ${k}: ${G.heirloomText(k)}（${SCENARIOS[x.unlock].no}. ${SCENARIOS[x.unlock].title} を達成で解放）`).join('\n');
 
 // ---------- 表示の道具 ----------
 const width = (s) => [...String(s)].reduce((w, ch) => w + (/[ᄀ-￿]/.test(ch) && !/[｡-ﾟ]/.test(ch) ? 2 : 1), 0);
@@ -81,6 +82,7 @@ function statusText(world) {
   const pl = world.player;
   const out = [];
   out.push(`■ ${world.scenario.no}. ${world.scenario.title}   ${G.dateString(world.day)}（${world.day}日目 / 期限 ${world.scenario.deadline}日）`);
+  if (pl.heirloom) out.push(`家訓: ${G.heirloomText(pl.heirloom)}`);
   out.push(`銀 ${Math.floor(pl.silver)}   資産 ${Math.floor(G.netWorth(world))}（銀＋品物×基準の8割＋輸送手段・工房×半額）   評判 Lv${pl.repLevel}（${pl.rep}）   連続黒字 ${pl.streak}`);
   if (world.scenario.goods.some((id) => ['sea', 'river'].length) && world.edges.some((e) => e.monsoon)) out.push(`季節: ${G.SEASON_NAMES[G.seasonOf(world)]}`);
   const sc = world.scenario;
@@ -317,7 +319,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
 使い方: node cli/toshoki.js --save <ファイル> <コマンド> [引数]
 
 【はじめる】
-  new --scenario s1 --seed 1 --save run.json   新しいゲーム（シナリオ一覧は scenarios）
+  new --scenario s1 --seed 1 --save run.json [--heirloom 名前]   新しいゲーム（シナリオ一覧は scenarios、家訓は heirlooms）
   scenarios                                    シナリオ一覧
 
 【見る】
@@ -360,7 +362,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   order list                           定期便ごとの損益
   order pause                          次に町に着いたら定期便を止める（その町で操作できる）
   order clear | order resume
-  inherit <家訓>                       シナリオ達成後、家訓を選んで次のシナリオの始め方を表示
+  heirlooms                            家訓の一覧（利点と代償、解放の条件）。new --heirloom <家訓> で1つだけ持っていける
 
 --json を付けると結果を JSON で出す。
 -m <番号> はコマンドのどこに書いてもよい。続けて打つときは ; ではなく && でつなぐと、失敗したところで止まる。`;
@@ -465,7 +467,7 @@ function run(world, cmd, pos, opts) {
       break;
     }
     case 'hire': {
-      const cost = G.BALANCE.merchantHireCost * world.player.merchants.length;
+      const cost = G.hireCost(world);
       if (pos[0] !== 'confirm') { out.push(`商人を雇うと ${cost} 銀（銀 ${Math.floor(world.player.silver)} → ${Math.floor(world.player.silver - cost)}）。上限 ${world.scenario.maxMerchants ?? 4} 人。確定するには: hire confirm`); break; }
       const atCity = opts.at || (opts.merchant ? pickMerchant(world, opts).city : world.player.merchants.find((x) => !x.travel)?.city);
       if (!atCity) throw new Error('どの町で雇うか --at <町id> で指定する（商人が滞在している町か、定期便が回っている町）');
@@ -486,7 +488,7 @@ function run(world, cmd, pos, opts) {
       if (!world.cities[m.city]) throw new Error(`不明な町: ${m.city}`);
       const b = BUILDINGS[pos[0]];
       if (!b?.recipes) throw new Error('種類を指定（費用は shop）');
-      if (pos[1] !== 'confirm') { out.push(`${b.name}: ${b.cost}銀、維持費 ${b.upkeep}/日。確定するには: build ${pos[0]} confirm`); break; }
+      if (pos[1] !== 'confirm') { out.push(`${b.name}: ${G.buildCost(world, pos[0])}銀、維持費 ${b.upkeep}/日。確定するには: build ${pos[0]} confirm`); break; }
       out.push(`建てた（工房 #${after(G.build(world, m.city, pos[0])).building}）`);
       break;
     }
@@ -549,7 +551,7 @@ function run(world, cmd, pos, opts) {
       const pl = world.player;
       const max = sc.maxMerchants ?? 4;
       out.push('■ 投資の費用と条件');
-      out.push(`商人を雇う（hire confirm [--at 町]）: ${pl.merchants.length >= max ? `上限（${max}人）に達している` : `次は ${G.BALANCE.merchantHireCost * pl.merchants.length} 銀（150×今の人数。雇うほど高くなる）。商人が滞在している町か、定期便が回っている町で雇える。最大${max}人。給金は1人1日${G.BALANCE.merchantWage}銀`}`);
+      out.push(`商人を雇う（hire confirm [--at 町]）: ${pl.merchants.length >= max ? `上限（${max}人）に達している` : `次は ${G.hireCost(world)} 銀（150×今の人数${pl.mods?.hireCost ? `×${pl.mods.hireCost}（家訓）` : ''}。雇うほど高くなる）。商人が滞在している町か、定期便が回っている町で雇える。最大${max}人。給金は1人1日${G.BALANCE.merchantWage}銀`}`);
       out.push('輸送手段（transport <種類> confirm。今のものは半額で下取り）:');
       for (const [k, t] of Object.entries(TRANSPORTS)) {
         if (!world.allowedTransports.includes(k)) { out.push(`  ${t.name}(${k}): このシナリオでは使えない`); continue; }
@@ -558,20 +560,15 @@ function run(world, cmd, pos, opts) {
       }
       const bs = (sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes);
       out.push(`工房（build <種類> confirm [--at 町]）: ${bs.length ? '同じ種類は1つの町に1つまで。倉庫が付く。材料は倉庫から使い、足りなければ市場で自動仕入れ（基準価格の1.5倍まで、手元の銀100は残す）' : 'このシナリオでは建てられない'}`);
-      for (const b of bs) out.push(`  ${BUILDINGS[b].name}(${b}): ${BUILDINGS[b].cost}銀  維持費${BUILDINGS[b].upkeep}/日  1日${BUILDINGS[b].batches}回  ${BUILDINGS[b].recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
+      for (const b of bs) out.push(`  ${BUILDINGS[b].name}(${b}): ${G.buildCost(world, b)}銀  維持費${BUILDINGS[b].upkeep}/日  1日${BUILDINGS[b].batches}回  ${BUILDINGS[b].recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
       out.push(`道の整備（road <番号> confirm）: ${(sc.buildings || []).includes('road') ? `小道を街道にする。距離×${BUILDINGS.road.costPerLength}銀` : 'このシナリオではできない'}`);
       out.push(`護衛: 1人1日${G.BALANCE.guardWage}銀（travel <町> --guards n）`);
       break;
     }
-    case 'inherit': {
-      if (!world.finished?.win) throw new Error('家訓はシナリオを達成すると受け継げる');
-      const hh = HEIRLOOMS[pos[0]];
-      if (!hh) throw new Error(`家訓を選ぶ: ${Object.entries(HEIRLOOMS).map(([k, x]) => `${k}（${x.name}: ${x.text}）`).join(' / ')}`);
-      const list = [...world.player.heirlooms, pos[0]];
-      const idx = SCENARIO_ORDER.indexOf(world.scenarioId);
-      const next = SCENARIO_ORDER[idx + 1];
-      out.push(`家訓「${hh.name}」を受け継いだ。`);
-      out.push(next ? `次のシナリオ: node cli/toshoki.js new --scenario ${next} --heirlooms ${list.join(',')} --save save-${next}.json` : 'これが最後のシナリオだった。');
+    case 'heirlooms': case 'inherit': {
+      out.push('■ 家訓（シナリオを達成すると解放。新しいシナリオを始めるとき --heirloom <名前> で1つだけ持っていける）');
+      out.push(heirloomList());
+      out.push(world.player.heirloom ? `今の家訓: ${G.heirloomText(world.player.heirloom)}` : '今は家訓なし');
       break;
     }
     case 'donate': {
@@ -601,7 +598,9 @@ function run(world, cmd, pos, opts) {
   if (ev.length) out.push(...ev.map(eventLine));
   if (world.finished && !world.endShown) {
     world.endShown = true;
-    out.push('', statusText(world), world.finished.win ? '\n家訓を1つ受け継げる（inherit <名前>）: ' + Object.entries(HEIRLOOMS).map(([k, x]) => `${k}（${x.name}: ${x.text}）`).join(' / ') : '');
+    const unlocked = world.finished.win ? G.heirloomFor(world.scenarioId) : null;
+    const next = SCENARIO_ORDER[SCENARIO_ORDER.indexOf(world.scenarioId) + 1];
+    out.push('', statusText(world), unlocked ? `\n🏯 家訓「${G.heirloomText(unlocked)}」を解放した。` : '', world.finished.win && next ? `次のシナリオ: node cli/toshoki.js new --scenario ${next} --save save-${next}.json [--heirloom <家訓>]（解放した家訓から1つだけ。一覧は heirlooms）` : '');
   }
   res.text = out.join('\n');
   return res;
@@ -628,7 +627,9 @@ function main(argv) {
     if (cmd === 'scenarios') return print([...SCENARIO_ORDER.map((id) => `${id}: ${SCENARIOS[id].no}. ${SCENARIOS[id].title}（期限 ${SCENARIOS[id].deadline}日）`), 'free: フリープレイ（--seed ごとに地図が変わる）'].join('\n'), opts);
     if (cmd === 'new') {
       const sc = opts.scenario || 's1';
-      const world = G.createWorld(sc, { seed: opts.seed || 1, heirlooms: (opts.heirlooms || '').split(',').filter(Boolean) });
+      const hk = opts.heirloom || (opts.heirlooms || '').split(',').filter(Boolean)[0] || null;
+      if (hk && !HEIRLOOMS[hk]) throw new Error(`不明な家訓: ${hk}\n${heirloomList()}`);
+      const world = G.createWorld(sc, { seed: opts.seed || 1, heirloom: hk });
       const ev = G.drainEvents(world);
       writeFileSync(opts.save, G.serialize(world));
       log({ t: Date.now(), cmd: 'new', args: rest, scenario: sc, seed: opts.seed || 1 });

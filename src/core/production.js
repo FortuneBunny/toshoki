@@ -65,7 +65,7 @@ export function updateProduction(world) {
     world.player.silver -= def.upkeep;
     if (!b.active) continue;
     let made = 0;
-    for (let i = 0; i < def.batches; i++) {
+    for (let i = 0; i < def.batches + (world.player.mods?.batchBonus || 0); i++) {
       const recipes = def.recipes.filter((r) => (r.minTier ?? 0) <= cityTier(city) && (!b.recipe || b.recipe === r.name));
       let ok = false;
       for (const r of recipes) if (tryBatch(world, b, r, wh, city)) { ok = true; made++; break; }

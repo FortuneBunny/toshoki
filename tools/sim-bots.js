@@ -105,7 +105,7 @@ function upgrade(world, m) {
     if (world.player.silver > def.cost * 2.2) { G.buyTransport(world, m.id, t); break; }
   }
   const max = world.scenario.maxMerchants ?? 4;
-  if (world.player.merchants.length < max && world.player.silver > G.BALANCE.merchantHireCost * world.player.merchants.length * 3) G.hireMerchant(world, m.city);
+  if (world.player.merchants.length < max && world.player.silver > G.hireCost(world) * 3) G.hireMerchant(world, m.city);
 }
 
 const BOTS = {
@@ -268,8 +268,8 @@ function goalBot(world, m) {
 }
 BOTS.goal = goalBot;
 
-export function playBot(scenarioId, seed, botName) {
-  const world = G.createWorld(scenarioId, { seed });
+export function playBot(scenarioId, seed, botName, heirloom = null) {
+  const world = G.createWorld(scenarioId, { seed, heirloom });
   G.drainEvents(world);
   const bot = BOTS[botName];
   let guard = 0;

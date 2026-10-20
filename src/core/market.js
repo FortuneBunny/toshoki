@@ -32,7 +32,7 @@ export function cityWants(city, id) {
 export function spreadFor(world) {
   const lv = world.player.repLevel || 0;
   const cut = Math.min(0.8, lv * B.repSpreadCut);
-  return B.spread * (1 - cut) * (1 + (world.player.heirloomSpread || 0));
+  return B.spread * (1 - cut) * (world.player.mods?.spread ?? 1);
 }
 
 // qty > 0 は町から買う、qty < 0 は町へ売る。合計額（買いは支払い、売りは受け取り）を返す。
@@ -61,6 +61,6 @@ export function unitSell(world, city, id) {
 export function sellBonus(world, city, id) {
   let m = 1;
   if (city.rush > 0 && GOODS[id].kind === 'sweet') m *= 1.15;
-  m *= 1 + (world.player.heirloomSell || 0);
+  m *= 1 + (world.player.mods?.sell || 0);
   return m;
 }
