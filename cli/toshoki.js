@@ -38,7 +38,7 @@ function compactEvents(events) {
     out.push(`💰 定期便: 売却${autos.length}回、損益合計 ${sum >= 0 ? '+' : ''}${Math.round(sum)} 銀`);
   }
   const notes = events.filter((e) => e.type === 'orderNote');
-  if (notes.length) out.push(`・ 定期便の見送り ${notes.length}件（最新: ${notes[notes.length - 1].text}）`);
+  if (notes.length) out.push(`・ 定期便の見送り ${notes.length}件（最新: ${notes[notes.length - 1].text}）${notes.some((n) => /上限/.test(n.text)) ? '。買値の上限を上げるなら order edit <停泊地の番号> "..." -m <番号>' : ''}`);
   return out;
 }
 
@@ -72,7 +72,8 @@ function dwellingLine(world, c) {
   const all = (c.dwellWants || []).map((g) => GOODS[g].name).join('・') || 'なし';
   if (!(c.dwellWants || []).length) return '住居の求める品: なし（このシナリオで手に入る品の中に、この町の住居が求めるものはない）';
   if (!st.wants.length) return `住居の求める品: まだない（育つと ${all} を求める）`;
-  const list = st.wants.map((g) => `${GOODS[g].name}${st.met.includes(g) ? '○' : '×'}`).join(' ');
+  // 1日に使う量と、今の在庫で何日もつか
+  const list = st.wants.map((g) => { const d = G.dailyDemand(c, g, false); const days = d > 0 ? Math.floor((c.stock[g] || 0) / d) : 0; return `${GOODS[g].name}${st.met.includes(g) ? '○' : '×'}（1日約${fmt(d, 1)}個、在庫${days}日分）`; }).join(' ');
   const rule = st.wants.length === 1 ? '今求めるのは1つだけ。届かなくても家は建つ' : `今求めるのは${st.wants.length}つ。そのうち${st.wants.length - 1}つ以上そろえば新しい家が建つ`;
   return `住居の求める品（${rule}。住民が毎日使うので、在庫が切れると×に戻る）: ${list}  → ${st.ok ? '家は建つ' : '⚠ 家が建たない＝人口が伸びない'}${(c.dwellWants || []).length > st.wants.length ? `（育つと ${all} を求める）` : ''}`;
 }
