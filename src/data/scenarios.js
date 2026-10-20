@@ -52,7 +52,7 @@ const s2 = {
 
 const s3 = {
   id: 's3', no: 3, title: '糖蜜の煙',
-  intro: 'サトウキビは安いが、そのままでは価値が低い。糖蜜町に製糖所を建て、甘蔗の里のサトウキビを運び込んで白糖に精製し、翠糖京で売れ。うまくいった往復は「定期便」にして自動化しよう。白糖を200個つくり、資産を5000銀にせよ。',
+  intro: 'サトウキビは安いが、そのままでは価値が低い。サトウキビの産地・甘蔗の里に製糖所を建てれば、地元のサトウキビを自動で仕入れて白糖に精製してくれる。できた白糖を大都市・翠糖京へ運んで売れ。うまくいった往復は「定期便」にして自動化しよう。白糖を200個つくり、資産を5000銀にせよ。',
   goods: ['wheat', 'dates', 'honey', 'cane', 'rawsugar', 'molasses', 'whitesugar', 'sweets'],
   start: { silver: 750, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'toumitsu' }] },
   cities: [
@@ -73,14 +73,13 @@ const s3 = {
     { a: 'kibi', b: 'natsu', kind: 'trail', lenMul: 1.1 },
   ],
   goals: [{ type: 'produce', good: 'whitesugar', amount: 200 }, { type: 'networth', amount: 5000 }],
-  deadline: 420, rankS: 0.45,
+  deadline: 420, rankS: 0.33,
   tutorial: [
-    { text: '糖蜜町で製糖所を建てる（町の画面 /  CLI: build mill confirm）', done: (w) => w.player.buildings.some((b) => b.type === 'mill') },
-    { text: '甘蔗の里へ行き、サトウキビを買えるだけ買う', done: (w) => (w.stats.bought.cane || 0) > 0 },
-    { text: '糖蜜町の倉庫にサトウキビを下ろす（交易画面の倉庫 / CLI: unload cane <数>）', done: (w) => Object.values(w.player.warehouses).some((x) => (x.stock.cane || 0) > 0) || (w.stats.produced.rawsugar || 0) > 0 },
-    { text: '数日待つと、製糖所が粗糖 → 白糖とつくる。白糖を倉庫から積む（CLI: load whitesugar <数>）', done: (w) => w.player.merchants.some((m) => m.cargo.whitesugar > 0) || (w.stats.soldTotal.whitesugar || 0) > 0 },
+    { text: '甘蔗の里へ行く（街道で約6日）', done: (w) => w.player.merchants.some((m) => m.city === 'kibi') || w.player.buildings.length > 0 },
+    { text: '甘蔗の里に製糖所を建てる（町の画面 / CLI: build mill confirm）。地元のサトウキビを自動で仕入れて加工する', done: (w) => w.player.buildings.some((b) => b.type === 'mill') },
+    { text: '数日待つと、サトウキビ → 粗糖 → 白糖とできる。白糖を倉庫から積む（交易画面の倉庫 / CLI: load whitesugar all）', done: (w) => w.player.merchants.some((m) => m.cargo.whitesugar > 0) || (w.stats.soldTotal.whitesugar || 0) > 0 },
     { text: '翠糖京で白糖を売る（大都市ほど高く売れる）', done: (w) => (w.stats.soldTotal.whitesugar || 0) > 0 },
-    { text: 'この往復を定期便にする（倉庫で「下ろす」「積む」も設定できる）', done: (w) => w.player.merchants.some((m) => m.order) },
+    { text: 'この往復を定期便にする（甘蔗の里で「積む: 白糖」、翠糖京で「売る: 白糖」）', done: (w) => w.player.merchants.some((m) => m.order) },
   ],
   transports: ['donkey', 'cart'],
   buildings: ['mill', 'confectionery', 'road'],
@@ -154,7 +153,7 @@ const s5 = {
 
 const s6 = {
   id: 's6', no: 6, title: '季節風の港',
-  intro: '海を渡れば、香辛料と茶の島々。ダウ船は季節風に乗れば速く、逆らえば遅い。夏は東へ、冬は西へ。胡椒港の香辛料を白檀港で200袋売り、資産を9000銀にせよ。ただし今の白檀港は「町」で、香辛料を買い取らない。米や甘味を届けて「都市」（人口3000）に育てると、香辛料が売れるようになる。',
+  intro: '海を渡れば、香辛料と茶の島々。ダウ船は季節風に乗れば速く、逆らえば遅い。夏は東へ、冬は西へ。胡椒港の香辛料を白檀港で200袋売り、資産を9000銀にせよ。ただし今の白檀港は「町」で、香辛料を買い取らない。進め方の例: ①胡椒港の米と砂糖岬の甘味を白檀港へ運んで「都市」（人口3000）に育てる → ②香辛料を胡椒港から白檀港へ。値崩れしたら少し待つと戻る。',
   goods: ['wheat', 'rice', 'dates', 'rawsugar', 'whitesugar', 'salt', 'spice', 'tea', 'pottery'],
   start: { silver: 800, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'byakudan', transport: 'dhow' }] },
   cities: [

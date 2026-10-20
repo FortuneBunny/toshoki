@@ -62,7 +62,7 @@ export const BALANCE = {
 
   // 人と組織
   merchantHireCost: 150,
-  autoBuyReserve: 300,
+  autoBuyReserve: 100,
   donateCostPerPop: 1.5,      // 寄進の費用 = 人口 × これ
   donateGrowth: 1.25,         // 寄進すると、成長がプラスのときの成長率が1.25倍
   donateDays: 90,        // 工房の自動仕入れは、手元の銀がこれを下回るなら止める
