@@ -118,7 +118,7 @@ const s4 = {
     { a: 'shio', b: 'shinkirou', kind: 'desert' },
   ],
   goals: [{ type: 'deliver', good: 'silk', city: 'ryokumon', amount: 150 }, { type: 'cityTier', city: 'shinkirou', tier: 2 }],
-  deadline: 480, rankS: 0.45,
+  deadline: 540, rankS: 0.4,
   transports: ['donkey', 'camel'],
   techs: { caravanserai: { from: 0 } },
   events: true, contracts: true, bandits: true, newsDaysPerHop: 5,

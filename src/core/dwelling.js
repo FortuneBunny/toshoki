@@ -40,7 +40,7 @@ export function assignDwelling(world, city) {
 // 今の段階で求める品（村1つ・町2つ・都市以上3つ）
 // その段階の町が使う品だけ（香辛料のような高級品は、都市になるまで求めない）
 export function dwellingActive(city, tier) {
-  return (city.dwellWants || []).slice(0, Math.min(3, tier)).filter((g) => GOODS[g].tier <= Math.max(1, tier));
+  return (city.dwellWants || []).filter((g) => GOODS[g].tier <= Math.max(1, tier)).slice(0, Math.min(3, tier));
 }
 
 export function dwellingDemand(city, id, tier) {
