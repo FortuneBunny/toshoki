@@ -408,7 +408,8 @@ export function titleScreen(app) {
   const list = h('div', { class: 'scen-list hidden', style: { width: 'min(980px, 100%)' } });
   for (const [i, id] of SCENARIO_ORDER.entries()) {
     const sc = SCENARIOS[id];
-    const unlocked = i === 0 || camp.cleared[SCENARIO_ORDER[i - 1]];
+    // 設定「全シナリオを解放」なら、好きな順に遊べる
+    const unlocked = i === 0 || camp.cleared[SCENARIO_ORDER[i - 1]] || app.settings.allScenarios;
     const rank = camp.cleared[id];
     add(list, h('div', { class: `scen ${unlocked ? '' : 'locked'}`, onclick: () => unlocked && (el.remove(), app.startScenario(id)) },
       rank ? h('img', { class: 'rank', src: `assets/svg/ui/rank-${rank.toLowerCase()}.svg`, alt: rank }) : null,
@@ -426,6 +427,7 @@ export function titleScreen(app) {
       h('button', { class: 'btn', title: '毎回ちがう地図で遊ぶ', onclick: () => { el.remove(); app.startScenario('free'); } }, 'フリープレイ（ランダムな地図）'),
       h('button', { class: 'btn ghost', onclick: () => helpDialog(app) }, '遊び方')),
     list,
+    h('label', { class: 'dim', style: { fontSize: '12px' } }, h('input', { type: 'checkbox', checked: app.settings.allScenarios || undefined, onchange: (e) => { app.setSetting('allScenarios', e.target.checked); el.remove(); titleScreen(app).querySelector('.scen-list').classList.remove('hidden'); } }), ' 全てのシナリオを解放する（好きな順に遊ぶ）'),
     (camp.unlocked || []).length ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `解放した家訓: ${camp.unlocked.filter((k) => HEIRLOOMS[k]).map((k) => HEIRLOOMS[k].name).join('・')}（シナリオの最初に1つ選べる）`) : '');
   add(document.body, el);
   return el;

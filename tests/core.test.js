@@ -286,3 +286,17 @@ test('技術: 先に買えば独占し、ライバルの使用料が入る。ラ
   assert.equal(r.cost, Math.round(G.TECHS.wheel.cost * G.LICENSE_RATE));
   assert.equal(w2.techs.wheel, 'licensed');
 });
+
+test('目標「網」: 街道を敷くと町がつながる。目標「結ぶ」: 定期便の往復を数える', () => {
+  const w = G.createWorld('s3', { seed: 1 });
+  w.player.silver = 9999;
+  const g = { type: 'network', cities: ['kibi', 'toumitsu', 'hachi'], mode: 'road' };
+  const before = G.goalProgress(w, g).p;
+  assert.ok(before < 1);
+  assert.ok(G.buildPath(w, 'toumitsu', 'hachi', 'road').ok);
+  assert.equal(G.goalProgress(w, g).p, 1);
+  const r = G.setOrder(w, 1, { stops: [{ city: 'kibi', buy: [], sell: [] }, { city: 'toumitsu', buy: [], sell: [] }] });
+  assert.ok(r.ok, r.error);
+  G.advance(w, 60);
+  assert.ok(G.goalProgress(w, { type: 'link', a: 'kibi', b: 'toumitsu', count: 2 }).p > 0, '往復が数えられる');
+});

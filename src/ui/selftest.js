@@ -47,6 +47,20 @@ export async function selftest(app) {
     if (!document.body.textContent.includes('音楽')) throw new Error('設定に音楽がない');
     click('.modal .btn, .btn', '✕');
   });
+  await step('タイトル: 全シナリオを解放すると s7 が選べる', async () => {
+    const { titleScreen } = await import('./panels.js');
+    const keep = app.settings.allScenarios;
+    const el = titleScreen(app);
+    const box = el.querySelector('input[type=checkbox]');
+    if (!box) throw new Error('解放のチェックがない');
+    box.click();
+    const t2 = document.querySelectorAll('.title-screen');
+    const last = t2[t2.length - 1];
+    const locked = last.querySelectorAll('.scen.locked').length;
+    t2.forEach((x) => x.remove());
+    app.setSetting('allScenarios', keep);
+    if (locked) throw new Error(`まだ ${locked} 本が閉じている`);
+  });
   await step('地図の上で麦畑を建てる', () => {
     w().player.silver = Math.max(w().player.silver, 1000);
     const before = w().stats.placed || 0;

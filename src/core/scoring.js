@@ -6,6 +6,7 @@ import { cityTier, tierName } from './city.js';
 import { cityWants } from './market.js';
 import { emit } from './events.js';
 import { BALANCE as B } from '../data/balance.js';
+import { GRID_W, GRID_H, T } from './grid.js';
 
 export function netWorth(world) {
   const pl = world.player;
@@ -19,6 +20,32 @@ export function netWorth(world) {
   return w;
 }
 
+// 指定した町が、1つ目の町から道（または水）だけでどれだけつながっているか
+export function networkReach(world, cities, mode) {
+  const grid = world.grid;
+  const W = GRID_W;
+  const ok = (k) => grid.cityAt.has(k) || (mode === 'sea' ? grid.terrain[k] === T.WATER : grid.path[k] >= (mode === 'trail' ? 1 : 2));
+  const [sx, sy] = grid.cityTiles[cities[0]];
+  const seen = new Uint8Array(grid.terrain.length);
+  const q = [sy * W + sx];
+  seen[q[0]] = 1;
+  while (q.length) {
+    const k = q.pop();
+    const x = k % W;
+    const y = (k / W) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= GRID_H) continue;
+      const nk = ny * W + nx;
+      if (seen[nk] || !ok(nk)) continue;
+      seen[nk] = 1;
+      q.push(nk);
+    }
+  }
+  return cities.filter((id) => { const [x, y] = grid.cityTiles[id]; return seen[y * W + x]; }).length;
+}
+
 // 目標1つの進み具合（0〜1）と説明
 export function goalProgress(world, g) {
   const s = world.stats;
@@ -30,6 +57,17 @@ export function goalProgress(world, g) {
     case 'networth': {
       const v = netWorth(world);
       return { p: v / g.amount, text: `資産を ${g.amount} 銀にする（今 ${Math.floor(v)}）` };
+    }
+    case 'link': {
+      // 定期便で2つの町を結ぶ（往復の回数。片道2回で1往復）
+      const legs = world.stats.legs?.[[g.a, g.b].sort().join('|')] || 0;
+      const v = Math.floor(legs / 2);
+      return { p: v / g.count, text: `定期便で${world.cities[g.a].name}と${world.cities[g.b].name}を結ぶ（往復 ${v}/${g.count} 回）` };
+    }
+    case 'network': {
+      const got = networkReach(world, g.cities, g.mode || 'road');
+      const names = g.cities.map((id) => world.cities[id].name).join('・');
+      return { p: got / g.cities.length, text: `${names}を${g.mode === 'trail' ? '道' : g.mode === 'sea' ? '航路' : '街道'}でつなぐ（${got}/${g.cities.length}町）` };
     }
     case 'cityPop': {
       const c = world.cities[g.city];

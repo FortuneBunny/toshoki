@@ -21,6 +21,12 @@ export function arriveAt(world, m) {
   }
   if (m.order && !m.order.paused) {
     m.order.runs = (m.order.runs || 0) + 1;
+    // 定期便が2つの町の間を走った回数（目標「結ぶ」用）
+    if (m.lastFrom && m.lastFrom !== m.city) {
+      const k = [m.lastFrom, m.city].sort().join('|');
+      world.stats.legs = world.stats.legs || {};
+      world.stats.legs[k] = (world.stats.legs[k] || 0) + 1;
+    }
     emit(world, { type: 'orderArrive', merchant: m.id, city: m.city, quiet: true, text: `${m.name}（定期便）が${world.cities[m.city].name}に着いた` });
     runOrder(world, m);
     return;
