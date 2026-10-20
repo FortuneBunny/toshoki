@@ -86,6 +86,14 @@ export function runOrder(world, m, { depart = true } = {}) {
       }
       executeTrade(world, m, [{ good: b.good, qty: n }], { auto: true });
     }
+    // 待つ指定（wait:品*数）: 積荷がその数になるまで、この町で待つ（最大30日。毎日、積む・買うをやり直す）
+    if (stop.waitFor && (m.cargo[stop.waitFor.good] || 0) < stop.waitFor.qty) {
+      o.holdSince = o.holdSince ?? world.day;
+      if (world.day - o.holdSince < 30) { o.holding = true; return; }
+      notes.push(`${GOODS[stop.waitFor.good].name}が${stop.waitFor.qty}個そろわないまま30日たったので出発`);
+    }
+    o.holding = false;
+    o.holdSince = null;
     o.next = (o.next + 1) % o.stops.length;
   }
   if (notes.length) emit(world, { type: 'orderNote', merchant: m.id, city: m.city, text: `${m.name}（定期便）: ${notes.join('、')}` });

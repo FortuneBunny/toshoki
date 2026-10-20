@@ -17,6 +17,7 @@ import { checkGoals } from './scoring.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
 import { buildGrid, GRID_W, GRID_H, gridKey } from './grid.js';
 import { rivalTechs } from './techs.js';
+import { runOrder } from './orders.js';
 import { PRODUCERS } from '../data/district.js';
 
 export const SAVE_VERSION = 2;
@@ -250,6 +251,8 @@ export function tick(world) {
   updateProduction(world);
   world.passing = [];
   for (const m of world.player.merchants) stepTravel(world, m);
+  // 定期便で荷を待っている商人は、毎日もう一度積む・買うを試す
+  for (const m of world.player.merchants) if (!m.travel && m.order?.holding && !m.order.paused) runOrder(world, m);
   for (const id of world.passing) observe(world, id);
   updateRivals(world);
   observePresent(world);

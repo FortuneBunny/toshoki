@@ -142,6 +142,8 @@ function growthRate(city) {
   }
   if (r > 0) r *= B.luxuryBase + B.luxurySpan * city.luxury;
   if (r > 0 && city.donatedUntil > (city.today ?? 0)) r *= B.donateGrowth;
+  // 住居の求める品が全部そろっていれば、暮らしに余裕が出て少し速く育つ
+  if (r > 0) { const dw = dwellingStatus(city, cityTier(city)); if (dw.wants.length && !dw.missing.length) r *= B.dwellingFullGrowth; }
   // 需要施設: 求める品が届いているほど成長が加速
   if (r > 0 && city.civicSat) for (const [t, s] of Object.entries(city.civicSat)) r *= 1 + CIVICS[t].growth * s;
   // 住める人数の上限: 家が建つ場所がなければ、それ以上は増えない

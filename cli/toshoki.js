@@ -463,6 +463,7 @@ function parseStop(str, world) {
       else if (kind === 'buy') { const [gq, max] = item.split('@'); const [good, qty] = gq.split('*'); stop.buy.push({ good, qty: Number(qty || 999), max: max ? Number(max) : Infinity }); }
       else if (kind === 'keep') { const [good, qty] = item.split('*'); stop.sell.filter((x) => x.good === good).forEach((x) => { x.keep = Number(qty || 0); }); stop.keepList = [...(stop.keepList || []), { good, qty: Number(qty || 0) }]; }
       else if (kind === 'unload' || kind === 'load') stop[kind].push(item);
+      else if (kind === 'wait') { const [good, qty] = item.split('*'); stop.waitFor = { good, qty: Number(qty || 1) }; }
       else throw new Error(`停泊地の書き方が不正: ${p}`);
     }
   }
@@ -535,6 +536,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
                                          buy:品*数@上限値 その数になるまで買う。上限値より高ければ買わない
                                          unload:品        積んでいる分を全部、自分の倉庫へ下ろす（工房の材料）
                                          load:品[*数]     倉庫にある分を、積めるだけ（数を書けばその数まで）積む（工房の製品）
+                                         wait:品*数       その品がその数だけ積めるまで、この町で待つ（最大30日。空荷の往復を防ぐ）
                                        処理の順番は 下ろす → 積む → 売る → 買う
   order list                           定期便ごとの損益
   order pause [町]                     次に町に着いたら（町を書けばその町で）定期便を止める
@@ -832,7 +834,7 @@ function run(world, cmd, pos, opts) {
           if (!x.order) { out.push(`#${x.id} ${x.name}: 定期便なし`); continue; }
           const days = Math.max(1, world.day - x.order.since);
           out.push(`#${x.id} ${x.name}: ${x.order.paused ? '（停止中）' : ''}${days}日で損益 ${Math.round(x.order.profit || 0)}銀（1日あたり ${fmt((x.order.profit || 0) / days)}）`);
-          for (const st of x.order.stops) out.push(`    ${world.cities[st.city].name}(${st.city}): ${[...(st.sell || []).map((v) => `売 ${GOODS[v.good].name}(最低${v.min})`), ...(st.buy || []).map((v) => `買 ${GOODS[v.good].name}×${v.qty}(上限${v.max === Infinity || v.max === null ? 'なし' : v.max})`), ...(st.unload || []).map((g) => `下ろす ${GOODS[g].name}`), ...(st.load || []).map((g) => { const [id, n] = String(g).split('*'); return `積む ${GOODS[id]?.name || id}${n ? `（${n}個まで）` : ''}`; })].join('、') || '何もしない'}`);
+          for (const st of x.order.stops) out.push(`    ${world.cities[st.city].name}(${st.city}): ${[...(st.sell || []).map((v) => `売 ${GOODS[v.good].name}(最低${v.min})`), ...(st.buy || []).map((v) => `買 ${GOODS[v.good].name}×${v.qty}(上限${v.max === Infinity || v.max === null ? 'なし' : v.max})`), ...(st.unload || []).map((g) => `下ろす ${GOODS[g].name}`), ...(st.load || []).map((g) => { const [id, n] = String(g).split('*'); return `積む ${GOODS[id]?.name || id}${n ? `（${n}個まで）` : ''}`; }), ...(st.waitFor ? [`${GOODS[st.waitFor.good]?.name || st.waitFor.good}が${st.waitFor.qty}個積めるまで待つ`] : [])].join('、') || '何もしない'}`);
         }
         break;
       }

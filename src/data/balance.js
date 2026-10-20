@@ -63,6 +63,7 @@ export const BALANCE = {
   // 人と組織
   merchantHireCost: 150,
   autoBuyReserve: 100,
+  dwellingFullGrowth: 1.15,   // 住居の求める品が全部そろった町の成長倍率
   // 区画: 生産施設を置いたとき
   producerBuildDays: 10,      // 置いてから動き出すまでの日数
   producerUpkeep: 1,          // 自分が置いた生産施設の1日の維持費
