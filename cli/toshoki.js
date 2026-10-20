@@ -202,7 +202,14 @@ function statusText(world) {
   const active = world.contracts.filter((c) => !c.done && !c.failed);
   if (active.length) {
     out.push('大口注文:');
-    for (const c of active) out.push(`  #${c.id} ${world.cities[c.city].name}(${c.city}) ${gname(c.good)} ${c.delivered}/${c.qty}  残り${c.deadline - world.day}日  報酬 ${c.reward}`);
+    for (const c of active) {
+      // 一番早く着ける商人（町にいる者）から、期限に間に合うかの目安
+      let best = null;
+      for (const m of world.player.merchants) { if (m.travel) continue; const r = m.city === c.city ? { days: 0 } : G.routeInfo(world, m.id, c.city); if (r && (!best || r.days < best.days)) best = { days: r.days, name: m.name }; }
+      const left = c.deadline - world.day;
+      const reach = best ? `。${best.name}なら約${best.days}日で着く${best.days > left ? '（間に合わない）' : ''}` : '';
+      out.push(`  #${c.id} ${world.cities[c.city].name}(${c.city}) ${gname(c.good)} ${c.delivered}/${c.qty}  残り${left}日  報酬 ${c.reward}${reach}`);
+    }
   }
   if (world.scenario.tutorial) {
     const next = world.scenario.tutorial.find((t) => !t.done(world));

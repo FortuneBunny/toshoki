@@ -402,6 +402,8 @@ export function advance(world, days, { stopOn = STOP_TYPES } = {}) {
     collected.push(...ev);
     // 定期便の商人が襲われても止めない（任せている便。損失は帳簿と記録に残る）
     if (ev.some((e) => stopOn.has(e.type) && !(e.type === 'robbed' && getMerchant(world, e.merchant)?.order && !getMerchant(world, e.merchant).order.paused))) break;
+    // 銀が底をついたら止める。ただし30日に1回まで（行ったり来たりで何度も止まらないように）
+    if (ev.some((e) => e.type === 'debt') && stopOn === STOP_TYPES && world.day - (world.lastDebtStop ?? -99) >= 30) { world.lastDebtStop = world.day; break; }
   }
   return { ok: true, events: collected, day: world.day };
 }
