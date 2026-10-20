@@ -554,6 +554,10 @@ function run(world, cmd, pos, opts) {
   // 町は日本語の名前でも指定できる
   pos = pos.map((p) => cityArg(world, p));
   if (opts.at) opts.at = cityArg(world, opts.at);
+  // 町を取るコマンドで知らない町なら、町の一覧を添えて断る
+  const townList = () => Object.values(world.cities).map((c) => `${c.name}=${c.id}`).join('、');
+  if (['travel', 'route', 'city', 'district', 'buildable'].includes(cmd) && pos[0] && !world.cities[pos[0]]) throw new Error(`不明な町: ${pos[0]}（町: ${townList()}。日本語の名前でもよい）`);
+  if (opts.at && !world.cities[opts.at]) throw new Error(`不明な町: ${opts.at}（町: ${townList()}）`);
   const after = (r) => {
     if (r && r.ok === false) throw new Error(r.error);
     return r;
