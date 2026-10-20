@@ -24,6 +24,8 @@ export function observe(world, cityId) {
 export function observePresent(world) {
   const here = new Set();
   for (const m of world.player.merchants) if (!m.travel) here.add(m.city);
+  // 自分の交易所は、いつでも様子が分かる
+  for (const c of Object.values(world.cities)) if (c.founded) here.add(c.id);
   for (const id of here) observe(world, id);
   // 情報網の技術: 一定日数ごとに遠くの町の相場が（古いまま）届く
   const net = world.scenario.infoNetwork;

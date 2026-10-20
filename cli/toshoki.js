@@ -291,7 +291,7 @@ function cityText(world, id) {
 }
 
 // 区画を文字の格子で描く。1マスは2文字幅
-const TERRAIN_CH = { '.': '. ', f: ', ', s: ': ', w: '~~', h: '^ ' };
+const TERRAIN_CH = { '.': '. ', f: ', ', s: ': ', w: '~~', h: 'n ', m: '^^', r: '= ' };
 function districtText(world, id) {
   const c = world.cities[id];
   if (!c) throw new Error(`不明な町: ${id}`);
@@ -322,7 +322,7 @@ function districtText(world, id) {
   }
   out.push(`凡例: ${[...used].map(([k, v]) => `${k}=${v}`).join(' ')}`);
   const resHere = [...new Set(d.res.split('').filter((r) => r !== '-'))];
-  out.push(`地形: .=平地 ,=肥えた土地 :=砂地 ^=丘 ~~=水辺 空白=市場の圏の外  資源: ${resHere.map((r) => `${r}=${G.RESOURCES[r].name}`).join(' ') || 'なし'}（圏の外の資源は「c.」のように表示）`);
+  out.push(`地形: .=平地 ,=肥えた土地 :=砂地 n=丘 ^^=山 ==道 ~~=水辺 空白=市場の圏の外  資源: ${resHere.map((r) => `${r}=${G.RESOURCES[r].name}`).join(' ') || 'なし'}（圏の外の資源は「c.」のように表示）`);
   return out.join('\n');
 }
 
@@ -477,6 +477,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   road <道の番号> [confirm]            小道を街道に整備する
   path <町> <町> trail|road|canal [confirm]  2つの町を結ぶ道を敷く（小道・街道・運河。経路は自動で一番安い所を通る）
   port [confirm]                       水辺の町に港を開く（船が着ける）
+  sites                                交易所を開ける場所の候補（座標と、採れそうな品）
+  found <x,y> [confirm]                その場所に交易所（新しい町）を開く
   place <種類> <座標> [confirm]        区画に生産施設を置く（例: place wheat_farm C5 confirm）。町の供給が増える
   demolish <座標> [confirm]            自分が置いた施設を取り壊す
   expand [confirm]                     市場の圏を1マス広げる（置ける場所が増える）
@@ -548,6 +550,25 @@ function run(world, cmd, pos, opts) {
       const r = after(G.buildPath(world, a, b, kind));
       out.push(`敷いた（${r.tiles}マス、${r.cost}銀）`);
       for (const t of world.allowedTransports) { const rr = G.findPath(world, a, b, t); if (rr) out.push(`  ${TRANSPORTS[t].name}: 約${rr.days}日`); }
+      break;
+    }
+    case 'sites': {
+      const allowed = G.postsAllowed(world);
+      if (!allowed) { out.push('このシナリオでは交易所を開けない'); break; }
+      out.push(`■ 交易所の候補（開いた数 ${G.postsFounded(world)}/${allowed}、次の費用 ${G.postCost(world)}銀。道か水辺から2マス以内、ほかの町から14マス以上）`);
+      for (const s of G.foundSites(world)) out.push(`  ${s.x},${s.y}  採れそうな品: ${s.goods.map((g) => GOODS[g].name).join('・')}  一番近い町: ${world.cities[s.near].name}（${s.nearDist}マス）`);
+      break;
+    }
+    case 'found': {
+      if (!pos[0] || !/^\d+,\d+$/.test(pos[0])) throw new Error('found <x,y> [confirm]（候補は sites）');
+      const [x, y] = pos[0].split(',').map(Number);
+      if (pos[1] !== 'confirm') {
+        const why = G.siteCheck(world, x, y);
+        out.push(why ? `✖ ${why}` : `${x},${y} に交易所を開く: ${G.postCost(world)}銀。採れそうな品: ${G.siteGoods(world, x, y).map((g) => GOODS[g].name).join('・')}。人口${G.POST_POP}人から始まる。確定するには: found ${pos[0]} confirm`);
+        break;
+      }
+      const r = after(G.foundPost(world, x, y));
+      out.push(`開いた: ${world.cities[r.id].name}(${r.id})（${r.cost}銀）`);
       break;
     }
     case 'port': {

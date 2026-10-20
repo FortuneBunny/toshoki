@@ -21,6 +21,7 @@ const fail = (error) => ({ ok: false, error });
 
 // その町に自分の手がかりがあるか（商人が滞在している、または定期便がその町を回っている）
 export function hasPresence(world, cityId) {
+  if (world.cities[cityId]?.founded) return true;
   return world.player.merchants.some((m) => m.city === cityId || m.order?.stops.some((s) => s.city === cityId));
 }
 

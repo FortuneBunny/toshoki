@@ -292,6 +292,20 @@ export function createWorldView(container, world, handlers) {
       ctx.stroke();
       ctx.setLineDash([]);
     }
+    // 交易所の候補地
+    if (state.found?.sites) {
+      for (const s of state.found.sites) {
+        const [sx, sy] = toScreen(...iso(s.x, s.y));
+        ctx.fillStyle = 'rgba(125,255,106,0.35)';
+        ctx.strokeStyle = '#7dff6a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, 22 * Math.max(0.6, cam.zoom), 12 * Math.max(0.6, cam.zoom), 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        s.goods.forEach((g, i) => { const gi = img(`goods/${g}`); if (ready(gi)) ctx.drawImage(gi, sx - 22 + i * 22, sy - 34, 20, 20); });
+      }
+    }
     // 町
     const cities = Object.values(world.cities).sort((a, b) => (a.x + a.y) - (b.x + b.y));
     for (const c of cities) {
@@ -512,6 +526,11 @@ export function createWorldView(container, world, handlers) {
     const wasDrag = drag?.moved;
     drag = null;
     if (wasDrag) return;
+    if (state.found) {
+      const [tx, ty] = tileFromWorld(...fromScreen(e.clientX - r.left, e.clientY - r.top));
+      handlers.onFoundTile?.(tx, ty);
+      return;
+    }
     if (state.build) {
       const [tx, ty] = tileFromWorld(...fromScreen(e.clientX - r.left, e.clientY - r.top));
       handlers.onBuildTile?.(tx, ty);

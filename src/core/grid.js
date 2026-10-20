@@ -92,6 +92,7 @@ export function buildGrid(world) {
   for (const c of Object.values(world.cities)) {
     const [cx, cy] = tileOf(c.x, c.y);
     cityTiles[c.id] = [cx, cy];
+    if (c.founded) continue; // 交易所は地形を変えない
     for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
       const x = cx + dx;
       const y = cy + dy;

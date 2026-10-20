@@ -85,6 +85,15 @@ async function selftestWorkshop(app, { step, click, wait, log, errors }) {
     click('footer .btn', '決定');
     if (w().edges.length !== before + 1) throw new Error('道が増えない');
   });
+  await step('交易所を開く: 候補地を選んで確定', () => {
+    w().player.silver += 3000;
+    app.startFound();
+    const s = app.state.found.sites[0];
+    if (!s) throw new Error('候補地がない');
+    app.foundAt(s.x, s.y);
+    click('footer .btn', '決定');
+    if (!w().cities.post1) throw new Error('交易所ができない');
+  });
   await step('白糖ができた', () => { if (!(w().stats.produced.whitesugar > 0)) throw new Error(`produced ${JSON.stringify(w().stats.produced)}`); });
   await step('交易画面に倉庫が出る', () => { click('.mcard .btn', '交易'); if (!document.body.textContent.includes('自分の倉庫')) throw new Error('倉庫なし'); });
   await step('倉庫から積む', () => click('.btn', '« 積む'));

@@ -5,7 +5,7 @@ import * as G from '../core/index.js';
 
 const TW = 52; // マスの幅
 const TH = 26; // マスの高さ
-const TERRAIN_FILL = { '.': '#e2cf9a', f: '#b7c97a', s: '#f0d9a2', w: '#5bb4d6', h: '#c9a46a' };
+const TERRAIN_FILL = { m: '#9a7b52', r: '#b8915a', '.': '#e2cf9a', f: '#b7c97a', s: '#f0d9a2', w: '#5bb4d6', h: '#c9a46a' };
 const PRODUCER_OF_RES = Object.fromEntries(Object.entries(G.PRODUCERS).filter(([, p]) => p.resource).map(([k, p]) => [p.resource, p.good]));
 
 const iso = (x, y) => [(x - y) * (TW / 2), (x + y) * (TH / 2)];

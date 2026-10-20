@@ -3,6 +3,7 @@ import { SCENARIOS } from '../data/scenarios.js';
 import { SAVE_VERSION, resolveScenario } from './world.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
 import { buildGrid } from './grid.js';
+import { linkPostHops } from './posts.js';
 import { BALANCE } from '../data/balance.js';
 const tierOf = (pop) => BALANCE.tierPops.reduce((t, p, i) => (pop >= p ? i : t), 0);
 
@@ -61,5 +62,6 @@ export function deserialize(json) {
   data.storms = data.storms || [];
   Object.defineProperty(data, 'grid', { value: buildGrid(data), enumerable: false, writable: true });
   Object.defineProperty(data, 'routeCache', { value: new Map(), enumerable: false, writable: true });
+  for (const c of Object.values(data.cities)) if (c.founded) linkPostHops(data, c.id);
   return data;
 }

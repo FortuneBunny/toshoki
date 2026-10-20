@@ -285,6 +285,7 @@ function mount(world) {
     onCityDouble: (id) => app.openDistrict(id),
     onHoverCity: (id) => hoverRouteTo(id),
     onBuildTile: (wx, wy) => buildAt(wx, wy),
+    onFoundTile: (x, y) => foundAt(x, y),
   });
   G.drainEvents(world);
   for (const e of world.log.slice(-40)) addFeed(e);
@@ -337,6 +338,29 @@ function finishPath(to) {
     h('p', { class: 'muted' }, `今の日数: ${before.map(([t, d]) => `${G.TRANSPORTS[t].name} ${d ? `約${d}日` : '行けない'}`).join('・')}`)),
   () => app.run(() => G.buildPath(W, from, to, kind), 'road'));
 }
+// 交易所を開く: 候補地が光り、どこかのマスを選ぶ
+app.startFound = () => {
+  const W = app.world;
+  if (!G.postsAllowed(W)) return app.error('このシナリオでは交易所を開けない');
+  app.state.found = { sites: G.foundSites(W) };
+  setSpeed(0);
+  fx.toast(`交易所を開く場所を選ぶ（緑の印がおすすめ。道か水辺から2マス以内）。費用 ${G.postCost(W)}銀・Esc でやめる`, { icon: 'ui/workshop' });
+  app.render();
+};
+function foundAt(x, y) {
+  const W = app.world;
+  // 印の近くなら印の場所に寄せる
+  const s = app.state.found.sites.find((p) => Math.abs(p.x - x) <= 1 && Math.abs(p.y - y) <= 1);
+  if (s) { x = s.x; y = s.y; }
+  const why = G.siteCheck(W, x, y);
+  if (why) return app.error(why);
+  const goods = G.siteGoods(W, x, y);
+  app.state.found = null;
+  app.confirm('交易所を開く', h('div', {}, h('p', {}, `${x},${y} に新しい町を開く: `, h('b', {}, `${G.postCost(W)}銀`), `（手持ち ${Math.floor(W.player.silver)}銀）`),
+    h('p', { class: 'muted' }, `採れそうな品: ${goods.map((g) => GOODS[g].name).join('・')}。人口${G.POST_POP}人から始まる。食べ物と甘味を届けると育つ`)),
+  () => { const r = app.run(() => G.foundPost(W, x, y), 'build'); if (r.ok) { app.state.selCity = r.id; app.render(); } });
+}
+app.foundAt = (x, y) => foundAt(x, y);
 app.clickCity = (id) => onCityClick(id);
 function onCityClick(id) {
   const st = app.state;
@@ -363,6 +387,7 @@ function renderTop(force = false) {
   const pl = w.player;
   if (force || !app.els.silver) {
     clear(top);
+    app.els.posts = null;
     app.els.silverNum = h('span', { class: 'big num' }, fmt(pl.silver));
     app.els.silver = h('div', { class: 'stat silver-stat', title: '銀（お金）' }, icon('ui/silver'), app.els.silverNum);
     app.els.rep = h('div', { class: 'stat', title: '評判（上がると手数料が下がる）' }, icon('ui/trophy', 'icon-sm'), h('span'));
@@ -372,6 +397,7 @@ function renderTop(force = false) {
     add(top, 
       h('div', { class: 'brand', onclick: () => app.confirm('タイトルへ戻る', '今の状態は自動で保存されています。', () => app.showTitle()) }, h('img', { src: 'assets/svg/ui/sugar-crystal.svg', class: 'icon', alt: '' }), '糖商記', h('small', {}, 'GREAT GLUCOSE EMPIRE')),
       app.els.silver, app.els.rep, app.els.streak, app.els.date, app.els.speed,
+      G.postsAllowed(app.world) ? (app.els.posts = h('button', { class: 'btn ghost small', title: '地図のどこかに新しい町を開く', onclick: () => app.startFound() }, '')) : null,
       h('button', { class: 'btn ghost small', onclick: () => { app.state.modals++; setSpeed(0); ledgerDialog(app); } }, '帳簿'),
       h('button', { class: 'btn ghost small', onclick: () => { app.state.modals++; setSpeed(0); helpDialog(app); } }, '遊び方'),
       h('button', { class: 'btn ghost small', onclick: () => { app.state.modals++; setSpeed(0); settingsDialog(app); } }, '設定'));
@@ -469,6 +495,7 @@ function renderTutorial() {
 }
 
 app.render = () => {
+  if (app.els.posts && app.world) app.els.posts.textContent = `交易所 ${G.postsFounded(app.world)}/${G.postsAllowed(app.world)}`;
   if (!app.world) return;
   renderTop();
   renderGoals();
@@ -535,6 +562,7 @@ document.addEventListener('keydown', (e) => {
   if (['1', '2', '3'].includes(e.key) && app.state.modals === 0) setSpeed(Number(e.key));
   if (e.key === 'Escape' && app.state.pick) { app.state.pick = null; app.state.hoverRoute = null; app.render(); }
   if (e.key === 'Escape' && app.state.build) { app.state.build = null; app.render(); }
+  if (e.key === 'Escape' && app.state.found) { app.state.found = null; app.render(); }
   if (e.key === 'Escape' && app.state.roadPick) { app.state.roadPick = null; app.state.hoverRoute = null; app.render(); }
 });
 
@@ -564,6 +592,8 @@ if (direct && (G.SCENARIOS[direct[1]] || direct[1] === 'free')) {
   if (/open=order/.test(location.hash)) { app.state.modals++; orderDialog(app, 1); }
   if (/open=district/.test(location.hash)) { if (/civics/.test(location.hash)) { app.world.player.silver = 99999; const cid = app.world.player.merchants[0].city; for (const k of Object.keys(G.CIVICS)) G.buildCivic(app.world, cid, k); } app.openDistrict(app.world.player.merchants[0].city); }
   if (/open=city/.test(location.hash)) { app.state.selCity = app.world.player.merchants[0].city; app.render(); }
+  if (/open=found/.test(location.hash)) { app.world.player.silver = 99999; app.startFound(); }
+  if (/open=built/.test(location.hash)) { const W = app.world; W.player.silver = 99999; const s = G.foundSites(W)[0]; const r = G.foundPost(W, s.x, s.y); const c0 = W.player.merchants[0].city; G.buildPath(W, c0, r.id, 'road'); app.state.selCity = r.id; app.map.centerOn(W.cities[r.id].x, W.cities[r.id].y); app.render(); }
   if (/selftest/.test(location.hash)) { app.setSetting('sound', false); import('./selftest.js').then((m) => m.selftest(app)); }
   if (/open=result/.test(location.hash)) { app.world.finished = { win: true, rank: 'S', day: 100, score: 3200 }; app.state.modals++; resultDialog(app); }
 }

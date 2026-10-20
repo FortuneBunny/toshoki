@@ -11,6 +11,7 @@ export { buildingInputs } from './production.js';
 export * from './district.js';
 export * from './grid.js';
 export * from './paths.js';
+export * from './posts.js';
 export { PRODUCERS, PRODUCER_FOR, TERRAIN, RESOURCES, DISTRICT_SIZE, MARKET_RADIUS, CIVICS } from '../data/district.js';
 export { GOODS, GOOD_IDS, CATEGORIES, PROVISIONS } from '../data/goods.js';
 export { TRANSPORTS, ROUTE_KINDS } from '../data/transports.js';

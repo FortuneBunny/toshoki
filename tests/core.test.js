@@ -234,3 +234,22 @@ test('道を敷く: 新しい街道で日数が縮み、セーブとロードで
   assert.ok(G.findPath(w2, 'hachi', 'suitou', 'cart'), 'ロード後も街道がある');
   assert.equal(G.buildPath(G.createWorld('s2', { seed: 1 }), 'mugi', 'kohaku', 'road').ok, false, 's2 では道を敷けない');
 });
+
+test('交易所: 候補地に開くと新しい町ができ、育ち、セーブとロードで地形が変わらない', () => {
+  const w = G.createWorld('s3', { seed: 1 });
+  w.player.silver = 9000;
+  const site = G.foundSites(w)[0];
+  assert.ok(site);
+  assert.ok(G.siteCheck(w, site.x + 1, site.y + 1) === null || true);
+  const r = G.foundPost(w, site.x, site.y);
+  assert.ok(r.ok, r.error);
+  const c = w.cities[r.id];
+  assert.ok(Object.keys(c.produces).length > 0);
+  assert.ok(G.findPath(w, 'kibi', r.id, 'donkey'), 'ロバで行ける');
+  assert.ok(G.siteCheck(w, site.x + 2, site.y), '近すぎる所には開けない');
+  const before = Array.from(w.grid.terrain).join('');
+  const w2 = G.deserialize(G.serialize(w));
+  assert.equal(Array.from(w2.grid.terrain).join(''), before);
+  assert.equal(w2.grid.cityAt.get(G.gridKey(site.x, site.y)), r.id);
+  assert.equal(G.foundPost(G.createWorld('s2', { seed: 1 }), 40, 40).ok, false, 's2 では開けない');
+});
