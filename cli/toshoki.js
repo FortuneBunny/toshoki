@@ -74,7 +74,7 @@ function dwellingLine(world, c) {
   if (!st.wants.length) return `住居の求める品: まだない（育つと ${all} を求める）`;
   const list = st.wants.map((g) => `${GOODS[g].name}${st.met.includes(g) ? '○' : '×'}`).join(' ');
   const rule = st.wants.length === 1 ? '今求めるのは1つだけ。届かなくても家は建つ' : `今求めるのは${st.wants.length}つ。そのうち${st.wants.length - 1}つ以上そろえば新しい家が建つ`;
-  return `住居の求める品（${rule}）: ${list}  → ${st.ok ? '家は建つ' : '⚠ 家が建たない＝人口が伸びない'}${(c.dwellWants || []).length > st.wants.length ? `（育つと ${all} を求める）` : ''}`;
+  return `住居の求める品（${rule}。住民が毎日使うので、在庫が切れると×に戻る）: ${list}  → ${st.ok ? '家は建つ' : '⚠ 家が建たない＝人口が伸びない'}${(c.dwellWants || []).length > st.wants.length ? `（育つと ${all} を求める）` : ''}`;
 }
 
 // ラッシュまでの目安: 糖度140以上と、その日の甘味の摂取（必要量に対する割合）70%以上の両方
