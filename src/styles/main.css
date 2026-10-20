@@ -278,6 +278,9 @@ img { user-select: none; }
 .heirloom b { display: block; font-size: 18px; color: var(--honey); }
 .tutorial { position: absolute; left: 12px; top: 12px; max-width: 360px; background: rgba(28, 21, 14, 0.94); border: 1px solid var(--amber-deep); border-radius: 12px; padding: 8px 12px; font-size: 13px; box-shadow: var(--shadow); }
 .tutorial b { color: var(--honey); }
+.tutorial { cursor: pointer; }
+.tutorial.mini .steps li:not(.now) { display: none; }
+.tutorial .tog { float: right; color: var(--text-faint); font-size: 11px; }
 .tutorial .steps { margin: 4px 0 0; padding-left: 18px; }
 .tutorial .steps li.done { color: var(--text-faint); text-decoration: line-through; }
 .tutorial .steps li.now { color: #fff; font-weight: 900; }
@@ -292,7 +295,18 @@ input[type=number] { width: 70px; }
 
 /* ---------- 小さい画面 ---------- */
 @media (max-width: 900px) {
-  body { overflow: auto; }
+  body { overflow-x: hidden; overflow-y: auto; }
+  .brand small, .topbar .date { display: none; }
+  .brand { font-size: 17px; }
+  .stat { padding: 2px 8px 2px 4px; }
+  .stat .big { font-size: 15px; }
+  .silver-stat { min-width: 0; }
+  .speed { margin-left: 0; }
+  .speed .btn { min-width: 30px; padding: 4px 6px; }
+  .goal .bar { width: 70px; }
+  .deadline { margin-left: 0; }
+  .tutorial { max-width: calc(100% - 24px); font-size: 12px; }
+  .mcard { width: 240px; }
   #app { height: auto; min-height: 100%; }
   .main { flex-direction: column; }
   .mapwrap { height: 56vh; flex: none; }

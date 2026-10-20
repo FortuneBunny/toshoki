@@ -378,7 +378,8 @@ function renderTutorial() {
   if (idx < 0) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
   clear(el);
-  el.append(h('b', {}, '手引き'), h('ol', { class: 'steps' }, steps.map((s, i) => h('li', { class: i < idx ? 'done' : i === idx ? 'now' : '' }, s.text))));
+  el.append(h('span', { class: 'tog' }, el.classList.contains('mini') ? '全部見る' : '小さくする'), h('b', {}, '手引き'), h('ol', { class: 'steps' }, steps.map((s, i) => h('li', { class: i < idx ? 'done' : i === idx ? 'now' : '' }, s.text))));
+  if (!el.dataset.bound) { el.dataset.bound = '1'; el.addEventListener('click', () => { el.classList.toggle('mini'); renderTutorial(); }); }
 }
 
 app.render = () => {
