@@ -506,6 +506,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
   hire [番号] [confirm] [--at 町]      商人を雇う（confirm なしなら費用と候補3人の才能を表示。定期便が回っている町でも雇える）
   transport <種類> [confirm]           輸送手段を買い替える（camel, cart, dhow, carrack）
+  dismiss [-m 番号] [confirm]          商人に暇を出す（輸送手段を半額で下取り、積荷は売る。銀が尽きたときの立て直しに）
   build <種類> [confirm]               今いる町に工房を建てる（mill, confectionery, winery, malthouse）
   workshops                            工房の一覧（レシピ、生産数、倉庫）
   workshop <番号> on|off|autobuy|noautobuy
@@ -753,6 +754,12 @@ function run(world, cmd, pos, opts) {
       if (!atCity) throw new Error('どの町で雇うか --at <町id> で指定する（商人が滞在している町か、定期便が回っている町）');
       const r = after(G.hireMerchant(world, atCity, pick));
       out.push(`雇った（${r.cost}銀）。新しい商人の番号は #${r.merchant}（-m ${r.merchant} で操作）`);
+      break;
+    }
+    case 'dismiss': {
+      const m = needIdle(world, opts);
+      if (pos[0] !== 'confirm') { out.push(`${m.name}に暇を出す: ${TRANSPORTS[m.transport].name}を${TRANSPORTS[m.transport].cost * 0.5}銀で下取りし、積荷は${world.cities[m.city].name}で売り払う。給金と維持費がかからなくなる。確定するには: dismiss -m ${m.id} confirm`); break; }
+      out.push(`暇を出した（+${after(G.dismissMerchant(world, m.id)).gain}銀）`);
       break;
     }
     case 'transport': {

@@ -3,6 +3,7 @@ import { TALENTS, TALENT_IDS } from '../data/talents.js';
 // プレイヤーの操作。ブラウザの UI と CLI は必ずここを通す。
 // どの関数も { ok: true, ... } か { ok: false, error } を返す。
 import { GOODS } from '../data/goods.js';
+import { quote, cityWants } from './market.js';
 import { TRANSPORTS, ROUTE_KINDS } from '../data/transports.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { BALANCE as B } from '../data/balance.js';
@@ -81,6 +82,22 @@ export function canBuyTransportAt(world, city, type) {
   if (t.buyAt.tier !== undefined && cityTier(city) < t.buyAt.tier) return false;
   if (t.buyAt.tags && !t.buyAt.tags.every((tag) => city.tags.includes(tag))) return false;
   return true;
+}
+
+// 商人に暇を出す（最後の1人は残す）。輸送手段は半額で下取りし、積荷は今いる町で売り払う
+export function dismissMerchant(world, mid) {
+  const [m, err] = idle(world, mid);
+  if (err) return err;
+  if (world.player.merchants.length <= 1) return fail('最後の1人には暇を出せない');
+  let gain = TRANSPORTS[m.transport].cost * 0.5;
+  const city = world.cities[m.city];
+  for (const [g, q] of Object.entries(m.cargo)) {
+    if (cityWants(city, g)) { gain += quote(world, city, g, -q); city.stock[g] = (city.stock[g] || 0) + q; }
+  }
+  world.player.silver += gain;
+  world.player.merchants = world.player.merchants.filter((x) => x !== m);
+  emit(world, { type: 'dismiss', text: `${m.name}に暇を出した（輸送手段の下取りと積荷で +${Math.round(gain)}銀）` });
+  return { ok: true, gain: Math.round(gain) };
 }
 
 export function buyTransport(world, mid, type) {

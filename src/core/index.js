@@ -8,7 +8,7 @@ export * from './knowledge.js';
 export * from './scoring.js';
 export * from './save.js';
 export { buildingInputs } from './production.js';
-export { previewTrade, talentPrice } from './trade.js';
+export { previewTrade, talentPrice, executeTrade } from './trade.js';
 export * from './district.js';
 export * from './grid.js';
 export * from './paths.js';

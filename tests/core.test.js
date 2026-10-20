@@ -321,3 +321,21 @@ test('家: 次の段階に近づくほど大きくなり、段階の境目で頭
   assert.ok(G.houseCap(3, { pop: 7990 }) > G.houseCap(3) * 1.15);
   assert.equal(G.houseCap(3, { pop: 3000 }), G.houseCap(3));
 });
+
+test('借金のときでも売れる。商人に暇を出すと下取りで銀が戻る', () => {
+  const w = G.createWorld('s2', { seed: 1 });
+  const m = w.player.merchants[0];
+  m.cargo.wheat = 10;
+  w.player.silver = -300;
+  const r = G.executeTrade(w, m, [{ good: 'wheat', qty: -10 }]);
+  assert.ok(r.ok !== false, r.errors?.join(' '));
+  assert.ok(w.player.silver > -300);
+  w.player.silver = 5000;
+  const h = G.hireMerchant(w, 'mugi');
+  assert.ok(h.ok);
+  const before = w.player.silver;
+  assert.ok(G.dismissMerchant(w, h.merchant).ok);
+  assert.equal(w.player.merchants.length, 1);
+  assert.ok(w.player.silver >= before);
+  assert.equal(G.dismissMerchant(w, 1).ok, false, '最後の1人は残す');
+});

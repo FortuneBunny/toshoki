@@ -455,7 +455,8 @@ function renderMerchants() {
           h('button', { class: 'btn small primary', disabled: !!m.travel || undefined, onclick: (e) => { e.stopPropagation(); openTradeFor(m.id); } }, '交易'),
           h('button', { class: 'btn small', disabled: !!m.travel || undefined, onclick: (e) => { e.stopPropagation(); app.pickDestination(m.id); } }, '出発'),
           h('button', { class: 'btn small', onclick: (e) => { e.stopPropagation(); app.state.modals++; setSpeed(0); orderDialog(app, m.id); } }, '定期便'),
-          !m.travel ? transportButton(m) : null)));
+          !m.travel ? transportButton(m) : null,
+          !m.travel && w.player.merchants.length > 1 ? h('button', { class: 'btn small ghost', title: '輸送手段を半額で下取りし、積荷は今の町で売る。給金と維持費がかからなくなる', onclick: (e) => { e.stopPropagation(); app.confirm(`${m.name}に暇を出す`, `${TRANSPORTS[m.transport].name}を${TRANSPORTS[m.transport].cost * 0.5}銀で下取りし、積荷は${w.cities[m.city].name}で売り払います。`, () => app.run(() => G.dismissMerchant(w, m.id))); } }, '暇') : null)));
     add(el, card);
   }
   const max = w.scenario.maxMerchants ?? 4;

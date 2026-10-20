@@ -45,7 +45,8 @@ export function previewTrade(world, m, lines) {
   }
   const used = cargoUsed(m) + cargoDelta;
   if (used > cargoCap(m)) errors.push(`積載量を超える（${used}/${cargoCap(m)}）`);
-  if (world.player.silver + silverDelta < 0) errors.push(`銀が足りない（必要 ${Math.ceil(-silverDelta)}、所持 ${Math.floor(world.player.silver)}）`);
+  // 銀が減る取引だけ確かめる（借金のときでも、売って銀を増やすことはできる）
+  if (silverDelta < 0 && world.player.silver + silverDelta < 0) errors.push(`銀が足りない（必要 ${Math.ceil(-silverDelta)}、所持 ${Math.floor(world.player.silver)}）`);
   return { ok: errors.length === 0, errors, silverDelta, rows, cargoAfter: used };
 }
 
