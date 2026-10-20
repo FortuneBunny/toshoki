@@ -329,7 +329,7 @@ function districtText(world, id) {
   const rad = G.cityRadius(c, tier);
   const n = d.size;
   const out = [`■ ${c.name}(${id})の区画  ${G.tierName(tier)}  市場の圏 ${rad}マス${d.radiusBonus ? `（広げた分 +${d.radiusBonus}）` : ''}`];
-  out.push(`人口 ${Math.floor(c.pop)} / 住める人数 ${G.housingCap(c, tier)}（家 ${G.houseCount(c)}軒、1軒 ${G.houseCap(tier)}人）  働き手 ${G.workersAvailable(c)}人 / 必要 ${G.workersNeeded(c)}人${G.staffing(c) < 1 ? `  ⚠ 生産は ${Math.round(G.staffing(c) * 100)}%` : ''}`);
+  out.push(`人口 ${Math.floor(c.pop)} / 住める人数 ${G.housingCap(c, tier)}（家 ${G.houseCount(c)}軒、1軒 ${G.houseCap(tier, c)}人。町が育つほど家も大きくなる）  働き手 ${G.workersAvailable(c)}人 / 必要 ${G.workersNeeded(c)}人${G.staffing(c) < 1 ? `  ⚠ 生産は ${Math.round(G.staffing(c) * 100)}%` : ''}`);
   out.push('   ' + Array.from({ length: n }, (_, x) => String.fromCharCode(65 + x) + ' ').join(''));
   const used = new Map();
   for (let y = 0; y < n; y++) {
@@ -826,6 +826,8 @@ function run(world, cmd, pos, opts) {
       after(G.setOrder(world, m.id, { stops, guards: Number(opts.guards || 0) }));
       if (replaced) out.push('（以前の定期便は置き換えた）');
       out.push(`定期便: ${stops.map((s) => world.cities[s.city].name).join(' → ')} → …`);
+      // 売り先が買い取らない品は、先に知らせる（町が育つと買い取るものもある）
+      for (const s of stops) for (const x of s.sell || []) if (world.cities[s.city] && !G.cityWants(world.cities[s.city], x.good)) out.push(`⚠ ${world.cities[s.city].name}は今は${GOODS[x.good]?.name || x.good}を買い取らない（売れずに持ち越しになる）`);
       out.push(...G.drainEvents(world).map(eventLine));
       break;
     }

@@ -316,3 +316,8 @@ test('住居の求める品: そろっていないと家が建たず、届ける
   assert.ok(G.dwellingStatus(c, G.cityTier(c)).ok, '届けるとそろう');
   assert.ok(G.houseCount(c) > stuck, `家が建つ（${houses} → ${stuck} → ${G.houseCount(c)}）`);
 });
+
+test('家: 次の段階に近づくほど大きくなり、段階の境目で頭打ちにならない', () => {
+  assert.ok(G.houseCap(3, { pop: 7990 }) > G.houseCap(3) * 1.15);
+  assert.equal(G.houseCap(3, { pop: 3000 }), G.houseCap(3));
+});

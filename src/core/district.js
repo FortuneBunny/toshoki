@@ -181,8 +181,15 @@ export function civicSatisfaction(city, type, goods) {
 }
 
 // ---------- 住居と労働力（D2） ----------
-export function houseCap(tier) {
-  return B.houseCapBase + B.houseCapPerTier * tier;
+// 家1軒に住める人数。町が次の段階に近づくほど、家も大きくなる（段階の境目で頭打ちにならないように）
+export function houseCap(tier, city = null) {
+  let t = tier;
+  if (city && tier < B.tierPops.length - 1) {
+    const lo = B.tierPops[tier];
+    const hi = B.tierPops[tier + 1];
+    t += Math.max(0, Math.min(1, (city.pop - lo) / (hi - lo)));
+  }
+  return Math.round(B.houseCapBase + B.houseCapPerTier * t);
 }
 
 export function houseCount(city) {
@@ -191,7 +198,7 @@ export function houseCount(city) {
 
 // 住める人数の上限
 export function housingCap(city, tier) {
-  return houseCount(city) * houseCap(tier);
+  return houseCount(city) * houseCap(tier, city);
 }
 
 // 働き手の必要数（町の生産施設と自分の工房）
@@ -232,7 +239,7 @@ function houseSpots(city, tier) {
 
 // 人口に合わせて家を建てる（1日に最大 max 軒）か、空き家を壊す。乱数は使わない
 export function updateHousing(city, tier, max = 1) {
-  const cap = houseCap(tier);
+  const cap = houseCap(tier, city);
   const want = Math.ceil((city.pop * B.houseHeadroom) / cap);
   const have = houseCount(city);
   const d = city.district;

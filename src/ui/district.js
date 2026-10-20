@@ -140,7 +140,7 @@ export function openDistrict(app, cityId) {
     if (t.building) {
       const b = t.building;
       if (b.readyDay !== undefined && world.day < b.readyDay) parts.push(`建設中（あと${b.readyDay - world.day}日）`);
-      parts.push(G.CIVICS[b.type] ? `${G.CIVICS[b.type].name}（満足度 ${Math.round((city.civicSat?.[b.type] || 0) * 100)}%）` : b.type === 'house' ? `家（${G.houseCap(G.cityTier(city))}人まで住める）` : b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の${G.BUILDINGS[b.type].name}` : `${G.PRODUCERS[b.type].name}（${G.GOODS[G.PRODUCERS[b.type].good].name} ${fmt(b.rate ?? G.PRODUCERS[b.type].rate, 1)}/日${b.placed ? '、自分が建てた' : ''}）`);
+      parts.push(G.CIVICS[b.type] ? `${G.CIVICS[b.type].name}（満足度 ${Math.round((city.civicSat?.[b.type] || 0) * 100)}%）` : b.type === 'house' ? `家（${G.houseCap(G.cityTier(city), city)}人まで住める）` : b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の${G.BUILDINGS[b.type].name}` : `${G.PRODUCERS[b.type].name}（${G.GOODS[G.PRODUCERS[b.type].good].name} ${fmt(b.rate ?? G.PRODUCERS[b.type].rate, 1)}/日${b.placed ? '、自分が建てた' : ''}）`);
     }
     return parts.join('・');
   }

@@ -24,6 +24,8 @@ export function suggestTrades(world, mid, limit = 3) {
       if (!there || stock < 3) continue;
       const target = world.cities[cid];
       if (!cityWants(target, good)) continue;
+      // 行き先が自分でたくさん作っている品は、古い相場が高くても値崩れしやすい
+      if ((target.produces?.[good] || 0) >= (here.produces?.[good] || 0) * 0.5 && (target.produces?.[good] || 0) > 0) continue;
       const g = GOODS[good];
       let qty = Math.min(stock, Math.floor((room - food) / g.weight));
       // 買い進むと値上がりし、売り進むと値下がりする。見込みが残る数まで減らす
