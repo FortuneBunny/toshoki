@@ -65,6 +65,7 @@ function cityPanel(app, id) {
   } else {
     add(box, h('div', { class: 'faint' }, age === null ? 'まだ訪れていない町。商人を送ると相場が分かる。' : `最後に見たのは ${age} 日前。今どうなっているかは分からない。`));
     if (k?.glucose !== undefined) add(box, h('div', { class: 'section' }, `糖度（${age}日前）`), gaugeBlock(k.glucose));
+    if (k?.diet) add(box, h('div', { class: 'section' }, `食卓（${age}日前）`), h('div', { class: 'chips' }, Object.entries(k.diet).sort((a, b) => b[1] - a[1]).map(([g, v]) => h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} +${Math.round(v * 100)}`))));
   }
   // 相場
   if (k) {
@@ -261,7 +262,7 @@ export function orderDialog(app, mid) {
       const box = h('div', { class: 'order-stop' });
       add(box, h('div', { class: 'row' }, h('b', {}, `${i + 1}.`), h('select', { onchange: (e) => { st.city = e.target.value; } }, cityOpts(st.city)),
         h('span', { style: { flex: 1 } }), stops.length > 2 ? h('button', { class: 'btn tiny danger', onclick: () => { stops.splice(i, 1); draw(); } }, '削除') : null));
-      (st.sell ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '売る', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), '最低', h('input', { type: 'number', step: '0.1', value: x.min, onchange: (e) => { x.min = Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.sell.splice(j, 1); draw(); } }, '✕'))));
+      (st.sell ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '売る', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), '最低', h('input', { type: 'number', step: '0.1', value: x.min, onchange: (e) => { x.min = Number(e.target.value); } }), '銀', ' 残す', h('input', { type: 'number', value: x.keep || 0, title: '売らずに手元に残す数（砂漠の食料など）', onchange: (e) => { x.keep = Number(e.target.value) || 0; } }), '個', h('button', { class: 'btn tiny ghost', onclick: () => { st.sell.splice(j, 1); draw(); } }, '✕'))));
       (st.buy ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '買う', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), h('input', { type: 'number', value: x.qty, onchange: (e) => { x.qty = Number(e.target.value); } }), '個まで、上限', h('input', { type: 'number', step: '0.1', value: x.max === Infinity ? '' : x.max, onchange: (e) => { x.max = e.target.value === '' ? Infinity : Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.buy.splice(j, 1); draw(); } }, '✕'))));
       if (world.player.warehouses[st.city]) {
         add(box, h('div', { class: 'row' }, '倉庫:', h('label', {}, '下ろす ', h('select', { onchange: (e) => { st.unload = e.target.value ? [e.target.value] : []; } }, h('option', { value: '' }, '—'), goodOpts((st.unload || [])[0]))),
