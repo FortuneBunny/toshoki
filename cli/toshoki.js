@@ -160,7 +160,7 @@ function pickMerchant(world, opts) {
   if (ms.length === 1) return ms[0];
   const idle = ms.filter((m) => !m.travel);
   if (idle.length === 1) return idle[0];
-  throw new Error('商人が複数いるので -m <番号> で指定する（merchants で一覧）');
+  throw new Error(`商人が複数いるので -m <番号> で指定する（${ms.map((m) => `-m ${m.id}=${m.name}・${m.travel ? `移動中→${world.cities[m.travel.to].name}` : world.cities[m.city].name}${m.order ? '・定期便' : ''}`).join('、')}）`);
 }
 
 // ---------- 画面 ----------
@@ -282,6 +282,7 @@ function pricesText(world) {
     '■ 知っている相場（中値。手数料抜き。×=その町では買い取らない）',
     table(['町', '情報', ...ids.map((id) => GOODS[id].name)], rows, ids.map((_, i) => i + 2)),
     '※ 情報は商人が最後にその町にいた時点のもの。今の相場とは違うかもしれない。',
+    `作っている町（産地）: ${ids.filter((g) => Object.values(world.cities).some((c) => (c.produces?.[g] || 0) > 0.3)).map((g) => `${GOODS[g].name}=${Object.values(world.cities).filter((c) => (c.produces?.[g] || 0) > 0.3).map((c) => c.name).join('・')}`).join('  ')}`,
   ].join('\n');
 }
 
@@ -1022,7 +1023,7 @@ function run(world, cmd, pos, opts) {
 
 function needIdle(world, opts) {
   const m = pickMerchant(world, opts);
-  if (m.travel) throw new Error(`${m.name}は移動中（wait で日を進める）`);
+  if (m.travel) throw new Error(`${m.name}は移動中（${world.cities[m.travel.to].name}まで あと約${Math.max(1, Math.ceil(m.travel.totalDays - m.travel.elapsed))}日。${m.order ? `定期便の商人は町に着くとすぐ出発するので、操作したいなら order pause ${m.travel.to} -m ${m.id} で止める` : `wait <日数> -m ${m.id} で着くまで進める`}）`);
   return m;
 }
 

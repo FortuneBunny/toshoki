@@ -93,7 +93,7 @@ export function buildPath(world, from, to, kind) {
   if (why) return fail(why);
   const plan = planPath(world, from, to, kind);
   if (!plan) return fail('その2つの町は結べない（山や海を越えられない）');
-  if (!plan.newTiles) return fail('すでにその道がある');
+  if (!plan.newTiles) return fail('すでにその格以上の道でつながっている（ほかの町を通る道でも。route で日数を確かめられる）');
   if (world.player.silver < plan.cost) return fail(`銀が足りない（${plan.cost}必要）`);
   world.player.silver -= plan.cost;
   const grid = world.grid;
