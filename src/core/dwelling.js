@@ -51,7 +51,7 @@ export function dwellingDemand(city, id, tier) {
 export function updateDwellingSat(city, tier) {
   const prev = city.dwellSat || {};
   city.dwellSat = {};
-  for (const g of dwellingActive(city, tier)) city.dwellSat[g] = (prev[g] ?? 0.6) * 0.9 + Math.min(1, city.eatRatio?.[g] ?? 0) * 0.1;
+  for (const g of dwellingActive(city, tier)) city.dwellSat[g] = (prev[g] ?? 0.6) * 0.75 + Math.min(1, city.eatRatio?.[g] ?? 0) * 0.25; // 届けると数日で○になる
 }
 
 // 家が建つか: 求める品が「1つ欠けまで」そろっている

@@ -614,7 +614,7 @@ function run(world, cmd, pos, opts) {
       if (!plan) throw new Error('その2つの町は結べない（山や海を越えられない）');
       if (pos[3] !== 'confirm') {
         out.push(`${world.cities[a].name}〜${world.cities[b].name}に${G.PATH_KINDS[kind].name}: 新しく${plan.newTiles}マス、${plan.cost}銀（${G.PATH_KINDS[kind].note}）。敷いた道 ${G.pathsBuilt(world)}/${G.pathsAllowed(world)}本。確定するには: path ${pos[0]} ${pos[1]} ${kind} confirm`);
-        for (const t of world.allowedTransports) { const r = G.findPath(world, a, b, t); out.push(`  今の${TRANSPORTS[t].name}: ${r ? `約${r.days}日` : '行けない'}`); }
+        for (const t of world.allowedTransports) { const r = G.findPath(world, a, b, t); out.push(`  敷く前の${TRANSPORTS[t].name}: ${r ? `約${r.days}日` : '行けない'}${!r && (kind === 'road' || t !== 'cart') && (t !== 'cart' || kind === 'road') && !TRANSPORTS[t].modes.includes('sea') ? '（敷けば通れる）' : ''}`); }
         break;
       }
       const r = after(G.buildPath(world, a, b, kind));
