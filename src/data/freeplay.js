@@ -74,7 +74,7 @@ export function generateFreeplay(seed) {
   const capital = cities[0];
   return {
     id: 'free', no: '∞', title: `フリープレイ（${seed}）`,
-    intro: `見知らぬ土地。${capital.name}の人口を6000に育て、一族の資産を15000銀にし、交易所を開いて人口600に育てよ。地図はシードごとに変わる。進め方の例: ①近くの町と小さく売り買いして相場を覚える（advice）→ ②儲かる往復を定期便にして資金を作る → ③${capital.name}に足りない食べ物と住居の品を運ぶ便を足す → ④資金ができたら道の近くに交易所を開き（sites）、食べ物を届けて育てる。`,
+    intro: `見知らぬ土地。${capital.name}の人口を6000に育て、一族の資産を15000銀にし、交易所を開いて人口700に育てよ。地図はシードごとに変わる。進め方の例: ①近くの町と小さく売り買いして相場を覚える（advice）→ ②儲かる往復を定期便にして資金を作る → ③${capital.name}に足りない食べ物と住居の品を運ぶ便を足す → ④資金ができたら道の近くに交易所を開き（sites）、食べ物を届けて育てる。`,
     goods,
     start: { silver: 900, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: capital.id }, { name: 'ライラ', portrait: 'merchant-2', city: capital.id }] },
     cities,
@@ -82,7 +82,7 @@ export function generateFreeplay(seed) {
     decor: ['dunes', 'mountain', 'palm', 'field', 'forest', 'cane-field'],
     decorCount: 30,
     edges,
-    goals: [{ type: 'cityPop', city: capital.id, pop: 6000 }, { type: 'networth', amount: 15000 }, { type: 'postTier', tier: 2, pop: 600 }],
+    goals: [{ type: 'cityPop', city: capital.id, pop: 6000 }, { type: 'networth', amount: 15000 }, { type: 'postTier', tier: 2, pop: 700 }],
     deadline: 1080, rankS: 0.5,
     transports: ['donkey', 'camel', 'cart'],
     buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],

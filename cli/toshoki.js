@@ -97,6 +97,11 @@ function hereCity(world, opts) {
   if (cs.length === 1) return cs[0];
   return pickMerchant(world, opts).city;
 }
+// 品物は日本語の名前でもよい（キビ → millet）
+function goodArg(g) {
+  if (!g || GOODS[g]) return g;
+  return Object.keys(GOODS).find((id) => GOODS[id].name === g) || g;
+}
 // 日本語の町の名前を id に
 function cityArg(world, s) {
   if (!s || world.cities[s]) return s;
@@ -189,6 +194,9 @@ function statusText(world) {
     }
   });
   out.push('商人:');
+  // 定期便が直近10日に買値の上限で見送った品
+  const skipped = (world.log || []).filter((e) => e.type === 'orderNote' && world.day - e.day <= 10 && /上限/.test(e.text));
+  if (skipped.length) out.push(`⚠ 定期便が買値の上限で仕入れを見送っている（直近: ${skipped[skipped.length - 1].text}）。上げるなら order edit`);
   // 毎日の出費と、今の銀で何日もつか
   const daily = G.dailyCost(world, { guards: true });
   if (daily > 0) out.push(`毎日の出費 ${fmt(daily, 1)}銀（給金・維持費・工房・護衛代。工房の材料費は別）${pl.silver < daily * 20 ? `  ⚠ 売らずにいると約${Math.max(0, Math.floor(pl.silver / daily))}日で銀が尽きる` : ''}`);
@@ -291,7 +299,8 @@ function cityText(world, id) {
   const c = world.cities[id];
   if (!c) throw new Error(`不明な町: ${id}`);
   const k = world.player.knowledge[id];
-  const here = world.player.merchants.some((m) => m.city === id);
+  // 自分の交易所は、商人がいなくても様子が分かる
+  const here = world.player.merchants.some((m) => m.city === id) || !!world.cities[id]?.founded;
   const out = [`■ ${c.name}(${id})  ${G.tierName(G.cityTier(c))}  人口 ${here ? Math.floor(c.pop) : k?.pop !== undefined ? `${Math.floor(k.pop)}（${world.day - k.day}日前）` : '?'}`];
   if (here) {
     const tierIdx = G.cityTier(c);
@@ -416,7 +425,7 @@ function parseTradeLines(pos) {
   for (let i = 0; i < pos.length; i++) {
     if (pos[i] === 'buy' || pos[i] === 'sell') { act = pos[i]; continue; }
     if (!act) throw new Error('buy か sell から書く（例: trade buy wheat 20 sell dates all）');
-    const good = pos[i];
+    const good = goodArg(pos[i]);
     const n = pos[++i];
     if (!GOODS[good]) throw new Error(`不明な品物: ${good}`);
     const q = n === 'all' ? Infinity : parseInt(n, 10);
@@ -469,7 +478,8 @@ function parseStop(str, world) {
   const stop = { city, sell: [], buy: [], unload: [], load: [] };
   for (const p of parts) {
     const [kind, list] = p.split(':');
-    for (const item of (list || '').split(',').filter(Boolean)) {
+    for (const raw of (list || '').split(',').filter(Boolean)) {
+      const item = raw.replace(/^[^@*]+/, (g) => goodArg(g));
       if (kind === 'sell') { const [good, min] = item.split('@'); stop.sell.push({ good, min: min ? Number(min) : 0 }); }
       else if (kind === 'buy') { const [gq, max] = item.split('@'); const [good, qty] = gq.split('*'); stop.buy.push({ good, qty: Number(qty || 999), max: max ? Number(max) : Infinity }); }
       else if (kind === 'keep') { const [good, qty] = item.split('*'); stop.sell.filter((x) => x.good === good).forEach((x) => { x.keep = Number(qty || 0); }); stop.keepList = [...(stop.keepList || []), { good, qty: Number(qty || 0) }]; }

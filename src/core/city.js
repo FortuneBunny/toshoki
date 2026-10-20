@@ -142,6 +142,8 @@ function growthRate(city) {
   }
   if (r > 0) r *= B.luxuryBase + B.luxurySpan * city.luxury;
   if (r > 0 && city.donatedUntil > (city.today ?? 0)) r *= B.donateGrowth;
+  // 交易所（開いた町）は、食べ物を3種類以上届けていれば開拓の勢いで速く育つ
+  if (r > 0 && city.founded && Object.values(city.diet || {}).filter((v) => v > 0.05).length >= 3) r *= B.postGrowth;
   // 住居の求める品が全部そろっていれば、暮らしに余裕が出て少し速く育つ
   if (r > 0) { const dw = dwellingStatus(city, cityTier(city)); if (dw.wants.length && !dw.missing.length) r *= B.dwellingFullGrowth; }
   // 需要施設: 求める品が届いているほど成長が加速
