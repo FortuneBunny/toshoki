@@ -110,8 +110,8 @@ export function createWorld(scenarioId, { seed = 1, heirlooms = [] } = {}) {
   for (const md of sc.start.merchants) addMerchant(world, md);
   for (const rd of sc.rivals || []) {
     world.rivals.push({
-      name: rd.name, silver: rd.silver, skill: rd.skill, goods: rd.goods, sold: {},
-      merchants: rd.merchants.map((rm) => ({ city: rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2 })),
+      name: rd.name, silver: rd.silver, skill: rd.skill, goods: rd.goods, sold: {}, workshop: rd.workshop || null, store: {},
+      merchants: rd.merchants.map((rm) => ({ city: rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home })),
     });
   }
 

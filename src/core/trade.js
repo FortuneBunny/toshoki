@@ -56,6 +56,9 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       const have = m.cargo[good] || 0;
       m.cost[good] = ((m.cost[good] || 0) * have + cost) / (have + qty);
       m.cargo[good] = have + qty;
+      // どこで仕入れたか（同じ町での売り戻しを目標に数えないため）
+      m.boughtAt = m.boughtAt || {};
+      m.boughtAt[good] = have > 0 && m.boughtAt[good] !== city.id ? 'mixed' : city.id;
       city.stock[good] -= qty;
       world.player.silver -= cost;
       world.stats.spent += cost;
@@ -71,13 +74,17 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       profit += p;
       sold += n;
       m.cargo[good] -= n;
-      if (!m.cargo[good]) { delete m.cargo[good]; delete m.cost[good]; }
+      if (!m.cargo[good]) { delete m.cargo[good]; delete m.cost[good]; if (m.boughtAt) delete m.boughtAt[good]; }
       city.stock[good] = (city.stock[good] || 0) + n;
       world.player.silver += gain;
       world.stats.revenue += gain;
-      world.stats.sold[city.id] = world.stats.sold[city.id] || {};
-      world.stats.sold[city.id][good] = (world.stats.sold[city.id][good] || 0) + n;
-      world.stats.soldTotal[good] = (world.stats.soldTotal[good] || 0) + n;
+      // 同じ町で仕入れた品を売り戻した分は、目標の取引量には数えない
+      const resold = m.boughtAt?.[good] === city.id;
+      if (!resold) {
+        world.stats.sold[city.id] = world.stats.sold[city.id] || {};
+        world.stats.sold[city.id][good] = (world.stats.sold[city.id][good] || 0) + n;
+        world.stats.soldTotal[good] = (world.stats.soldTotal[good] || 0) + n;
+      }
       m.lifetime += p;
       if (!auto && expected !== undefined && actualMid > expected * 1.15 && p > 0) {
         const diff = (actualMid - expected) * n;
@@ -171,6 +178,8 @@ export function moveWarehouse(world, m, good, qty) {
     const cur = m.cargo[good] || 0;
     m.cost[good] = ((m.cost[good] || 0) * cur + (wh.basis[good] || 0) * qty) / (cur + qty);
     m.cargo[good] = cur + qty;
+    m.boughtAt = m.boughtAt || {};
+    m.boughtAt[good] = cur > 0 && m.boughtAt[good] !== 'warehouse' ? 'mixed' : 'warehouse';
     wh.stock[good] -= qty;
   } else {
     const n = -qty;

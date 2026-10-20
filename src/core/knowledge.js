@@ -18,7 +18,7 @@ export function observe(world, cityId) {
     if (!h.length || h[h.length - 1][0] !== world.day) h.push([world.day, prices[id]]);
     if (h.length > 40) h.splice(0, h.length - 40);
   }
-  world.player.knowledge[cityId] = { day: world.day, prices, stock, wants, history, glucose: city.glucose, pop: city.pop };
+  world.player.knowledge[cityId] = { day: world.day, prices, stock, wants, history, glucose: city.glucose, pop: city.pop, diet: { ...(city.diet || {}) }, sweetLevel: city.sweetLevel || 0 };
 }
 
 export function observePresent(world) {

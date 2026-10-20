@@ -29,8 +29,26 @@ function bestPlan(world, r, m) {
   return best;
 }
 
+// ライバルの工房: 本拠地の市場から原料を買い、製品を蔵に貯める
+function rivalWorkshop(world, r) {
+  const w = r.workshop;
+  if (!w) return;
+  const city = world.cities[w.city];
+  const have = Math.floor(city.stock[w.input] || 0);
+  const n = Math.min(have, w.inputPerDay);
+  if (n < w.ratio) return;
+  const batches = Math.floor(n / w.ratio);
+  const cost = quote(world, city, w.input, batches * w.ratio);
+  if (cost > r.silver) return;
+  city.stock[w.input] -= batches * w.ratio;
+  r.silver -= cost;
+  r.store = r.store || {};
+  r.store[w.output] = (r.store[w.output] || 0) + batches;
+}
+
 export function updateRivals(world) {
   for (const r of world.rivals) {
+    rivalWorkshop(world, r);
     if (r.silver < 150) {
       r.silver += 400;
       emit(world, { type: 'rivalAid', text: `${r.name}は一族から援助を受けて持ち直した` });
@@ -55,6 +73,37 @@ export function updateRivals(world) {
         continue;
       }
       if (m.wait > 0) { m.wait--; continue; }
+      // 本拠地にいて蔵に製品があれば、それを一番高く売れる町へ運ぶ
+      if (r.workshop && m.city === r.workshop.city && (r.store?.[r.workshop.output] || 0) >= 5) {
+        const out = r.workshop.output;
+        const n = Math.min(Math.floor(r.store[out]), TRANSPORTS[m.transport].cap);
+        let best = null;
+        for (const to of Object.keys(world.cities)) {
+          if (to === m.city || !cityWants(world.cities[to], out)) continue;
+          const route = findPath(world, m.city, to, m.transport);
+          if (!route) continue;
+          const perDay = quote(world, world.cities[to], out, -n) / Math.max(1, route.days);
+          if (!best || perDay > best.perDay) best = { to, perDay, days: route.days };
+        }
+        if (best) {
+          r.store[out] -= n;
+          m.cargo = { [out]: n };
+          m.dest = best.to;
+          m.travelDays = best.days;
+          m.from = m.city;
+          m.departDay = world.day;
+          if (!r.announced) {
+            r.announced = true;
+            emit(world, { type: 'rival', bad: true, text: `${r.name}が${GOODS[out].name}を${world.cities[best.to].name}へ運び始めた！市場の取り合いが始まる` });
+          }
+          continue;
+        }
+      }
+      // 本拠地へ戻る（蔵が貯まっていれば）
+      if (r.workshop && m.city !== r.workshop.city && (r.store?.[r.workshop.output] || 0) >= 10 && m.home) {
+        const route = findPath(world, m.city, r.workshop.city, m.transport);
+        if (route) { m.cargo = {}; m.dest = r.workshop.city; m.travelDays = route.days; m.from = m.city; m.departDay = world.day; continue; }
+      }
       const plan = bestPlan(world, r, m);
       if (!plan) { m.wait = 3; continue; }
       const here = world.cities[m.city];

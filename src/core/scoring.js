@@ -67,7 +67,7 @@ export function goalProgress(world, g) {
       const total = mine + theirs;
       const share = total ? mine / total : 0;
       const p = Math.min(mine / g.min, share / g.share);
-      return { p, text: `${GOODS[g.good].name}の取引量でライバルを上回る（自分 ${mine} 個 / ライバル ${theirs} 個、最低 ${g.min} 個）` };
+      return { p, text: `${GOODS[g.good].name}を売った数でライバルを上回る（自分 ${mine} 個 / ライバル ${theirs} 個、最低 ${g.min} 個。仕入れた町での売り戻しは数えない）` };
     }
     default:
       return { p: 0, text: '?' };

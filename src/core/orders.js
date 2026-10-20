@@ -5,7 +5,9 @@ import { emit } from './events.js';
 import { observe } from './knowledge.js';
 import { executeTrade, moveWarehouse } from './trade.js';
 import { quote, cityWants } from './market.js';
-import { cargoUsed, cargoCap, startTravel } from './caravan.js';
+import { cargoUsed, cargoCap, startTravel, findPath, edgeDays } from './caravan.js';
+import { PROVISIONS } from '../data/goods.js';
+import { BALANCE as B } from '../data/balance.js';
 
 export function arriveAt(world, m) {
   observe(world, m.city);
@@ -34,21 +36,21 @@ export function runOrder(world, m, { depart = true } = {}) {
     for (const good of stop.unload || []) {
       if (m.cargo[good]) moveWarehouse(world, m, good, -m.cargo[good]);
     }
-    // 売り: 最低価格を下回るなら売らずに持ち越す（赤字売りを防ぐ）
-    for (const s of stop.sell || []) {
-      const have = m.cargo[s.good] || 0;
-      if (!have || !cityWants(city, s.good)) continue;
-      let n = have;
-      while (n > 0 && quote(world, city, s.good, -n) / n < (s.min || 0)) n = Math.floor(n * 0.7);
-      if (n <= 0) { notes.push(`${GOODS[s.good].name}は売値 ${(quote(world, city, s.good, -1)).toFixed(1)} が最低売値 ${s.min} を下回るので売らずに持ち越し`); continue; }
-      executeTrade(world, m, [{ good: s.good, qty: -n }], { auto: true });
-    }
     for (const good of stop.load || []) {
       const wh = world.player.warehouses[m.city];
       const have = Math.floor(wh?.stock[good] || 0);
       const room = Math.floor((cargoCap(m) - cargoUsed(m)) / GOODS[good].weight);
       const n = Math.min(have, room);
       if (n > 0) moveWarehouse(world, m, good, n);
+    }
+    // 売り: 最低価格を下回るなら売らずに持ち越す（赤字売りを防ぐ）
+    for (const s of stop.sell || []) {
+      const have = (m.cargo[s.good] || 0) - (s.keep || 0);
+      if (have <= 0 || !cityWants(city, s.good)) continue;
+      let n = have;
+      while (n > 0 && quote(world, city, s.good, -n) / n < (s.min || 0)) n = Math.floor(n * 0.7);
+      if (n <= 0) { notes.push(`${GOODS[s.good].name}は売値 ${(quote(world, city, s.good, -1)).toFixed(1)} が最低売値 ${s.min} を下回るので売らずに持ち越し`); continue; }
+      executeTrade(world, m, [{ good: s.good, qty: -n }], { auto: true });
     }
     // 買い: 上限価格を超えない範囲で、指定数まで
     for (const b of stop.buy || []) {
@@ -71,6 +73,7 @@ export function runOrder(world, m, { depart = true } = {}) {
   if (!depart) return;
   const target = o.stops[o.next].city;
   if (target === m.city) return;
+  autoProvision(world, m, target);
   const res = departWithExpectation(world, m, target);
   if (!res.ok) {
     o.paused = true;
@@ -86,6 +89,26 @@ export function departWithExpectation(world, m, to) {
   const res = startTravel(world, m, to);
   if (res.ok) m.expected = { city: to, prices, day: world.day };
   return res;
+}
+
+// 砂漠を渡るなら、足りない食料を今いる町で買い足す
+function autoProvision(world, m, to) {
+  const route = findPath(world, m.city, to, m.transport);
+  if (!route) return;
+  const desertDays = route.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + edgeDays(world, e, m.transport, e.a), 0);
+  if (!desertDays) return;
+  const need = Math.ceil(desertDays * cargoCap(m) * B.provisionPerCap) + 1;
+  let have = PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
+  const city = world.cities[m.city];
+  for (const g of PROVISIONS) {
+    if (have >= need) break;
+    if (!world.scenario.goods.includes(g)) continue;
+    const room = cargoCap(m) - cargoUsed(m);
+    const n = Math.min(need - have, Math.floor(city.stock[g] || 0), room);
+    if (n <= 0 || quote(world, city, g, n) > world.player.silver) continue;
+    executeTrade(world, m, [{ good: g, qty: n }], { auto: true });
+    have += n;
+  }
 }
 
 export function validateOrder(world, order) {

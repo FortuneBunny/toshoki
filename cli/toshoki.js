@@ -181,7 +181,7 @@ function cityText(world, id) {
     const diet = Object.entries(c.diet || {}).sort((a, b) => b[1] - a[1]);
     if (diet.length) out.push(`食卓（糖度への寄与）: ${diet.map(([g, v]) => `${GOODS[g].name} +${Math.round(v * 100)}`).join(' / ')}`);
     const missingFood = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && G.dailyDemand(c, g, false) > 0 && !(c.diet?.[g] > 0.02));
-    out.push(`甘味の摂取: ${Math.round((c.sweetLevel || 0) * 100)}（85以上かつ糖度140以上でシュガーラッシュ）`);
+    out.push(`甘味の摂取: ${Math.round((c.sweetLevel || 0) * 100)}（75以上かつ糖度140以上でシュガーラッシュ）`);
     out.push(`※ 1種類の食べ物で上げられる糖度は50まで、甘味は1種類45まで。種類を増やすほど糖度が上がる。${missingFood.length ? `今足りない食べ物: ${missingFood.map((g) => GOODS[g].name).join('、')}` : ''}`);
     const adv = G.dietAdvice(world, c).slice(0, 6);
     if (adv.length) out.push(`伸びしろ（1日あたりの目安量で、糖度がどれだけ上がるか）: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join(' / ')}`);
@@ -193,8 +193,9 @@ function cityText(world, id) {
     const demand = world.scenario.goods.filter((g) => G.dailyDemand(c, g, false) > 0).map((g) => `${GOODS[g].name}${fmt(G.dailyDemand(c, g, false))}`).join(' ');
     out.push(`需要（1日の基本消費量）: ${demand || 'なし'}`);
   } else {
-    out.push('（自分の商人がいないので、詳しいことは分からない）');
+    out.push('（自分の商人がいないので、今のことは分からない）');
     if (k?.glucose !== undefined) out.push(`最後に見た糖度: ${Math.round(k.glucose)}（${world.day - k.day}日前）`);
+    if (k?.diet) out.push(`最後に見た食卓: ${Object.entries(k.diet).sort((a, b) => b[1] - a[1]).map(([g, v]) => `${GOODS[g].name} +${Math.round(v * 100)}`).join(' / ') || 'なし'}`);
   }
   const routes = world.edges.filter((e) => e.a === id || e.b === id).map((e) => {
     const other = e.a === id ? e.b : e.a;
@@ -276,10 +277,16 @@ function parseStop(str) {
     for (const item of (list || '').split(',').filter(Boolean)) {
       if (kind === 'sell') { const [good, min] = item.split('@'); stop.sell.push({ good, min: min ? Number(min) : 0 }); }
       else if (kind === 'buy') { const [gq, max] = item.split('@'); const [good, qty] = gq.split('*'); stop.buy.push({ good, qty: Number(qty || 999), max: max ? Number(max) : Infinity }); }
+      else if (kind === 'keep') { const [good, qty] = item.split('*'); stop.sell.filter((x) => x.good === good).forEach((x) => { x.keep = Number(qty || 0); }); stop.keepList = [...(stop.keepList || []), { good, qty: Number(qty || 0) }]; }
       else if (kind === 'unload' || kind === 'load') stop[kind].push(item);
       else throw new Error(`停泊地の書き方が不正: ${p}`);
     }
   }
+  for (const k of stop.keepList || []) {
+    const s = stop.sell.find((x) => x.good === k.good);
+    if (s) s.keep = k.qty;
+  }
+  delete stop.keepList;
   return stop;
 }
 
@@ -306,7 +313,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
 【動く】（商人が複数いるときは -m <番号> を付ける）
   quote buy wheat 20 sell dates 10    取引の見積もり（確定しない）
   trade buy wheat 20 sell dates 10    取引を確定（数量に all も使える）
-  travel <町id> [--guards n]          出発して、到着か事件まで日を進める
+  travel <町id> [--guards n] [--nowait]  出発して、到着か事件まで日を進める（--nowait なら時間を進めない）
   wait <日数>                          日を進める（最大120日。商人の到着や重要な出来事で止まる）
   shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
   hire [confirm]                       今いる町で商人を雇う（confirm なしなら費用だけ表示）
@@ -316,7 +323,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   workshop <番号> on|off|autobuy|noautobuy
   load <品物> <数> / unload <品物> <数>  倉庫との積み下ろし
   road <道の番号> [confirm]            小道を街道に整備する
-  order add "<町> sell:品@最低値 buy:品*数@上限値 unload:品 load:品" "<町> ..."
+  order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..."
                                        定期便を設定（停泊地を2つ以上）。例:
                                        order add "mugi buy:wheat*20@3" "kohaku sell:wheat@5"
   order list                           定期便ごとの損益
@@ -371,6 +378,7 @@ function run(world, cmd, pos, opts) {
       for (const r of pv.rows) out.push(`  ${r.qty > 0 ? '買' : '売'} ${gname(r.good)} ×${Math.abs(r.qty)}  ${r.total > 0 ? '+' : ''}${fmt(r.total)} 銀（1個あたり ${fmt(Math.abs(r.total / r.qty))}）`);
       out.push(`合計 ${pv.silverDelta >= 0 ? '+' : ''}${fmt(pv.silverDelta)} 銀 → 取引後の銀 ${Math.floor(world.player.silver + pv.silverDelta)}  積載 ${pv.cargoAfter}/${G.cargoCap(m)}`);
       if (!pv.ok) out.push('✖ ' + pv.errors.join(' / '));
+      out.push('※ これは見積もり。確定するには quote を trade に替えて同じ内容を打つ。');
       break;
     }
     case 'trade': {
@@ -390,8 +398,18 @@ function run(world, cmd, pos, opts) {
     }
     case 'travel': {
       const m = needIdle(world, opts);
+      const plan = G.routeInfo(world, m.id, pos[0]);
+      if (plan) {
+        const desertDays = plan.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + G.edgeDays(world, e, m.transport, e.a), 0);
+        const food = G.PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
+        const need = Math.ceil(desertDays * G.cargoCap(m) * G.BALANCE.provisionPerCap);
+        if (desertDays && food < need) out.push(`⚠ 砂漠を約${desertDays}日渡るのに、隊商の食料が ${food}/${need} しかない（なつめやし・干しぶどう・キビ・麦・米）`);
+        if (plan.danger && world.scenario.bandits && !Number(opts.guards || 0)) out.push(`⚠ 盗賊の出る道（危険度${plan.danger}）を護衛なしで進む（--guards n で護衛を雇える）`);
+      }
+      if (world.player.silver < 0) out.push('⚠ 銀がマイナス。着いた町で売らないと仕入れができない');
       const r = after(G.travel(world, m.id, pos[0], { guards: Number(opts.guards || 0) }));
       out.push(`${m.name}が${world.cities[pos[0]].name}へ出発（約${r.days}日）`);
+      if ('nowait' in opts) { out.push('（時間は進めていない。ほかの商人にも指示してから wait で進める）'); break; }
       const adv = G.advance(world, r.days + 30, { stopOn: new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck']) });
       out.push(...compactEvents(adv.events));
       if (!m.travel && m.city === pos[0]) out.push('', marketText(world, m));
@@ -485,7 +503,7 @@ function run(world, cmd, pos, opts) {
         out.push(`  ${t.name}(${k}): ${t.cost}銀  積載${t.cap}  速さ${t.speed}  維持費${t.upkeep}/日  通れる道: ${t.modes.map((x) => G.ROUTE_KINDS[x].name).join('・')}  買える町: ${t.cost ? where.join('、') || 'なし' : '（最初から持っている）'}`);
       }
       const bs = (sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes);
-      out.push(`工房（build <種類> confirm）: ${bs.length ? '' : 'このシナリオでは建てられない'}`);
+      out.push(`工房（build <種類> confirm）: ${bs.length ? '同じ種類は1つの町に1つまで。倉庫が付く' : 'このシナリオでは建てられない'}`);
       for (const b of bs) out.push(`  ${BUILDINGS[b].name}(${b}): ${BUILDINGS[b].cost}銀  維持費${BUILDINGS[b].upkeep}/日  1日${BUILDINGS[b].batches}回  ${BUILDINGS[b].recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
       out.push(`道の整備（road <番号> confirm）: ${(sc.buildings || []).includes('road') ? `小道を街道にする。距離×${BUILDINGS.road.costPerLength}銀` : 'このシナリオではできない'}`);
       out.push(`護衛: 1人1日${G.BALANCE.guardWage}銀（travel <町> --guards n）`);

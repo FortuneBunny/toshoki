@@ -1,7 +1,7 @@
 // 町: 生産、消費、糖度、人口、シュガーラッシュとクラッシュ
 import { GOODS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
-import { midPrice } from './market.js';
+import { midPrice, targetStock } from './market.js';
 import { jitter } from './rng.js';
 import { emit } from './events.js';
 
@@ -26,11 +26,15 @@ export function dailyDemand(city, id, withPrice = true) {
   }
   const p = midPrice(city, id);
   const e = Math.pow(g.base / p, B.consumeElasticity);
-  return d * Math.min(B.consumeMax, Math.max(B.consumeMin, e));
+  // 甘味は安いとドカ食いされる（消費の上限が高い）
+  const max = g.kind === 'sweet' ? B.sweetConsumeMax : B.consumeMax;
+  return d * Math.min(max, Math.max(B.consumeMin, e));
 }
 
+// 大きな町ほど効率がよく、1人あたりの必要量は少しずつ減る
 export function glucoseNeed(city) {
-  return (city.pop / 1000) * B.needPer1000;
+  const k = city.pop / 1000;
+  return k * B.needPer1000 * Math.pow(Math.max(1, k), -B.cityEfficiency);
 }
 
 function produce(world, city) {
@@ -72,7 +76,9 @@ function consume(world, city) {
   const gluEff = city.crash > 0 ? B.crashSweetGlu : 1;
   for (const id of ids) {
     if (GOODS[id].kind !== 'sweet') continue;
-    const eat = Math.min(city.stock[id] || 0, dailyDemand(city, id));
+    // ドカ食い: 町が持ちたい量を超えた甘味は、毎日その一部が余分に食べられる
+    const surplus = Math.max(0, (city.stock[id] || 0) - targetStock(city, id));
+    const eat = Math.min(city.stock[id] || 0, dailyDemand(city, id) + surplus * B.sweetBinge * (city.crash > 0 ? 0.2 : 1));
     if (eat <= 0) continue;
     city.stock[id] -= eat;
     const add = Math.min(eat * GOODS[id].glu * gluEff, need * B.singleSweetCap);

@@ -60,7 +60,7 @@ function cityPanel(app, id) {
         h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`)),
       h('div', { class: 'section' }, '食卓（糖度への寄与）'),
       dietChips(world, c),
-      h('div', { class: 'faint', style: { fontSize: '11px' } }, `甘味の摂取 ${Math.round((c.sweetLevel || 0) * 100)}（85以上かつ糖度140以上でシュガーラッシュ）。1種類の食べ物で上げられるのは50まで、甘味は45まで。`),
+      h('div', { class: 'faint', style: { fontSize: '11px' } }, `甘味の摂取 ${Math.round((c.sweetLevel || 0) * 100)}（75以上かつ糖度140以上でシュガーラッシュ）。1種類の食べ物で上げられるのは50まで、甘味は45まで。`),
       adviceBlock(world, c));
   } else {
     add(box, h('div', { class: 'faint' }, age === null ? 'まだ訪れていない町。商人を送ると相場が分かる。' : `最後に見たのは ${age} 日前。今どうなっているかは分からない。`));

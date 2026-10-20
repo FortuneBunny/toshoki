@@ -93,7 +93,7 @@ const s4 = {
   id: 's4', no: 4, title: '砂の海',
   intro: '東の玻璃の都の絹を、西の緑門へ。間には砂の海が広がる。隊商は砂漠で毎日食べ物を食べ、盗賊も出る。ラクダと護衛と食料を整えて渡れ。絹を緑門で150反売り、蜃気楼オアシスを「町」に育てよ。',
   goods: ['wheat', 'dates', 'grapes', 'raisins', 'rawsugar', 'salt', 'spice', 'silk'],
-  start: { silver: 600, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'ryokumon' }] },
+  start: { silver: 900, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'ryokumon' }] },
   cities: [
     { id: 'ryokumon', name: '緑門', x: 100, y: 300, pop: 3200, produces: { wheat: 14, grapes: 5, rawsugar: 2 } },
     { id: 'yado', name: '隊商宿の町', x: 330, y: 240, pop: 650, produces: { dates: 6, raisins: 1.5 }, tags: ['desert'] },
@@ -184,7 +184,7 @@ const s6 = {
 
 const s7 = {
   id: 's7', no: 7, title: '白い黄金',
-  intro: '白糖は「白い黄金」と呼ばれる。紫衣のサルマン商会が、同じ市場を狙っている。彼らは相場の差を見つけると素早く運び、値を崩していく。工房と定期便を整え、白糖の取引量でサルマン商会を上回れ。',
+  intro: '白糖は「白い黄金」と呼ばれる。紫衣のサルマン商会は南キビ村に製糖所を持ち、白糖を各地へ運んで値を崩していく。工房と定期便を整え、白糖を売った数でサルマン商会を上回れ（仕入れた町での売り戻しは数えない）。',
   goods: ['wheat', 'dates', 'honey', 'cane', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'salt'],
   start: { silver: 900, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'hakuto' }] },
   cities: [
@@ -207,8 +207,9 @@ const s7 = {
     { a: 'kibi2', b: 'shio', kind: 'trail' },
   ],
   rivals: [{
-    name: 'サルマン商会', silver: 900, skill: 0.85, goods: ['wheat', 'dates', 'honey', 'rawsugar', 'whitesugar', 'salt', 'cane'],
-    merchants: [{ city: 'hakuto', transport: 'donkey', wait: 3 }, { city: 'kanmi', transport: 'donkey', wait: 8 }],
+    name: 'サルマン商会', silver: 900, skill: 0.85, goods: ['wheat', 'dates', 'honey', 'rawsugar', 'salt'],
+    workshop: { city: 'kibi2', input: 'cane', output: 'whitesugar', inputPerDay: 8, ratio: 4 },
+    merchants: [{ city: 'kibi2', transport: 'donkey', wait: 12, home: true }, { city: 'kibi2', transport: 'donkey', wait: 30, home: true }, { city: 'kanmi', transport: 'donkey', wait: 8 }],
   }],
   goals: [{ type: 'share', good: 'whitesugar', share: 0.5, min: 300 }],
   deadline: 480, rankS: 0.45,
