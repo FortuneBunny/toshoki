@@ -131,7 +131,9 @@ export function generateDistrict(city, { seed, scenarioGoods = [] }) {
   const extra = scenarioGoods.map((g) => PRODUCER_FOR[g]).filter((t) => t && PRODUCERS[t].resource && !(city.produces || {})[PRODUCERS[t].good] && GOODS[PRODUCERS[t].good].kind === 'goods');
   for (const t of extra) if (r() < 0.15) placeDeposit(d, r, PRODUCERS[t].resource, 2, 4, 6);
 
-  return { size: N, terrain: d.terrain.join(''), res: d.res.join(''), buildings, nextId, radiusBonus: 0 };
+  // 元から作っている品（食べ物・甘味は、これの増産だけ認める）
+  const native = Object.keys(city.produces || {}).filter((g) => (city.produces[g] || 0) > 0);
+  return { size: N, terrain: d.terrain.join(''), res: d.res.join(''), buildings, nextId, radiusBonus: 0, native };
 }
 
 // 町の生産量（品物ごと）を区画の建物から集計する。挿入順は建物の順＝元の produces の順

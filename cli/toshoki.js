@@ -271,8 +271,10 @@ function buildableText(world, id) {
   const out = [`■ ${c.name}に置ける生産施設（費用。置けるマスの例）`];
   for (const [k, p] of Object.entries(G.PRODUCERS)) {
     if (!world.scenario.goods.includes(p.good)) continue;
-    const tiles = G.placeableTiles(c, tier, k);
+    const nativeOnly = ['food', 'sweet'].includes(GOODS[p.good].kind) && !(c.district.native || []).includes(p.good);
+    const tiles = nativeOnly ? [] : G.placeableTiles(c, tier, k);
     const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
+    if (nativeOnly) { out.push(`  ${k}（${p.name}）: この町の土地では育たない（食べ物と甘味は元から作っている品だけ増産できる）`); continue; }
     out.push(`  ${k}（${p.name}）: ${cost}銀＋維持費${G.BALANCE.producerUpkeep}/日  ${GOODS[p.good].name} +${p.rate}/日（${G.BALANCE.producerBuildDays}日後から）  働き手${p.workers}人  ${tiles.length ? `置けるマス ${tiles.length}か所: ${tiles.slice(0, 6).map(([x, y]) => G.coordName(x, y)).join(' ')}` : '置けるマスがない'}`);
   }
   out.push('需要施設（その町に新しい需要を生み、求める品が届くと町が育つ）:');

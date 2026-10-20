@@ -188,3 +188,14 @@ test('需要施設: 建てると需要が増え、求める品を届け続ける
   assert.ok(c.civicSat.academy > 0.6, `満足度 ${c.civicSat.academy}`);
   assert.equal(G.buildCivic(w, 'kouboku', 'palace').ok, false, '段階が足りない町には建てられない');
 });
+
+test('区画: 食べ物と甘味は、町が元から作っている品の増産だけ', () => {
+  const w = G.createWorld('s8', { seed: 1 });
+  w.player.silver = 99999;
+  const c = w.cities.kohaku; // 元は麦と陶器
+  const tier = G.cityTier(c);
+  const millet = G.placeableTiles(c, tier, 'millet_field')[0];
+  assert.equal(G.placeProducer(w, 'kohaku', 'millet_field', millet[0], millet[1]).ok, false, 'キビは元から作っていない');
+  const wheat = G.placeableTiles(c, tier, 'wheat_farm')[0];
+  assert.ok(G.placeProducer(w, 'kohaku', 'wheat_farm', wheat[0], wheat[1]).ok, '麦は増産できる');
+});

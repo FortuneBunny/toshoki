@@ -40,10 +40,16 @@ function migrateV1(data) {
   data.version = 2;
 }
 
+// 元から作っている品の記録がない区画には、今の生産から補う
+function ensureNative(data) {
+  for (const c of Object.values(data.cities)) if (c.district && !c.district.native) c.district.native = Object.keys(c.produces || {}).filter((g) => (c.produces[g] || 0) > 0);
+}
+
 export function deserialize(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (data.version === 1) migrateV1(data);
   if (data.version !== SAVE_VERSION) throw new Error(`セーブデータの版が違う（${data.version}）`);
+  ensureNative(data);
   const sc = resolveScenario(data.scenarioId, data.seed);
   if (!sc) throw new Error(`不明なシナリオ: ${data.scenarioId}`);
   const overrides = data.scenarioOverrides;

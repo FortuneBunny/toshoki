@@ -35,6 +35,8 @@ export function openDistrict(app, cityId) {
     else if (!here) add(palette, h('div', { class: 'faint' }, '置くには、この町に商人がいるか、定期便が回っている必要がある'));
     for (const [k, p] of Object.entries(G.PRODUCERS)) {
       if (!world.scenario.goods.includes(p.good)) continue;
+      const nativeOnly = ['food', 'sweet'].includes(G.GOODS[p.good].kind) && !(d.native || []).includes(p.good);
+      if (nativeOnly) continue;
       const n = G.placeableTiles(city, tier, k).length;
       const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
       add(palette, h('button', {

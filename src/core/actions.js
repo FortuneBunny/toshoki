@@ -119,6 +119,8 @@ export function placeProducer(world, cityId, type, x, y) {
   if (!city || !p) return fail('置けない');
   if (!districtEnabled(world)) return fail('このシナリオでは区画に建物を置けない');
   if (!world.scenario.goods.includes(p.good)) return fail(`${p.name}はこのシナリオでは建てられない（${GOODS[p.good].name}を扱わない）`);
+  // 食べ物と甘味は、その町が元から作っている品の増産だけ（町の中で食卓をそろえると、交易で町を育てる意味が消えるため）
+  if (['food', 'sweet'].includes(GOODS[p.good].kind) && !(city.district.native || []).includes(p.good)) return fail(`${city.name}の土地では${GOODS[p.good].name}は育たない（食べ物と甘味は、元から作っている品だけ増産できる。ほかの町から運ぼう）`);
   if (!hasPresence(world, cityId)) return fail('置くには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   const why = placeCheck(city, cityTier(city), type, x, y);
   if (why) return fail(why);
