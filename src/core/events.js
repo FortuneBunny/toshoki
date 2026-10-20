@@ -11,6 +11,7 @@ import { BUILDINGS } from '../data/buildings.js';
 export function emit(world, ev) {
   const e = { day: world.day, ...ev };
   world.events.push(e);
+  if (e.quiet) return e;
   world.log.push(e);
   if (world.log.length > 300) world.log.splice(0, world.log.length - 300);
   return e;
