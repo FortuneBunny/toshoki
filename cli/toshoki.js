@@ -716,6 +716,14 @@ function run(world, cmd, pos, opts) {
       const lines = resolveAll(world, m, parseTradeLines(pos));
       if (!lines.length) throw new Error('取引する数量が0');
       out.push(...notes.splice(0));
+      // まとめ買いで単価が大きく上がるなら、買う前に知らせる（取引はそのまま行う）
+      for (const l of lines) {
+        if (l.qty <= 1) continue;
+        const city = world.cities[m.city];
+        const first = G.quote(world, city, l.good, 1);
+        const avg = G.quote(world, city, l.good, l.qty) / l.qty;
+        if (avg > first * 1.4) out.push(`⚠ ${gname(l.good)}はまとめて買うと値上がりする（1個目 ${fmt(first)} → 平均 ${fmt(avg)}）。少なめに買うか quote で確かめよう`);
+      }
       const r = after(G.trade(world, m.id, lines));
       for (const row of r.rows) out.push(`  ${row.qty > 0 ? '買' : '売'} ${gname(row.good)} ×${Math.abs(row.qty)}  ${row.total > 0 ? '+' : ''}${fmt(row.total)} 銀`);
       out.push(`銀 ${Math.floor(world.player.silver)}（${r.silverDelta >= 0 ? '+' : ''}${fmt(r.silverDelta)}）  積載 ${G.cargoUsed(m)}/${G.cargoCap(m)}`);
