@@ -199,3 +199,24 @@ test('区画: 食べ物と甘味は、町が元から作っている品の増産
   const wheat = G.placeableTiles(c, tier, 'wheat_farm')[0];
   assert.ok(G.placeProducer(w, 'kohaku', 'wheat_farm', wheat[0], wheat[1]).ok, '麦は増産できる');
 });
+
+test('マス目: シナリオの道はすべて経路としてつながっている（陸は小道、海は船）', () => {
+  for (const id of [...G.SCENARIO_ORDER, 'free']) {
+    const w = G.createWorld(id, { seed: 1 });
+    for (const e of w.edges) {
+      const tr = e.kind === 'sea' ? 'dhow' : e.kind === 'road' ? 'cart' : 'donkey';
+      assert.ok(G.findPath(w, e.a, e.b, tr), `${id} ${e.a}-${e.b} が ${tr} でつながらない`);
+    }
+  }
+});
+
+test('マス目: 移動中の商人は経路のマスを進み、到着する', () => {
+  const w = G.createWorld('s2', { seed: 1 });
+  const r = G.travel(w, 1, 'kohaku');
+  assert.ok(r.ok);
+  const m = w.player.merchants[0];
+  assert.ok(m.travel.tiles.length > 5);
+  const adv = G.advance(w, r.days + 3);
+  assert.ok(adv.events.some((e) => e.type === 'arrive'));
+  assert.equal(m.city, 'kohaku');
+});

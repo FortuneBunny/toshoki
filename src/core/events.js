@@ -105,7 +105,9 @@ const EVENT_TYPES = [
     fire(world, city) {
       const edges = world.edges.filter((e) => e.kind === 'desert' && (e.a === city.id || e.b === city.id));
       if (!edges.length) return null;
-      for (const e of edges) e.stormUntil = world.day + 8;
+      const [x, y] = world.grid.cityTiles[city.id];
+      world.storms = (world.storms || []).filter((s) => s.until > world.day);
+      world.storms.push({ x, y, r: 14, until: world.day + 8 });
       return { type: 'sandstorm', bad: true, text: `${city.name}周辺の砂漠で砂嵐。8日間、砂漠の道は進みが遅い` };
     },
   },

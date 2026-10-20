@@ -8,7 +8,8 @@ import { tick, addMerchant, drainEvents } from './world.js';
 import { cityTier } from './city.js';
 import { executeTrade, previewTrade, moveWarehouse } from './trade.js';
 import { departWithExpectation, validateOrder, runOrder } from './orders.js';
-import { cargoUsed, findPath } from './caravan.js';
+import { cargoUsed, findPath, canDepart } from './caravan.js';
+import { gridKey, P } from './grid.js';
 import { buildingInputs } from './production.js';
 import { placeCheck, placeableTiles, addBuilding, cityRadius, coordName, civicWants, civicsIn } from './district.js';
 import { PRODUCERS, CIVICS } from '../data/district.js';
@@ -86,7 +87,7 @@ export function buyTransport(world, mid, type) {
   if (!canBuyTransportAt(world, city, type)) return fail(`${city.name}では${t.name}を買えない`);
   if (cargoUsed(m) > Math.floor(t.cap * (m.capMult ?? 1))) return fail('今の積荷が載り切らない');
   // 今いる町から1本も通れる道がないなら買わせない（立ち往生の罠を防ぐ）
-  if (!world.edges.some((e) => (e.a === m.city || e.b === m.city) && t.modes.includes(e.kind))) {
+  if (!canDepart(world, m.city, type)) {
     return fail(`${city.name}からは${t.name}で通れる道がない（${t.modes.map((x) => ROUTE_KINDS[x].name).join('・')}が必要）`);
   }
   const refund = TRANSPORTS[m.transport].cost * 0.5;
@@ -323,6 +324,11 @@ export function upgradeRoad(world, edgeId) {
   if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
   world.player.silver -= cost;
   e.kind = 'road';
+  for (const [x, y] of world.grid.edgeTiles[e.id] || []) {
+    const k = gridKey(x, y);
+    if (world.grid.path[k] < P.ROAD) { world.grid.path[k] = P.ROAD; world.gridMods.push({ x, y, path: P.ROAD }); }
+  }
+  world.grid.version++;
   emit(world, { type: 'road', big: true, text: `${world.cities[e.a].name}〜${world.cities[e.b].name}の小道を街道に整備した！荷車が通れる` });
   return { ok: true, cost };
 }

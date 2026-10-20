@@ -1,10 +1,12 @@
-// 商人の移動: 経路探索、移動日数、砂漠での食料、盗賊
+// 商人の移動（G0: マス目の上の経路探索）
+// 経路は A* でマス単位に求め、1マスずつ進む。1マスにかかる日数は「地形 × 道 × 輸送手段」で決まる。
 import { GOODS, PROVISIONS } from '../data/goods.js';
 import { TRANSPORTS, DESERT_SLOW } from '../data/transports.js';
 import { BALANCE as B } from '../data/balance.js';
 import { chance, randInt } from './rng.js';
 import { emit } from './events.js';
 import { arriveAt } from './orders.js';
+import { GRID_W, GRID_H, TILE_LEN, T, P, astar, gridKey } from './grid.js';
 
 export function seasonOf(world) {
   const d = world.day % 360;
@@ -12,60 +14,120 @@ export function seasonOf(world) {
 }
 export const SEASON_NAMES = ['夏の季節風（東へ）', '冬の季節風（西へ）'];
 
+// 今の路線図との日数合わせ（A* の経路は直線より少し長くなるため）
+const CALIB = 0.9;
+
 export function canUse(edge, transportId) {
   return TRANSPORTS[transportId].modes.includes(edge.kind);
-}
-
-// edge を from から渡るのにかかる日数
-export function edgeDays(world, edge, transportId, from, merchant) {
-  const t = TRANSPORTS[transportId];
-  let speed = t.speed * (1 + (world.player.mods?.speed || 0));
-  if (edge.kind === 'desert') speed *= DESERT_SLOW[transportId] ?? 1;
-  let days = edge.len / speed;
-  if (edge.kind === 'desert' && edge.stormUntil > world.day) days *= 1.8;
-  if (edge.monsoon) {
-    const forward = from === edge.a;
-    const favorable = seasonOf(world) === 0 ? forward : !forward;
-    days *= favorable ? 0.7 : 1.7;
-  }
-  return Math.max(1, Math.round(days));
 }
 
 export function neighbors(world, cityId) {
   return world.edges.filter((e) => e.a === cityId || e.b === cityId);
 }
 
-// 日数が最短の経路（Dijkstra）。通れない場合は null
-export function findPath(world, from, to, transportId) {
-  if (from === to) return { path: [from], edges: [], days: 0 };
-  const dist = { [from]: 0 };
-  const prev = {};
-  const done = new Set();
-  while (true) {
-    let cur = null;
-    for (const [k, v] of Object.entries(dist)) if (!done.has(k) && (cur === null || v < dist[cur])) cur = k;
-    if (cur === null) return null;
-    if (cur === to) break;
-    done.add(cur);
-    for (const e of neighbors(world, cur)) {
-      if (!canUse(e, transportId)) continue;
-      const next = e.a === cur ? e.b : e.a;
-      const nd = dist[cur] + edgeDays(world, e, transportId, cur);
-      if (dist[next] === undefined || nd < dist[next]) {
-        dist[next] = nd;
-        prev[next] = { city: cur, edge: e };
-      }
+const isShip = (id) => TRANSPORTS[id].modes.includes('sea');
+
+function inStorm(world, x, y) {
+  for (const s of world.storms || []) if (s.until > world.day && Math.hypot(s.x - x, s.y - y) <= s.r) return true;
+  return false;
+}
+
+// そのマスに入るのにかかる日数（1マスぶん、斜めの補正は呼ぶ側）。通れなければ Infinity
+export function tileDays(world, k, transportId, dx) {
+  const grid = world.grid;
+  const t = TRANSPORTS[transportId];
+  const ter = grid.terrain[k];
+  const isCity = grid.cityAt.has(k);
+  const speed = t.speed * (1 + (world.player.mods?.speed || 0));
+  let f;
+  if (isShip(transportId)) {
+    if (ter !== T.WATER && !isCity) return Infinity;
+    f = 1;
+    // 季節風: 夏は東向き、冬は西向きが追い風
+    if (dx) {
+      const favorable = seasonOf(world) === 0 ? dx > 0 : dx < 0;
+      f *= favorable ? 0.7 : 1.7;
+    }
+  } else {
+    if ((ter === T.WATER || ter === T.MOUNTAIN) && !isCity) return Infinity;
+    const onPath = grid.path[k] > P.NONE || isCity;
+    if (transportId === 'cart' && grid.path[k] < P.ROAD && !isCity) return Infinity;
+    if (onPath) f = ter === T.HILL ? 1.3 : 1;
+    else f = ter === T.HILL ? 3.5 : ter === T.SAND ? (transportId === 'camel' ? 1.6 : 3) : 2.2; // 道なき道
+    if (ter === T.SAND) {
+      f /= DESERT_SLOW[transportId] ?? 1;
+      if (inStorm(world, k % GRID_W, Math.floor(k / GRID_W))) f *= 1.8;
     }
   }
-  const path = [to];
-  const edges = [];
-  let c = to;
-  while (c !== from) {
-    edges.unshift(prev[c].edge);
-    c = prev[c].city;
-    path.unshift(c);
+  return ((TILE_LEN * CALIB) / speed) * f;
+}
+
+function routeTiles(world, a, b, transportId) {
+  const cost = (k, dx) => tileDays(world, k, transportId, dx);
+  // 最小の重み（ヒューリスティック用）: 速い輸送手段の追い風
+  const t = TRANSPORTS[transportId];
+  const minCost = ((TILE_LEN * CALIB) / (t.speed * 1.3)) * 0.69;
+  return astar(a, b, cost, { minCost, directional: true });
+}
+
+// 町から町への経路。通れなければ null
+export function findPath(world, from, to, transportId) {
+  if (from === to) return { path: [from], edges: [], days: 0, total: 0, tiles: [], steps: [] };
+  const grid = world.grid;
+  const ck = `${from}>${to}:${transportId}:${seasonOf(world)}:${grid.version}:${(world.storms || []).filter((s) => s.until > world.day).length}:${world.player.mods?.speed || 0}`;
+  world.routeCache = world.routeCache || new Map();
+  if (world.routeCache.has(ck)) return world.routeCache.get(ck);
+  const tiles = routeTiles(world, grid.cityTiles[from], grid.cityTiles[to], transportId);
+  let res = null;
+  if (tiles) {
+    const steps = [];
+    let total = 0;
+    let desertDays = 0;
+    let danger = 0;
+    let water = false;
+    for (let i = 1; i < tiles.length; i++) {
+      const [x, y] = tiles[i];
+      const [px, py] = tiles[i - 1];
+      const k = gridKey(x, y);
+      const d = tileDays(world, k, transportId, x - px) * (x !== px && y !== py ? Math.SQRT2 : 1);
+      steps.push(d);
+      total += d;
+      if (grid.terrain[k] === T.SAND) desertDays += d;
+      if (grid.terrain[k] === T.WATER) water = true;
+      danger = Math.max(danger, grid.danger[k]);
+    }
+    const days = Math.max(1, Math.round(total));
+    // 互換: 今までの「道の一覧」の代わりに、砂漠の区間とそれ以外の区間をまとめた疑似的な道を返す
+    const edges = [];
+    if (desertDays > 0.01) edges.push({ id: -1, synthetic: true, kind: 'desert', days: Math.round(desertDays), danger, a: from, b: to, len: 0 });
+    edges.push({ id: -2, synthetic: true, kind: water ? 'sea' : 'trail', days: Math.max(0, Math.round(total - desertDays)), danger, monsoon: water, a: from, b: to, len: 0 });
+    res = { path: [from, to], edges, days, total, tiles, steps, desertDays: Math.round(desertDays), danger };
   }
-  return { path, edges, days: dist[to] };
+  if (world.routeCache.size > 2000) world.routeCache.clear();
+  world.routeCache.set(ck, res);
+  return res;
+}
+
+// 互換: 疑似的な道はその日数、昔の道は長さから
+export function edgeDays(world, edge, transportId) {
+  if (edge.synthetic) return edge.days;
+  const t = TRANSPORTS[transportId];
+  let days = edge.len / (t.speed * (1 + (world.player.mods?.speed || 0)));
+  if (edge.kind === 'desert') days /= DESERT_SLOW[transportId] ?? 1;
+  return Math.max(1, Math.round(days));
+}
+
+// 町から、その輸送手段で出られるか（まわりに通れるマスがあるか）
+export function canDepart(world, cityId, transportId) {
+  const [cx, cy] = world.grid.cityTiles[cityId];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const x = cx + dx;
+    const y = cy + dy;
+    if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) continue;
+    if (Number.isFinite(tileDays(world, gridKey(x, y), transportId, dx))) return true;
+  }
+  return false;
 }
 
 export function cargoUsed(m) {
@@ -80,28 +142,22 @@ export function cargoCap(m) {
 export function startTravel(world, m, to) {
   const route = findPath(world, m.city, to, m.transport);
   if (!route) return { ok: false, error: `${TRANSPORTS[m.transport].name}では${world.cities[to].name}へ行けない` };
-  m.travel = { path: route.path, leg: 0, daysLeft: 0, legDays: 0, to, from: m.city, totalDays: route.days, elapsed: 0 };
-  beginLeg(world, m);
+  m.travel = { path: [m.city, to], to, from: m.city, tiles: route.tiles, steps: route.steps, i: 0, part: 0, totalDays: route.total, elapsed: 0 };
   m.city = null;
   return { ok: true, days: route.days };
 }
 
-function beginLeg(world, m) {
+// 今いるマス（移動中）
+export function travelTile(m) {
   const t = m.travel;
-  const a = t.path[t.leg];
-  const b = t.path[t.leg + 1];
-  const edge = world.edges.find((e) => (e.a === a && e.b === b) || (e.a === b && e.b === a));
-  t.edge = edge.id;
-  t.legDays = edgeDays(world, edge, m.transport, a, m);
-  t.daysLeft = t.legDays;
+  return t.tiles[Math.min(t.i, t.tiles.length - 1)];
 }
 
-function eatProvisions(world, m, edge) {
-  if (edge.kind !== 'desert') return;
+function eatProvisions(world, m) {
   // 端数は持ち越して、まとまったら1個食べる
   m.hunger = (m.hunger || 0) + cargoCap(m) * B.provisionPerCap;
   let left = Math.floor(m.hunger);
-  if (left <= 0) return;
+  if (left <= 0) return false;
   m.hunger -= left;
   for (const id of PROVISIONS) {
     const have = m.cargo[id] || 0;
@@ -113,30 +169,29 @@ function eatProvisions(world, m, edge) {
     }
     if (!left) break;
   }
-  if (left > 0) {
-    m.hunger += left;
-    // 食料が尽きた: 進みが遅れ、積荷の一部を失う
-    m.travel.daysLeft += 1 / B.starveSlow;
-    let lost = 0;
-    for (const id of Object.keys(m.cargo)) {
-      const q = Math.floor(m.cargo[id] * B.starveLoss);
-      m.cargo[id] -= q;
-      lost += q;
-      if (!m.cargo[id]) delete m.cargo[id];
-    }
-    if (!m.starveWarned) {
-      emit(world, { type: 'starve', merchant: m.id, bad: true, text: `${m.name}の隊商は砂漠で食料が尽きた！進みが遅れ、積荷を失っている（食料は なつめやし・干しぶどう・キビ・麦・米）` });
-      m.starveWarned = true;
-    }
-    world.stats.starvedLoss = (world.stats.starvedLoss || 0) + lost;
+  if (left <= 0) return false;
+  m.hunger += left;
+  // 食料が尽きた: 進みが遅れ、積荷の一部を失う
+  let lost = 0;
+  for (const id of Object.keys(m.cargo)) {
+    const q = Math.floor(m.cargo[id] * B.starveLoss);
+    m.cargo[id] -= q;
+    lost += q;
+    if (!m.cargo[id]) delete m.cargo[id];
   }
+  if (!m.starveWarned) {
+    emit(world, { type: 'starve', merchant: m.id, bad: true, text: `${m.name}の隊商は砂漠で食料が尽きた！進みが遅れ、積荷を失っている（食料は なつめやし・干しぶどう・キビ・麦・米）` });
+    m.starveWarned = true;
+  }
+  world.stats.starvedLoss = (world.stats.starvedLoss || 0) + lost;
+  return true;
 }
 
-function banditCheck(world, m, edge) {
-  if (!edge.danger || !world.scenario.bandits) return;
-  const p = B.banditBase * edge.danger * (world.player.mods?.safety ?? 1);
+function banditCheck(world, m, danger) {
+  if (!danger || !world.scenario.bandits) return;
+  const p = B.banditBase * danger * (world.player.mods?.safety ?? 1);
   if (!chance(world, p)) return;
-  const power = randInt(world, B.banditPower[0], Math.round(B.banditPower[1] * Math.min(1.5, (1 + edge.danger) / 2)));
+  const power = randInt(world, B.banditPower[0], Math.round(B.banditPower[1] * Math.min(1.5, (1 + danger) / 2)));
   const guard = m.guards * B.guardPower;
   if (guard >= power) {
     world.player.rep += 10;
@@ -160,23 +215,34 @@ function banditCheck(world, m, edge) {
 export function stepTravel(world, m) {
   const t = m.travel;
   if (!t) return;
-  const edge = world.edges.find((e) => e.id === t.edge);
-  eatProvisions(world, m, edge);
-  banditCheck(world, m, edge);
+  const grid = world.grid;
+  const [x, y] = travelTile(m);
+  const k = gridKey(x, y);
+  let budget = 1;
+  if (grid.terrain[k] === T.SAND && eatProvisions(world, m)) budget = 1 / B.starveSlow;
+  banditCheck(world, m, grid.danger[k]);
   world.player.silver -= m.guards * B.guardWage;
-  t.daysLeft -= 1;
   t.elapsed += 1;
-  if (t.daysLeft > 0.001) return;
-  t.leg += 1;
-  const reached = t.path[t.leg];
-  if (t.leg < t.path.length - 1) {
-    // 通過する町の相場も見える
-    world.passing = world.passing || [];
-    world.passing.push(reached);
-    beginLeg(world, m);
-    return;
+  while (budget > 1e-9 && t.i < t.steps.length) {
+    const need = t.steps[t.i] - t.part;
+    if (budget + 1e-9 >= need) {
+      budget -= need;
+      t.part = 0;
+      t.i += 1;
+      // 途中で通った町の相場も見える
+      const [tx, ty] = t.tiles[t.i];
+      const passed = grid.cityAt.get(gridKey(tx, ty));
+      if (passed && passed !== t.to && passed !== t.from) {
+        world.passing = world.passing || [];
+        world.passing.push(passed);
+      }
+    } else {
+      t.part += budget;
+      budget = 0;
+    }
   }
-  m.city = reached;
+  if (t.i < t.steps.length) return;
+  m.city = t.to;
   m.travel = null;
   m.starveWarned = false;
   m.guards = 0;

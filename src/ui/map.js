@@ -153,11 +153,12 @@ export function createMap(container, world, handlers) {
       return [c.x, c.y];
     }
     const t = m.travel;
-    const e = world.edges.find((x) => x.id === t.edge);
-    const g = geoms[e.id];
-    const from = t.path[t.leg];
-    const prog = Math.min(1, Math.max(0, 1 - t.daysLeft / Math.max(1, t.legDays)));
-    return bezier(g, prog, from === e.a);
+    const a = t.tiles[Math.min(t.i, t.tiles.length - 1)];
+    const b = t.tiles[Math.min(t.i + 1, t.tiles.length - 1)];
+    const f = t.steps[t.i] ? Math.min(1, t.part / t.steps[t.i]) : 0;
+    const [ax, ay] = G.tileCenterPx(a[0], a[1]);
+    const [bx, by] = G.tileCenterPx(b[0], b[1]);
+    return [ax + (bx - ax) * f, ay + (by - ay) * f];
   }
 
   return {
@@ -228,9 +229,10 @@ export function createMap(container, world, handlers) {
         const pos = unitPos(m);
         let flip = false;
         if (m.travel) {
-          const a = world.cities[m.travel.path[m.travel.leg]];
-          const b = world.cities[m.travel.path[m.travel.leg + 1]];
-          flip = b.x < a.x;
+          const t = m.travel;
+          const a = t.tiles[Math.min(t.i, t.tiles.length - 1)];
+          const b = t.tiles[Math.min(t.i + 1, t.tiles.length - 1)];
+          flip = b[0] < a[0];
         }
         place(`p${m.id}`, pos, m.transport, `mine ${state.selMerchant === m.id ? 'sel' : ''}`, String(i + 1), m.travel ? null : i, flip);
       });

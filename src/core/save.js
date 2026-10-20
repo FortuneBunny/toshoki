@@ -2,6 +2,7 @@
 import { SCENARIOS } from '../data/scenarios.js';
 import { SAVE_VERSION, resolveScenario } from './world.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
+import { buildGrid } from './grid.js';
 import { BALANCE } from '../data/balance.js';
 const tierOf = (pop) => BALANCE.tierPops.reduce((t, p, i) => (pop >= p ? i : t), 0);
 
@@ -56,5 +57,9 @@ export function deserialize(json) {
   delete data.scenarioOverrides;
   Object.defineProperty(data, 'scenario', { value: overrides ? { ...sc, ...overrides } : sc, enumerable: false, writable: true });
   Object.defineProperty(data, 'hopDistance', { value: hopTable(data), enumerable: false, writable: true });
+  data.gridMods = data.gridMods || [];
+  data.storms = data.storms || [];
+  Object.defineProperty(data, 'grid', { value: buildGrid(data), enumerable: false, writable: true });
+  Object.defineProperty(data, 'routeCache', { value: new Map(), enumerable: false, writable: true });
   return data;
 }

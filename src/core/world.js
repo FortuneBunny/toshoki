@@ -15,6 +15,7 @@ import { updateProduction } from './production.js';
 import { updateRivals } from './rival.js';
 import { checkGoals } from './scoring.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
+import { buildGrid } from './grid.js';
 import { PRODUCERS } from '../data/district.js';
 
 export const SAVE_VERSION = 2;
@@ -97,6 +98,11 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   });
   world.hopDistance = hopTable(world.cities, world.edges);
   Object.defineProperty(world, 'hopDistance', { enumerable: false, writable: true, value: world.hopDistance });
+  // 世界のマス目（地形・道）。シードから毎回作り直せるので保存しない
+  world.gridMods = [];
+  world.storms = [];
+  Object.defineProperty(world, 'grid', { enumerable: false, writable: true, value: buildGrid(world) });
+  Object.defineProperty(world, 'routeCache', { enumerable: false, writable: true, value: new Map() });
 
   // 区画: 町の中のマス目。生産は区画の建物から集計する（開始時の合計は produces と同じ）
   for (const c of Object.values(world.cities)) {
