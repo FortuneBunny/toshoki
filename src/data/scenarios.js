@@ -53,7 +53,7 @@ const s2 = {
 
 const s3 = {
   id: 's3', no: 3, title: '糖蜜の煙',
-  intro: 'サトウキビは安いが、そのままでは価値が低い。サトウキビの産地・甘蔗の里に製糖所を建てれば、地元のサトウキビを自動で仕入れて白糖に精製してくれる。できた白糖を大都市・翠糖京へ運んで売れ。うまくいった往復は「定期便」にして自動化しよう。白糖を200個つくり、資産を5000銀にせよ。',
+  intro: 'サトウキビは安いが、そのままでは価値が低い。サトウキビの産地・甘蔗の里に製糖所を建てれば、地元のサトウキビを自動で仕入れて白糖に精製してくれる。できた白糖を大都市・翠糖京へ運んで売れ。うまくいった往復は「定期便」にして自動化しよう。白糖を200個つくり、資産を5000銀にし、定期便で甘蔗の里と翠糖京を3往復させよ。',
   goods: ['wheat', 'dates', 'honey', 'cane', 'rawsugar', 'molasses', 'whitesugar', 'sweets'],
   start: { silver: 750, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'toumitsu' }] },
   cities: [
@@ -73,7 +73,7 @@ const s3 = {
     { a: 'suitou', b: 'natsu', kind: 'trail' },
     { a: 'kibi', b: 'natsu', kind: 'trail', lenMul: 1.1 },
   ],
-  goals: [{ type: 'produce', good: 'whitesugar', amount: 200 }, { type: 'networth', amount: 5000 }],
+  goals: [{ type: 'produce', good: 'whitesugar', amount: 200 }, { type: 'networth', amount: 5000 }, { type: 'link', a: 'kibi', b: 'suitou', count: 3 }],
   deadline: 420, rankS: 0.33,
   tutorial: [
     { text: '甘蔗の里へ行く（街道で約6日）', done: (w) => w.player.merchants.some((m) => m.city === 'kibi') || w.player.buildings.length > 0 },
@@ -81,6 +81,7 @@ const s3 = {
     { text: '数日待つと、サトウキビ → 粗糖 → 白糖とできる。白糖を倉庫から積む（交易画面の倉庫 / CLI: load whitesugar all）', done: (w) => w.player.merchants.some((m) => m.cargo.whitesugar > 0) || (w.stats.soldTotal.whitesugar || 0) > 0 },
     { text: '翠糖京で白糖を売る（大都市ほど高く売れる）', done: (w) => (w.stats.soldTotal.whitesugar || 0) > 0 },
     { text: 'この往復を定期便にする（甘蔗の里で「積む: 白糖」、翠糖京で「売る: 白糖」）', done: (w) => w.player.merchants.some((m) => m.order) },
+    { text: '技術「精製の秘法」を買うと工房の生産が増える（上の「技術」/ CLI: techs）', done: (w) => !!w.techs?.refinery },
   ],
   transports: ['donkey', 'cart'],
   buildings: ['mill', 'confectionery', 'road'],
@@ -126,7 +127,7 @@ const s4 = {
 
 const s5 = {
   id: 's5', no: 5, title: '甘い熱狂',
-  intro: '祭都は甘味に飢えている。よく食べている町（糖度140以上）に甘味を2種類以上まとめて届けるとシュガーラッシュ──甘味が飛ぶように売れる。だが熱狂のあとにはクラッシュが来て、町の成長が止まる。甘味は甘蔗浜（粗糖・白糖）とぶどう谷（蜂蜜）で手に入る。ラッシュを2回起こしつつ、祭都を「都市」に育てよ。',
+  intro: '祭都は甘味に飢えている。よく食べている町（糖度140以上）に甘味を2種類以上まとめて届けるとシュガーラッシュ──甘味が飛ぶように売れる。だが熱狂のあとにはクラッシュが来て、町の成長が止まる。甘味は甘蔗浜（粗糖・白糖）とぶどう谷（蜂蜜）で手に入る。ラッシュを2回起こしつつ、祭都を「都市」に育てよ。祭りの都にふさわしく、稲田・ぶどう谷・甘蔗浜から祭都へ街道を通すこと（町の画面の「街道を敷く」/ CLI: path）。',
   goods: ['wheat', 'rice', 'dates', 'grapes', 'honey', 'rawsugar', 'malt', 'mizuame', 'wine', 'sweets', 'whitesugar'],
   start: { silver: 700, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'saito' }, { name: 'ライラ', portrait: 'merchant-2', city: 'saito' }] },
   cities: [
@@ -145,7 +146,7 @@ const s5 = {
     { a: 'ine', b: 'budou', kind: 'trail' },
     { a: 'satou', b: 'natsu', kind: 'trail' },
   ],
-  goals: [{ type: 'rushes', city: 'saito', count: 2 }, { type: 'cityTier', city: 'saito', tier: 3 }],
+  goals: [{ type: 'rushes', city: 'saito', count: 2 }, { type: 'cityTier', city: 'saito', tier: 3 }, { type: 'network', cities: ['saito', 'ine', 'budou', 'satou'], mode: 'road' }],
   deadline: 420, rankS: 0.45,
   transports: ['donkey', 'cart'],
   techs: { refinery: { from: 30 }, wheel: { from: 0 } },
@@ -178,7 +179,7 @@ const s6 = {
     { a: 'misaki', b: 'chanoshima', kind: 'sea' },
   ],
   goals: [{ type: 'deliver', good: 'spice', city: 'byakudan', amount: 200 }, { type: 'networth', amount: 9000 }],
-  deadline: 480, rankS: 0.45,
+  deadline: 480, rankS: 0.4,
   transports: ['donkey', 'dhow', 'carrack'],
   techs: { relay: { from: 30 } },
   events: true, contracts: true, bandits: false, newsDaysPerHop: 5,
@@ -188,7 +189,7 @@ const s6 = {
 
 const s7 = {
   id: 's7', no: 7, title: '白い黄金',
-  intro: '白糖は「白い黄金」と呼ばれる。紫衣のサルマン商会は南キビ村に製糖所を持ち、白糖を各地へ運んで値を崩していく。工房と定期便を整え、白糖を売った数でサルマン商会を上回れ（仕入れた町での売り戻しは数えない）。',
+  intro: '白糖は「白い黄金」と呼ばれる。紫衣のサルマン商会は南キビ村に製糖所を持ち、白糖を各地へ運んで値を崩していく。工房と定期便を整え、白糖を売った数でサルマン商会を上回れ（市場で買った白糖は差し引く＝自分で作った分の勝負）。精製の技術は先に買った方が独占できる（上の「技術」/ CLI: techs）。',
   goods: ['wheat', 'dates', 'honey', 'cane', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'salt'],
   start: { silver: 900, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'hakuto' }] },
   cities: [
@@ -227,7 +228,7 @@ const s7 = {
 
 const s8 = {
   id: 's8', no: 8, title: 'グルコース・ロード',
-  intro: '西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げよ。一族の名を歴史に刻め。',
+  intro: '西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げよ。さらに、地図の空き地に交易所を開き「町」に育てて、一族の新しい拠点とせよ（上の「交易所」/ CLI: sites）。駅伝制や大型帆船は技術として買える。一族の名を歴史に刻め。',
   goods: ['wheat', 'rice', 'millet', 'dates', 'grapes', 'raisins', 'cane', 'honey', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'sugarart', 'wine', 'silk', 'spice', 'tea', 'pottery', 'salt'],
   start: { silver: 1200, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'kohaku' }, { name: 'ライラ', portrait: 'merchant-2', city: 'kohaku' }] },
   cities: [
@@ -267,8 +268,8 @@ const s8 = {
     name: 'サルマン商会', silver: 1500, skill: 0.8, goods: ['wheat', 'rice', 'dates', 'rawsugar', 'whitesugar', 'silk', 'spice', 'tea', 'salt'],
     merchants: [{ city: 'hari', transport: 'camel', wait: 5 }, { city: 'seikai', transport: 'donkey', wait: 10 }],
   }],
-  goals: [{ type: 'cityTier', city: 'kohaku', tier: 4 }, { type: 'networth', amount: 25000 }],
-  deadline: 900, rankS: 0.5,
+  goals: [{ type: 'cityTier', city: 'kohaku', tier: 4 }, { type: 'networth', amount: 25000 }, { type: 'postTier', tier: 2 }],
+  deadline: 900, rankS: 0.45,
   transports: ['donkey', 'camel', 'cart', 'dhow'],
   buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],
   techs: { relay: { from: 120 }, carrack: { from: 240 }, refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 60 } },

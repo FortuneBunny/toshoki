@@ -69,6 +69,15 @@ export function goalProgress(world, g) {
       const names = g.cities.map((id) => world.cities[id].name).join('・');
       return { p: got / g.cities.length, text: `${names}を${g.mode === 'trail' ? '道' : g.mode === 'sea' ? '航路' : '街道'}でつなぐ（${got}/${g.cities.length}町）` };
     }
+    case 'postTier': {
+      // 自分で開いた交易所を育てる
+      const posts = Object.values(world.cities).filter((c) => c.founded);
+      const best = posts.reduce((b, c) => (!b || c.pop > b.pop ? c : b), null);
+      const hi = B.tierPops[g.tier];
+      if (!best) return { p: 0, text: `交易所を開いて「${tierName(g.tier)}」に育てる（まだ開いていない。上の「交易所」/ CLI: sites）` };
+      const t = cityTier(best);
+      return { p: t >= g.tier ? 1 : Math.min(0.99, best.pop / hi), text: `交易所を開いて「${tierName(g.tier)}」に育てる（${best.name} 人口 ${Math.floor(best.pop)}/${hi}）` };
+    }
     case 'cityPop': {
       const c = world.cities[g.city];
       return { p: c.pop / g.pop, text: `${c.name}の人口を ${g.pop} にする（今 ${Math.floor(c.pop)}）` };

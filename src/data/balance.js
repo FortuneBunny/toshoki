@@ -37,7 +37,7 @@ export const BALANCE = {
   rushDays: 8,
   rushSweetDemand: 1.8,
   rushGrowthBonus: 0.004,
-  crashDays: 14,
+  crashDays: 18,               // ラッシュ（8日）より長く効く。わざと起こし続けると損になるように
   crashSweetDemand: 0.3,
   crashSweetGlu: 0.25,
   crashGrowth: -0.002,
