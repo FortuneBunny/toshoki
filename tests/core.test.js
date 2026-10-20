@@ -121,3 +121,30 @@ test('区画: 版1のセーブは読み込み時に区画を作って移す', ()
   for (const c of Object.values(w2.cities)) assert.ok(c.district?.buildings.length >= 1);
   G.advance(w2, 5, silent);
 });
+
+test('区画: 生産施設を置くと町の生産が増え、条件に合わないマスには置けない', () => {
+  const w = G.createWorld('s2', { seed: 2 });
+  w.player.silver = 5000;
+  const c = w.cities.mugi;
+  const before = c.produces.wheat;
+  const [x, y] = G.placeableTiles(c, G.cityTier(c), 'wheat_farm')[0];
+  assert.ok(G.placeProducer(w, 'mugi', 'wheat_farm', x, y).ok);
+  G.advance(w, 1, silent);
+  assert.ok(c.produces.wheat > before);
+  assert.equal(G.placeProducer(w, 'mugi', 'wheat_farm', x, y).ok, false, '同じマスには置けない');
+  assert.equal(G.placeProducer(w, 'mugi', 'wheat_farm', 0, 0).ok, false, '市場の圏の外には置けない');
+  assert.equal(G.placeProducer(w, 'natsume', 'wheat_farm', 6, 5).ok, false, '商人のいない町には置けない');
+  assert.ok(G.demolish(w, 'mugi', x, y).ok);
+  assert.equal(G.demolish(w, 'mugi', 6, 6).ok, false, '市場は取り壊せない');
+  const r0 = G.cityRadius(c, G.cityTier(c));
+  assert.ok(G.expandMarket(w, 'mugi').ok);
+  assert.equal(G.cityRadius(c, G.cityTier(c)), r0 + 1);
+});
+
+test('区画: シナリオ1では建物を置けない（見るだけ）', () => {
+  const w = G.createWorld('s1', { seed: 1 });
+  w.player.silver = 5000;
+  const c = w.cities.mugi;
+  const [x, y] = G.placeableTiles(c, G.cityTier(c), 'wheat_farm')[0];
+  assert.equal(G.placeProducer(w, 'mugi', 'wheat_farm', x, y).ok, false);
+});

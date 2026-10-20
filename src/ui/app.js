@@ -4,6 +4,7 @@ import { createMap } from './map.js';
 import { openTrade } from './tradeDialog.js';
 import { renderSide, departDialog, orderDialog, ledgerDialog, helpDialog, settingsDialog, resultDialog, titleScreen, modal } from './panels.js';
 import { sfx, setSound } from './audio.js';
+import { openDistrict } from './district.js';
 import * as fx from './juice.js';
 import * as G from '../core/index.js';
 
@@ -43,6 +44,7 @@ app.setSetting = (k, v) => {
 };
 
 app.toast = (text, opts) => fx.toast(text, opts);
+app.openDistrict = (id) => { setSpeed(0); openDistrict(app, id); };
 app.error = (text) => { sfx.error(); fx.toast(text, { kind: 'bad', icon: 'ui/crash' }); };
 app.modalClosed = () => { app.state.modals = Math.max(0, app.state.modals - 1); app.render(); };
 app.hasSave = () => !!store?.getItem(KEY_SAVE);
@@ -280,6 +282,7 @@ function mount(world) {
   add(root, app.els.top, app.els.goals, h('div', { class: 'main' }, mapWrap, h('div', { class: 'side' }, app.els.side, app.els.feed)), app.els.merchants);
   app.map = createMap(mapWrap, world, {
     onCity: (id) => onCityClick(id),
+    onCityDouble: (id) => app.openDistrict(id),
     onEdge: (id) => {
       const e = world.edges.find((x) => x.id === id);
       fx.toast(`${world.cities[e.a].name}〜${world.cities[e.b].name}: ${G.ROUTE_KINDS[e.kind].name}、距離${e.len}${e.danger ? `、危険度${e.danger}` : ''}`);
@@ -512,6 +515,7 @@ if (direct && (G.SCENARIOS[direct[1]] || direct[1] === 'free')) {
   app.startScenario(direct[1], /unlockall/.test(location.hash) ? undefined : null);
   if (/open=trade/.test(location.hash)) { app.state.modals++; openTrade(app, 1); }
   if (/open=order/.test(location.hash)) { app.state.modals++; orderDialog(app, 1); }
+  if (/open=district/.test(location.hash)) app.openDistrict(app.world.player.merchants[0].city);
   if (/open=city/.test(location.hash)) { app.state.selCity = app.world.player.merchants[0].city; app.render(); }
   if (/selftest/.test(location.hash)) { app.setSetting('sound', false); import('./selftest.js').then((m) => m.selftest(app)); }
   if (/open=result/.test(location.hash)) { app.world.finished = { win: true, rank: 'S', day: 100, score: 3200 }; app.state.modals++; resultDialog(app); }

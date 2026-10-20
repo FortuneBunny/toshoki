@@ -15,6 +15,7 @@ const s1 = {
   goals: [{ type: 'silver', amount: 600 }],
   deadline: 240, rankS: 0.35,
   events: false, contracts: false, bandits: false,
+  district: false, // 区画は見るだけ（建物を置くのは s2 から）
   tutorial: [
     { text: '麦の里で「交易」を開き、麦を買えるだけ買う', done: (w) => (w.stats.bought.wheat || 0) > 0 },
     { text: 'ナツメ泉へ出発する', done: (w) => w.stats.trips >= 1 },

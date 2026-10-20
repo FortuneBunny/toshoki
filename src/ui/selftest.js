@@ -37,6 +37,16 @@ export async function selftest(app) {
   await step('定期便が設定された', () => { if (!w().player.merchants[0].order) throw new Error('なし'); });
   await step('帳簿', () => { click('.topbar .btn', '帳簿'); click('.modal header .btn'); });
   await step('町パネル', () => { document.querySelector('.city-node').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await step('区画を開く', () => { app.openDistrict('mugi'); if (!document.querySelector('.district-map')) throw new Error('区画の画面がない'); });
+  await step('麦畑を選んで置く', () => {
+    w().player.silver = Math.max(w().player.silver, 1000);
+    click('.district-item', '麦畑');
+    const ok = [...document.querySelectorAll('.district-map polygon.tile')].find((p) => p.getAttribute('stroke') === '#7dff6a');
+    if (!ok) throw new Error('置けるマスが光っていない');
+    ok.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    if (!(w().stats.placed > 0)) throw new Error('置けていない');
+    click('.modal header .btn');
+  });
   await step('セーブとロード', () => { app.save(); app.loadSave(); if (!w()) throw new Error('ロード失敗'); });
   await wait(400);
   const box = document.createElement('pre');

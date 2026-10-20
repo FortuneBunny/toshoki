@@ -129,7 +129,7 @@ export function createMap(container, world, handlers) {
     const badges = s('g', { transform: 'translate(30,-46)' });
     const pick = s('text', { y: -54, 'text-anchor': 'middle', class: 'sub' }, '');
     const sprawl = s('g', { class: 'sprawl' });
-    const g = s('g', { class: 'city-node', transform: `translate(${c.x},${c.y})`, onclick: (ev) => handlers.onCity?.(c.id, ev) }, sprawl, glow, ringBg, ring, img, label, sub, badges, pick);
+    const g = s('g', { class: 'city-node', transform: `translate(${c.x},${c.y})`, onclick: (ev) => handlers.onCity?.(c.id, ev), ondblclick: (ev) => handlers.onCityDouble?.(c.id, ev) }, sprawl, glow, ringBg, ring, img, label, sub, badges, pick);
     cityLayer.append(g);
     cityEls[c.id] = { g, ring, img, sub, glow, badges, pick, sprawl, slots: houseSlots(c.id), houses: 0, imgKey: cityImage(c) };
   }

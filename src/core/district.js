@@ -1,6 +1,7 @@
 // 区画: 町の中のマス目。地形と資源の生成、建物の配置、町の生産量の集計。
 // 生成はワールドの乱数を使わない（町ごとのシードから作る）。今までの結果の再現性を保つため。
-import { DISTRICT_SIZE as N, DISTRICT_CENTER as C, MARKET_RADIUS, TERRAIN, PRODUCERS, PRODUCER_FOR } from '../data/district.js';
+import { DISTRICT_SIZE as N, DISTRICT_CENTER as C, MARKET_RADIUS, TERRAIN, RESOURCES, PRODUCERS, PRODUCER_FOR } from '../data/district.js';
+const RESOURCE_NAMES = Object.fromEntries(Object.entries(RESOURCES).map(([k, v]) => [k, v.name]));
 import { hashSeed } from './rng.js';
 
 function localRng(seed) {
@@ -118,9 +119,14 @@ export function generateDistrict(city, { seed, scenarioGoods = [] }) {
     if (!placed) buildings.push({ id: nextId++, type, x: C, y: C, owner: 'town', rate: total, virtual: true });
   }
 
-  // これから建てられる資源（シナリオの品で、まだこの町にないもの）を、外側に少しだけ
+  // 伸びしろ: 今ある資源のそばに空きの資源マスを足す（同じ品を増産できる）
+  for (const [good] of Object.entries(city.produces || {})) {
+    const type = PRODUCER_FOR[good];
+    if (type && PRODUCERS[type].resource) placeDeposit(d, r, PRODUCERS[type].resource, 2, 2, 5);
+  }
+  // これから建てられる資源（シナリオの品で、まだこの町にないもの）を、外側に
   const extra = scenarioGoods.map((g) => PRODUCER_FOR[g]).filter((t) => t && PRODUCERS[t].resource && !(city.produces || {})[PRODUCERS[t].good]);
-  for (const t of extra) if (r() < 0.22) placeDeposit(d, r, PRODUCERS[t].resource, 2, 3, 6);
+  for (const t of extra) if (r() < 0.4) placeDeposit(d, r, PRODUCERS[t].resource, 2, 3, 6);
 
   return { size: N, terrain: d.terrain.join(''), res: d.res.join(''), buildings, nextId, radiusBonus: 0 };
 }
@@ -140,6 +146,51 @@ export function tileAt(district, x, y) {
   if (!inside(x, y)) return null;
   const i = idx(x, y);
   return { x, y, terrain: district.terrain[i], res: district.res[i], building: district.buildings.find((b) => b.x === x && b.y === y && !b.virtual) || null };
+}
+
+// その町の今の市場の圏
+export function cityRadius(city, tier) {
+  return marketRadius(tier, city.district.radiusBonus || 0);
+}
+
+// (x, y) に type を置けるか。置けなければ理由を返す
+export function placeCheck(city, tier, type, x, y) {
+  const d = city.district;
+  if (!inside(x, y)) return '区画の外';
+  const i = idx(x, y);
+  if (dist(x, y) > cityRadius(city, tier)) return '市場の圏の外（町が育つか、圏を広げると置ける）';
+  if (TERRAIN[d.terrain[i]].blocked) return '水辺には置けない';
+  if (d.buildings.some((b) => b.x === x && b.y === y && !b.virtual)) return 'すでに建物がある';
+  const p = PRODUCERS[type];
+  if (p) {
+    if (p.resource && d.res[i] !== p.resource) return `${p.name}は「${RESOURCE_NAMES[p.resource]}」のマスにしか置けない`;
+    if (!p.resource && !p.terrain.includes(d.terrain[i])) return `${p.name}は${p.terrain.map((t) => TERRAIN[t].name).join('・')}にしか置けない`;
+  }
+  return null;
+}
+
+// 置けるマスの一覧（中心に近い順）
+export function placeableTiles(city, tier, type) {
+  const out = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!placeCheck(city, tier, type, x, y)) out.push([x, y]);
+  return out.sort((a, b) => dist(a[0], a[1]) - dist(b[0], b[1]));
+}
+
+export function addBuilding(city, b) {
+  const d = city.district;
+  const nb = { id: d.nextId++, ...b };
+  d.buildings.push(nb);
+  return nb;
+}
+
+// 座標の表記: 列は A〜L、行は 1〜12（例: C5）
+export const coordName = (x, y) => `${String.fromCharCode(65 + x)}${y + 1}`;
+export function parseCoord(s) {
+  const m = /^([A-La-l])\s*(\d{1,2})$/.exec(String(s || '').trim());
+  if (!m) return null;
+  const x = m[1].toUpperCase().charCodeAt(0) - 65;
+  const y = Number(m[2]) - 1;
+  return inside(x, y) ? [x, y] : null;
 }
 
 export { idx as tileIndex, inside as tileInside, dist as tileDist };

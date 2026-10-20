@@ -10,6 +10,8 @@ import { executeTrade, previewTrade, moveWarehouse } from './trade.js';
 import { departWithExpectation, validateOrder, runOrder } from './orders.js';
 import { cargoUsed, findPath } from './caravan.js';
 import { buildingInputs } from './production.js';
+import { placeCheck, placeableTiles, addBuilding, cityRadius, coordName } from './district.js';
+import { PRODUCERS } from '../data/district.js';
 import { emit } from './events.js';
 import { checkGoals } from './scoring.js';
 import { gainRep as gainRepFromAction } from './trade.js';
@@ -106,6 +108,62 @@ export function buildCost(world, type) {
   return Math.round(BUILDINGS[type].cost * (world.player.mods?.buildCost ?? 1));
 }
 
+// ---------- 区画 ----------
+export function districtEnabled(world) {
+  return world.scenario.district !== false;
+}
+
+export function placeProducer(world, cityId, type, x, y) {
+  const city = world.cities[cityId];
+  const p = PRODUCERS[type];
+  if (!city || !p) return fail('置けない');
+  if (!districtEnabled(world)) return fail('このシナリオでは区画に建物を置けない');
+  if (!world.scenario.goods.includes(p.good)) return fail(`${p.name}はこのシナリオでは建てられない（${GOODS[p.good].name}を扱わない）`);
+  if (!hasPresence(world, cityId)) return fail('置くには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
+  const why = placeCheck(city, cityTier(city), type, x, y);
+  if (why) return fail(why);
+  const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
+  if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
+  world.player.silver -= cost;
+  addBuilding(city, { type, x, y, owner: 'town', rate: p.rate, placed: true });
+  world.stats.placed = (world.stats.placed || 0) + 1;
+  emit(world, { type: 'place', city: cityId, big: true, text: `${city.name}に${p.name}を建てた！${GOODS[p.good].name}が毎日 ${p.rate} 増える（${coordName(x, y)}）` });
+  return { ok: true, cost };
+}
+
+export function demolish(world, cityId, x, y) {
+  const city = world.cities[cityId];
+  if (!city) return fail('不明な町');
+  if (!hasPresence(world, cityId)) return fail('取り壊すには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
+  const d = city.district;
+  const b = d.buildings.find((v) => v.x === x && v.y === y && !v.virtual);
+  if (!b) return fail('そこに建物はない');
+  if (!b.placed) return fail('取り壊せるのは、自分が建てた施設だけ');
+  d.buildings = d.buildings.filter((v) => v !== b);
+  emit(world, { type: 'demolish', city: cityId, text: `${city.name}の${PRODUCERS[b.type]?.name || b.type}を取り壊した（${coordName(x, y)}）` });
+  return { ok: true };
+}
+
+export function expandCost(world, cityId) {
+  const c = world.cities[cityId];
+  return Math.round(600 * Math.pow(2, c.district.radiusBonus || 0) * (1 + cityTier(c) * 0.5));
+}
+
+export function expandMarket(world, cityId) {
+  const city = world.cities[cityId];
+  if (!city) return fail('不明な町');
+  if (!districtEnabled(world)) return fail('このシナリオでは区画を広げられない');
+  if (!hasPresence(world, cityId)) return fail('広げるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
+  if ((city.district.radiusBonus || 0) >= 2) return fail('これ以上は広げられない（町が育つと自然に広がる）');
+  if (cityRadius(city, cityTier(city)) >= 6) return fail('区画の端まで届いている');
+  const cost = expandCost(world, cityId);
+  if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
+  world.player.silver -= cost;
+  city.district.radiusBonus = (city.district.radiusBonus || 0) + 1;
+  emit(world, { type: 'expand', city: cityId, big: true, text: `${city.name}の市場の圏を広げた！建物を置ける場所が増えた` });
+  return { ok: true, cost };
+}
+
 export function hireMerchant(world, cityId) {
   const city = world.cities[cityId];
   if (!city) return fail('不明な町');
@@ -121,17 +179,22 @@ export function hireMerchant(world, cityId) {
   return { ok: true, merchant: m.id, cost };
 }
 
-export function build(world, cityId, type) {
+export function build(world, cityId, type, at = null) {
   const city = world.cities[cityId];
   const def = BUILDINGS[type];
   if (!city || !def?.recipes) return fail('建てられない');
   if (!(world.scenario.buildings || []).includes(type)) return fail('このシナリオでは建てられない');
   if (!hasPresence(world, cityId)) return fail('建てるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   if (world.player.buildings.some((b) => b.city === cityId && b.type === type)) return fail('すでにある');
+  // 区画に置く場所（指定がなければ、市場に近い空きマス）。費用を払う前に確かめる
+  let spot = at;
+  if (spot) { const why = placeCheck(city, cityTier(city), null, spot[0], spot[1]); if (why) return fail(why); }
+  if (!spot) spot = placeableTiles(city, cityTier(city), null)[0] || null;
   const cost = buildCost(world, type);
   if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
   world.player.silver -= cost;
   const b = { id: world.player.buildings.length + 1, type, city: cityId, active: true, autoBuy: true, recipe: null, inputs: buildingInputs(type), made: {}, lastMade: 0 };
+  if (spot) { b.x = spot[0]; b.y = spot[1]; addBuilding(city, { type, x: spot[0], y: spot[1], owner: 'player', ref: b.id }); }
   world.player.buildings.push(b);
   city.buildings = world.player.buildings.filter((x) => x.city === cityId);
   world.player.warehouses[cityId] = world.player.warehouses[cityId] || { stock: {}, basis: {} };

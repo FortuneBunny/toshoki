@@ -84,6 +84,7 @@ function cityPanel(app, id) {
   if (prod.length) add(box, h('div', { class: 'section' }, '特産'), h('div', { class: 'chips' }, prod.map(([g, r]) => h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${fmt(r, 1)}/日`))));
   // この町でできること
   const acts = h('div', { class: 'chips', style: { gap: '6px' } });
+  add(acts, h('button', { class: 'btn small primary', onclick: () => app.openDistrict(id) }, '区画を見る'));
   if (here.length) {
     const max = world.scenario.maxMerchants ?? 4;
     if (world.player.merchants.length < max) {

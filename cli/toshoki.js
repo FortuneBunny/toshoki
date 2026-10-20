@@ -227,6 +227,57 @@ function cityText(world, id) {
   return out.join('\n');
 }
 
+// 区画を文字の格子で描く。1マスは2文字幅
+const TERRAIN_CH = { '.': '. ', f: ', ', s: ': ', w: '~~', h: '^ ' };
+function districtText(world, id) {
+  const c = world.cities[id];
+  if (!c) throw new Error(`不明な町: ${id}`);
+  const d = c.district;
+  const tier = G.cityTier(c);
+  const rad = G.cityRadius(c, tier);
+  const n = d.size;
+  const out = [`■ ${c.name}(${id})の区画  ${G.tierName(tier)}  市場の圏 ${rad}マス${d.radiusBonus ? `（広げた分 +${d.radiusBonus}）` : ''}`];
+  out.push('   ' + Array.from({ length: n }, (_, x) => String.fromCharCode(65 + x) + ' ').join(''));
+  const used = new Map();
+  for (let y = 0; y < n; y++) {
+    let row = String(y + 1).padStart(2, ' ') + ' ';
+    for (let x = 0; x < n; x++) {
+      const i = y * n + x;
+      const b = d.buildings.find((v) => v.x === x && v.y === y && !v.virtual);
+      const inR = G.tileDist(x, y) <= rad;
+      let ch;
+      if (b) {
+        const name = b.type === 'market' ? '市場' : G.PRODUCERS[b.type]?.name || BUILDINGS[b.type]?.name || b.type;
+        ch = b.type === 'market' ? '市' : b.owner === 'player' ? '工' : name[0];
+        used.set(ch, b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の工房（${name}）` : name);
+      } else if (d.res[i] !== '-') ch = inR ? `${d.res[i]} ` : `${d.res[i]}.`;
+      else ch = inR ? TERRAIN_CH[d.terrain[i]] : d.terrain[i] === 'w' ? '~~' : '  ';
+      row += ch;
+    }
+    out.push(row);
+  }
+  out.push(`凡例: ${[...used].map(([k, v]) => `${k}=${v}`).join(' ')}`);
+  const resHere = [...new Set(d.res.split('').filter((r) => r !== '-'))];
+  out.push(`地形: .=平地 ,=肥えた土地 :=砂地 ^=丘 ~~=水辺 空白=市場の圏の外  資源: ${resHere.map((r) => `${r}=${G.RESOURCES[r].name}`).join(' ') || 'なし'}（圏の外の資源は「c.」のように表示）`);
+  return out.join('\n');
+}
+
+function buildableText(world, id) {
+  const c = world.cities[id];
+  if (!c) throw new Error(`不明な町: ${id}`);
+  const tier = G.cityTier(c);
+  const out = [`■ ${c.name}に置ける生産施設（費用。置けるマスの例）`];
+  for (const [k, p] of Object.entries(G.PRODUCERS)) {
+    if (!world.scenario.goods.includes(p.good)) continue;
+    const tiles = G.placeableTiles(c, tier, k);
+    const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
+    out.push(`  ${k}（${p.name}）: ${cost}銀  ${GOODS[p.good].name} +${p.rate}/日  ${tiles.length ? `置けるマス ${tiles.length}か所: ${tiles.slice(0, 6).map(([x, y]) => G.coordName(x, y)).join(' ')}` : '置けるマスがない'}`);
+  }
+  out.push(`市場の圏を広げる: expand（${G.expandCost(world, id)}銀）`);
+  out.push('置く: place <種類> <座標> confirm（例: place wheat_farm C5 confirm）');
+  return out.join('\n');
+}
+
 function mapText(world) {
   const out = ['■ 地図（町と道）'];
   for (const c of Object.values(world.cities)) out.push(`  ${c.name}(${c.id})  位置(${c.x},${c.y})${c.tags.length ? `  [${c.tags.join(',')}]` : ''}`);
@@ -328,6 +379,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   prices            知っている全部の町の相場と、その情報の古さ
   city <町id>       町の詳細（糖度、人口、特産、需要、道）
   map               町と道の一覧
+  district [町id]   町の区画（マス目）。建物・地形・資源と市場の圏
+  buildable [町id]  その町に置ける生産施設と、置けるマスの候補
   merchants         商人の一覧
   route <町id>      そこまでの経路と日数
   log [n]           最近の出来事
@@ -348,6 +401,9 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   load <品物> <数|all>                 倉庫 → 商人 へ積む（例: load whitesugar all）
   unload <品物> <数|all>               商人 → 倉庫 へ下ろす（工房の材料を入れる。例: unload cane all）
   road <道の番号> [confirm]            小道を街道に整備する
+  place <種類> <座標> [confirm]        区画に生産施設を置く（例: place wheat_farm C5 confirm）。町の供給が増える
+  demolish <座標> [confirm]            自分が置いた施設を取り壊す
+  expand [confirm]                     市場の圏を1マス広げる（置ける場所が増える）
   donate [confirm]                     今いる町に寄進する（費用は人口に比例。90日間、成長が早まる）
   order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..." [--guards n]
                                        定期便を設定（停泊地を2つ以上）。例:
@@ -577,6 +633,41 @@ function run(world, cmd, pos, opts) {
       const cost = G.donateCost(world, m.city);
       if (pos[0] !== 'confirm') { out.push(`${world.cities[m.city].name}への寄進: ${cost}銀。${G.BALANCE.donateDays}日間、成長が${Math.round((G.BALANCE.donateGrowth - 1) * 100)}%早まる（糖度が40以上で成長しているときだけ）。確定するには: donate confirm`); break; }
       out.push(`寄進した（${after(G.donate(world, m.city)).cost}銀）`);
+      break;
+    }
+    case 'district': out.push(districtText(world, pos[0] || pickMerchant(world, opts).city || pickMerchant(world, opts).travel?.to)); break;
+    case 'buildable': out.push(buildableText(world, pos[0] || opts.at || pickMerchant(world, opts).city)); break;
+    case 'place': {
+      const type = pos[0];
+      const p = G.PRODUCERS[type];
+      if (!p) throw new Error(`種類を指定（一覧は buildable）`);
+      const xy = G.parseCoord(pos[1]);
+      if (!xy) throw new Error('座標を A1〜L12 の形で指定（区画は district で見られる）');
+      const at = opts.at || pickMerchant(world, opts).city;
+      if (!at) throw new Error('どの町か --at <町id> で指定する');
+      const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
+      if (pos[2] !== 'confirm') {
+        const why = G.placeCheck(world.cities[at], G.cityTier(world.cities[at]), type, xy[0], xy[1]);
+        out.push(why ? `✖ ${pos[1]} には置けない: ${why}` : `${world.cities[at].name}の ${pos[1]} に${p.name}: ${cost}銀。${GOODS[p.good].name}が毎日 +${p.rate}（町の市場に出る）。確定するには: place ${type} ${pos[1]} confirm`);
+        break;
+      }
+      after(G.placeProducer(world, at, type, xy[0], xy[1]));
+      out.push(`建てた（${cost}銀）`);
+      break;
+    }
+    case 'demolish': {
+      const xy = G.parseCoord(pos[0]);
+      if (!xy) throw new Error('座標を A1〜L12 の形で指定');
+      const at = opts.at || pickMerchant(world, opts).city;
+      if (pos[1] !== 'confirm') { out.push(`${pos[0]} の建物を取り壊す（費用は戻らない）。確定するには: demolish ${pos[0]} confirm`); break; }
+      after(G.demolish(world, at, xy[0], xy[1]));
+      out.push('取り壊した');
+      break;
+    }
+    case 'expand': {
+      const at = opts.at || pickMerchant(world, opts).city;
+      if (pos[0] !== 'confirm') { out.push(`${world.cities[at].name}の市場の圏を1マス広げる: ${G.expandCost(world, at)}銀。確定するには: expand confirm`); break; }
+      out.push(`広げた（${after(G.expandMarket(world, at)).cost}銀）`);
       break;
     }
     case 'workshops': {
