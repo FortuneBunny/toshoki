@@ -4,6 +4,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { chance, pick, randInt, nextRandom } from './rng.js';
 import { cityTier, dailyDemand } from './city.js';
 import { midPrice } from './market.js';
+import { TRANSPORTS } from '../data/transports.js';
 
 // 通知を積む。UI と CLI はここから演出を取り出す。
 export function emit(world, ev) {
@@ -149,8 +150,15 @@ function rollContract(world) {
   const ids = world.scenario.goods.filter((id) => dailyDemand(city, id, false) > 0 && !(city.produces?.[id] > 0));
   if (!ids.length) return;
   const id = pick(world, ids);
-  const qty = Math.max(8, Math.round((randInt(world, 15, 40) * 10) / Math.max(4, GOODS[id].base)));
-  const days = randInt(world, 25, 50);
+  const capTotal = world.player.merchants.reduce((s, m) => s + TRANSPORTS[m.transport].cap, 0);
+  const qty = Math.max(5, Math.min(Math.round(capTotal * 0.8), Math.round((randInt(world, 15, 40) * 10) / Math.max(4, GOODS[id].base))));
+  // 一番近い商人から往復できる日数 + 余裕
+  let near = 99;
+  for (const m of world.player.merchants) {
+    const from = m.travel ? m.travel.to : m.city;
+    near = Math.min(near, (world.hopDistance[from]?.[city.id] ?? 4) * 9);
+  }
+  const days = Math.max(randInt(world, 25, 45), near * 2 + 12);
   const reward = Math.round(qty * GOODS[id].base * 0.8 + 40);
   const c = { id: world.nextId++, city: city.id, good: id, qty, delivered: 0, deadline: world.day + days, reward };
   world.contracts.push(c);

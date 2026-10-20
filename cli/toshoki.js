@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import * as G from '../src/core/index.js';
+import { RULES } from '../src/data/help.js';
 
 const { GOODS, TRANSPORTS, BUILDINGS, SCENARIOS, SCENARIO_ORDER, HEIRLOOMS } = G;
 
@@ -25,6 +26,20 @@ function table(headers, rows, rightCols = []) {
 const fmt = (n, d = 1) => (n === undefined || n === null || Number.isNaN(n) ? '-' : Number(n).toFixed(d));
 const silver = (n) => `${Math.floor(n)} 銀`;
 const gname = (id) => `${GOODS[id].name}(${id})`;
+
+// 定期便の売却はまとめて1行にする（大事な通知が埋もれないように）
+function compactEvents(events) {
+  const autos = events.filter((e) => (e.type === 'profit' || e.type === 'loss') && e.auto);
+  const rest = events.filter((e) => !autos.includes(e) && e.type !== 'orderNote');
+  const out = rest.map(eventLine);
+  if (autos.length) {
+    const sum = autos.reduce((acc, e) => acc + e.amount, 0);
+    out.push(`💰 定期便: 売却${autos.length}回、損益合計 ${sum >= 0 ? '+' : ''}${Math.round(sum)} 銀`);
+  }
+  const notes = events.filter((e) => e.type === 'orderNote');
+  if (notes.length) out.push(`・ 定期便の見送り ${notes.length}件（最新: ${notes[notes.length - 1].text}）`);
+  return out;
+}
 
 function eventLine(e) {
   const mark = e.type === 'victory' ? '🏆' : e.type === 'hit' ? '🎯' : e.type === 'profit' ? '💰' : e.type === 'rush' ? '🍬' : e.type === 'tierUp' ? '🎉'
@@ -66,6 +81,9 @@ function statusText(world) {
   out.push(`■ ${world.scenario.no}. ${world.scenario.title}   ${G.dateString(world.day)}（${world.day}日目 / 期限 ${world.scenario.deadline}日）`);
   out.push(`銀 ${Math.floor(pl.silver)}   資産 ${Math.floor(G.netWorth(world))}   評判 Lv${pl.repLevel}（${pl.rep}）   連続黒字 ${pl.streak}`);
   if (world.scenario.goods.some((id) => ['sea', 'river'].length) && world.edges.some((e) => e.monsoon)) out.push(`季節: ${G.SEASON_NAMES[G.seasonOf(world)]}`);
+  const sc = world.scenario;
+  out.push(`ランクの基準: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`);
+  out.push(`このシナリオ: 輸送手段 ${world.allowedTransports.map((t) => TRANSPORTS[t].name).join('・')} / 商人は最大${sc.maxMerchants ?? 4}人 / 工房 ${(sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes).map((b) => BUILDINGS[b].name).join('・') || 'なし'}${(sc.buildings || []).includes('road') ? ' / 道の整備あり' : ''}（費用は shop）`);
   out.push('目標:');
   for (const g of G.goalsStatus(world)) out.push(`  ${g.done ? '✔' : '□'} ${g.text}  [${'█'.repeat(Math.round(g.p * 10))}${'░'.repeat(10 - Math.round(g.p * 10))}] ${Math.round(g.p * 100)}%`);
   out.push('商人:');
@@ -79,7 +97,7 @@ function statusText(world) {
     const next = world.scenario.tutorial.find((t) => !t.done(world));
     if (next) out.push(`手引き: ${next.text}`);
   }
-  if (world.finished) out.push(world.finished.win ? `🏆 達成！ランク ${world.finished.rank}` : `期限切れ（ランク C）`);
+  if (world.finished) out.push(world.finished.win ? `🏆 達成！ランク ${world.finished.rank}（${world.finished.day}日目）` : `期限切れ（ランク C）`);
   return out.join('\n');
 }
 
@@ -104,13 +122,19 @@ function marketText(world, m) {
     const sell = wants ? G.unitSell(world, city, id) : null;
     const hist = world.player.knowledge[city.id]?.history?.[id] || [];
     const trend = hist.length >= 2 ? spark(hist.map((h) => h[1])) : '';
-    rows.push([gname(id), have ? `${have}${m.cost[id] ? `(@${fmt(m.cost[id])})` : ''}` : '', sell ? fmt(sell) : '買取なし', buy ? fmt(buy) : '在庫なし', stock, fmt(G.dailyDemand(city, id), 1), fmt(GOODS[id].base, 0), trend]);
+    let all = '';
+    if (have && wants) {
+      const total = G.quote(world, city, id, -have);
+      const pl = total - (m.cost[id] || 0) * have;
+      all = `${Math.round(total)}（${pl >= 0 ? '+' : ''}${Math.round(pl)}）`;
+    }
+    rows.push([gname(id), have ? `${have}${m.cost[id] ? `(@${fmt(m.cost[id])})` : ''}` : '', sell ? fmt(sell) : '買取なし', all, buy ? fmt(buy) : '在庫なし', stock, fmt(G.dailyDemand(city, id), 1), fmt(GOODS[id].base, 0), trend]);
   }
   const t = TRANSPORTS[m.transport];
   return [
     `■ ${city.name}の市場（${G.tierName(G.cityTier(city))}、人口 ${Math.floor(city.pop)}、糖度 ${Math.round(city.glucose)}${city.rush ? '、🍬ラッシュ中' : ''}${city.crash ? '、💥クラッシュ中' : ''}）  ${m.name} 積載 ${G.cargoUsed(m)}/${t.cap}  銀 ${Math.floor(world.player.silver)}`,
-    table(['品物', '積荷(仕入値)', '売値', '買値', '町の在庫', '1日の消費', '基準', '相場の推移'], rows, [2, 3, 4, 5, 6]),
-    '※ 売値・買値は1個目の値段。たくさん売るほど売値は下がり、たくさん買うほど買値は上がる。正確な合計は quote で確認できる。',
+    table(['品物', '積荷(仕入値)', '売値(あなたが売る)', '全部売ると(損益)', '買値(あなたが買う)', '町の在庫', '1日の消費', '基準', '相場の推移'], rows, [2, 3, 4, 5, 6, 7]),
+    '※ 売値・買値は1個目の値段。たくさん売るほど売値は下がり、たくさん買うほど買値は上がる。買うときの合計は quote で確認できる。',
   ].join('\n');
 }
 
@@ -154,7 +178,11 @@ function cityText(world, id) {
     const nextPop = G.BALANCE.tierPops[tierIdx + 1];
     out.push(`糖度 ${Math.round(c.glucose)}（目標値 ${Math.round(c.glucoseTarget)}）  1日の人口増加率 ${(G.growthPerDay(c) * 100).toFixed(2)}%${nextPop ? `  次の段階まで 人口 ${nextPop}` : ''}`);
     out.push(`糖度の目安: 40未満=飢え（人口減） 40〜110=安定（成長） 110〜150=活況（急成長） 150以上=シュガーラッシュ → その後クラッシュ`);
-    out.push(`暮らしの豊かさ（非糖の品の充足）: ${Math.round(c.luxury * 100)}%`);
+    const diet = Object.entries(c.diet || {}).sort((a, b) => b[1] - a[1]);
+    if (diet.length) out.push(`食卓（糖度への寄与）: ${diet.map(([g, v]) => `${GOODS[g].name} +${Math.round(v * 100)}`).join(' / ')}`);
+    const missingFood = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && G.dailyDemand(c, g, false) > 0 && !(c.diet?.[g] > 0.02));
+    out.push(`※ 1種類の食べ物で上げられる糖度は50まで、甘味は1種類34まで。種類を増やすほど糖度が上がる。${missingFood.length ? `今足りない食べ物: ${missingFood.map((g) => GOODS[g].name).join('、')}` : ''}`);
+    if (world.scenario.goods.some((g) => GOODS[g].kind === 'goods')) out.push(`暮らしの豊かさ（非糖の品の充足）: ${Math.round(c.luxury * 100)}%`);
     if (c.rush) out.push(`🍬 シュガーラッシュ中（あと${c.rush}日）: 甘味の需要と売値が上がる`);
     if (c.crash) out.push(`💥 シュガークラッシュ中（あと${c.crash}日）: 甘味が売れず、糖度に効かない`);
     const prod = Object.entries(c.produces).map(([g, r]) => `${GOODS[g].name}${fmt(r)}`).join(' ') || 'なし';
@@ -192,14 +220,17 @@ function mapText(world) {
 }
 
 function parseTradeLines(pos) {
-  // buy wheat 20 sell dates 10 ...
+  // buy wheat 20 dates 5 sell honey all ...
   const lines = [];
-  for (let i = 0; i < pos.length; i += 3) {
-    const [act, good, n] = [pos[i], pos[i + 1], pos[i + 2]];
-    if (!['buy', 'sell'].includes(act)) throw new Error(`"${act}" は buy か sell`);
+  let act = null;
+  for (let i = 0; i < pos.length; i++) {
+    if (pos[i] === 'buy' || pos[i] === 'sell') { act = pos[i]; continue; }
+    if (!act) throw new Error('buy か sell から書く（例: trade buy wheat 20 sell dates all）');
+    const good = pos[i];
+    const n = pos[++i];
     if (!GOODS[good]) throw new Error(`不明な品物: ${good}`);
     const q = n === 'all' ? Infinity : parseInt(n, 10);
-    if (!(q > 0)) throw new Error(`数量が不正: ${n}`);
+    if (!(q > 0)) throw new Error(`${GOODS[good].name}の数量が不正: ${n}`);
     lines.push({ good, qty: act === 'buy' ? q : -q });
   }
   return lines;
@@ -273,37 +304,25 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   quote buy wheat 20 sell dates 10    取引の見積もり（確定しない）
   trade buy wheat 20 sell dates 10    取引を確定（数量に all も使える）
   travel <町id> [--guards n]          出発して、到着か事件まで日を進める
-  wait <日数>                          日を進める（重要な出来事で止まる）
-  hire                                 今いる町で商人を雇う
-  transport <種類>                     輸送手段を買い替える（camel, cart, dhow, carrack）
-  build <種類>                         今いる町に工房を建てる（mill, confectionery, winery, malthouse）
+  wait <日数>                          日を進める（最大120日。商人の到着や重要な出来事で止まる）
+  shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
+  hire [confirm]                       今いる町で商人を雇う（confirm なしなら費用だけ表示）
+  transport <種類> [confirm]           輸送手段を買い替える（camel, cart, dhow, carrack）
+  build <種類> [confirm]               今いる町に工房を建てる（mill, confectionery, winery, malthouse）
   workshop <番号> on|off|autobuy|noautobuy
   load <品物> <数> / unload <品物> <数>  倉庫との積み下ろし
-  road <道の番号>                      小道を街道に整備する
+  road <道の番号> [confirm]            小道を街道に整備する
   order add "<町> sell:品@最低値 buy:品*数@上限値 unload:品 load:品" "<町> ..."
                                        定期便を設定（停泊地を2つ以上）。例:
                                        order add "mugi buy:wheat*20@3" "kohaku sell:wheat@5"
+  order list                           定期便ごとの損益
+  order pause                          次に町に着いたら定期便を止める（その町で操作できる）
   order clear | order resume
+  inherit <家訓>                       シナリオ達成後、家訓を選んで次のシナリオの始め方を表示
 
 --json を付けると結果を JSON で出す。`;
 
-const RULES = `【ルールの説明】
-・目的はシナリオごとの目標を期限内に達成すること。早いほどランクが上がる（S/A/B）。
-・町ごとに品物の在庫があり、在庫が少ないほど高く、多いほど安い。1個売り買いするたびに値段が動く。
-・あなたが知っている他の町の相場は、商人が最後にいた時点のもの。移動している間に変わる。
-・町には「糖度」がある。食べ物と甘味が届くと上がり、人口が増える。
-  - 1種類の食べ物だけでは糖度は上がり切らない。色々な食べ物を届けると伸びる。
-  - 甘味（蜂蜜、粗糖、白糖、菓子など）は糖度を大きく押し上げる。
-  - 糖度が150を超えると「シュガーラッシュ」: 数日間、甘味が飛ぶように売れる。
-  - ラッシュの後は「シュガークラッシュ」: しばらく甘味が売れず、町の成長が止まる。
-・町は人口に応じて 集落→村→町→都市→大都市 と育ち、育つと新しい品の需要が生まれる。
-・売って利益が出ると評判が上がり、黒字が続くほど多く上がる。評判が上がると手数料が下がる。
-・出発時に知っていた相場より高く売れると「読み的中」。
-・大口注文: 期限内に指定数を売ると、代金とは別に報酬が出る。
-・商人の給金と輸送手段の維持費が毎日かかる。
-・砂漠では隊商が食べ物（なつめやし・干しぶどう・キビ・麦・米）を毎日食べる。尽きると遅れ、積荷を失う。
-・危険な道では盗賊が出る。護衛を雇う（1人1日2銀）と撃退できることがある。
-・定期便を設定すると、商人が自動で売り買いと移動を繰り返す。最低売値・上限買値で赤字を防げる。`;
+
 
 // ---------- コマンド ----------
 function run(world, cmd, pos, opts) {
@@ -370,19 +389,41 @@ function run(world, cmd, pos, opts) {
       const r = after(G.travel(world, m.id, pos[0], { guards: Number(opts.guards || 0) }));
       out.push(`${m.name}が${world.cities[pos[0]].name}へ出発（約${r.days}日）`);
       const adv = G.advance(world, r.days + 30, { stopOn: new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck']) });
-      out.push(...adv.events.map(eventLine));
+      out.push(...compactEvents(adv.events));
       if (!m.travel && m.city === pos[0]) out.push('', marketText(world, m));
       break;
     }
     case 'wait': {
-      const n = Math.max(1, Math.min(120, Number(pos[0] || 1)));
+      const asked = Number(pos[0] || 1);
+      const n = Math.max(1, Math.min(120, asked));
       const adv = G.advance(world, n);
-      out.push(...adv.events.map(eventLine), `（${world.day}日目）`);
+      out.push(...compactEvents(adv.events));
+      out.push(`（${world.day}日目${asked > 120 ? '。wait は1回120日まで' : ''}${adv.events.some((e) => e.type === 'arrive') ? '。商人が到着したので止まった' : ''}）`);
       break;
     }
-    case 'hire': out.push(`雇った（${after(G.hireMerchant(world, pickMerchant(world, opts).city)).cost}銀）`); break;
-    case 'transport': out.push(`購入した（差額 ${Math.round(after(G.buyTransport(world, needIdle(world, opts).id, pos[0])).price)}銀）`); break;
-    case 'build': out.push(`建てた（工房 #${after(G.build(world, needIdle(world, opts).city, pos[0])).building}）`); break;
+    case 'hire': {
+      const cost = G.BALANCE.merchantHireCost * world.player.merchants.length;
+      if (pos[0] !== 'confirm') { out.push(`商人を雇うと ${cost} 銀（銀 ${Math.floor(world.player.silver)} → ${Math.floor(world.player.silver - cost)}）。上限 ${world.scenario.maxMerchants ?? 4} 人。確定するには: hire confirm`); break; }
+      const r = after(G.hireMerchant(world, pickMerchant(world, opts).city));
+      out.push(`雇った（${r.cost}銀）。新しい商人の番号は #${r.merchant}（-m ${r.merchant} で操作）`);
+      break;
+    }
+    case 'transport': {
+      const m = needIdle(world, opts);
+      const t = TRANSPORTS[pos[0]];
+      if (!t) throw new Error(`種類を指定: ${Object.keys(TRANSPORTS).join(', ')}（費用と買える町は shop）`);
+      if (pos[1] !== 'confirm') { out.push(`${t.name}: ${t.cost}銀（今の${TRANSPORTS[m.transport].name}を${TRANSPORTS[m.transport].cost * 0.5}銀で下取り）。確定するには: transport ${pos[0]} confirm`); break; }
+      out.push(`購入した（差額 ${Math.round(after(G.buyTransport(world, m.id, pos[0])).price)}銀）`);
+      break;
+    }
+    case 'build': {
+      const m = needIdle(world, opts);
+      const b = BUILDINGS[pos[0]];
+      if (!b?.recipes) throw new Error('種類を指定（費用は shop）');
+      if (pos[1] !== 'confirm') { out.push(`${b.name}: ${b.cost}銀、維持費 ${b.upkeep}/日。確定するには: build ${pos[0]} confirm`); break; }
+      out.push(`建てた（工房 #${after(G.build(world, m.city, pos[0])).building}）`);
+      break;
+    }
     case 'workshop': {
       const map = { on: { active: true }, off: { active: false }, autobuy: { autoBuy: true }, noautobuy: { autoBuy: false } };
       after(G.setBuilding(world, pos[0], map[pos[1]] || {}));
@@ -395,16 +436,61 @@ function run(world, cmd, pos, opts) {
       out.push('移した');
       break;
     }
-    case 'road': out.push(`整備した（${after(G.upgradeRoad(world, pos[0])).cost}銀）`); break;
+    case 'road': {
+      const e = world.edges.find((x) => x.id === Number(pos[0]));
+      if (!e) throw new Error('道の番号を指定（map で一覧）');
+      if (pos[1] !== 'confirm') { out.push(`道 #${e.id} の整備: ${Math.round(e.len * BUILDINGS.road.costPerLength)}銀。確定するには: road ${e.id} confirm`); break; }
+      out.push(`整備した（${after(G.upgradeRoad(world, pos[0])).cost}銀）`);
+      break;
+    }
     case 'order': {
+      if (pos[0] === 'list' || !pos[0]) {
+        for (const x of world.player.merchants) {
+          if (!x.order) { out.push(`#${x.id} ${x.name}: 定期便なし`); continue; }
+          const days = Math.max(1, world.day - x.order.since);
+          out.push(`#${x.id} ${x.name}: ${x.order.stops.map((st) => world.cities[st.city].name).join(' → ')}${x.order.paused ? '（停止中）' : ''}  ${days}日で損益 ${Math.round(x.order.profit || 0)}銀（1日あたり ${fmt((x.order.profit || 0) / days)}）`);
+        }
+        break;
+      }
       const m = pickMerchant(world, opts);
       if (pos[0] === 'clear') { after(G.clearOrder(world, m.id)); out.push('定期便を解除した'); break; }
       if (pos[0] === 'resume') { after(G.resumeOrder(world, m.id)); out.push('定期便を再開した'); break; }
-      if (pos[0] !== 'add') throw new Error('order add|clear|resume');
+      if (pos[0] === 'pause') { const r = after(G.pauseOrderAtNext(world, m.id)); out.push(r.now ? '定期便を止めた（今いる町で待機）' : '次に町に着いたら止まる'); break; }
+      if (pos[0] !== 'add') throw new Error('order add|list|pause|resume|clear');
       const stops = pos.slice(1).map(parseStop);
       after(G.setOrder(world, m.id, { stops }));
       out.push(`定期便: ${stops.map((s) => world.cities[s.city].name).join(' → ')} → …`);
       out.push(...G.drainEvents(world).map(eventLine));
+      break;
+    }
+    case 'shop': {
+      const sc = world.scenario;
+      const pl = world.player;
+      const max = sc.maxMerchants ?? 4;
+      out.push('■ 投資の費用と条件');
+      out.push(`商人を雇う（hire confirm）: ${pl.merchants.length >= max ? `上限（${max}人）に達している` : `${G.BALANCE.merchantHireCost * pl.merchants.length} 銀。自分の商人がいる町で雇える。最大${max}人。給金は1人1日${G.BALANCE.merchantWage}銀`}`);
+      out.push('輸送手段（transport <種類> confirm。今のものは半額で下取り）:');
+      for (const [k, t] of Object.entries(TRANSPORTS)) {
+        if (!world.allowedTransports.includes(k)) { out.push(`  ${t.name}(${k}): このシナリオでは使えない`); continue; }
+        const where = Object.values(world.cities).filter((c) => G.canBuyTransportAt(world, c, k)).map((c) => c.name);
+        out.push(`  ${t.name}(${k}): ${t.cost}銀  積載${t.cap}  速さ${t.speed}  維持費${t.upkeep}/日  通れる道: ${t.modes.map((x) => G.ROUTE_KINDS[x].name).join('・')}  買える町: ${t.cost ? where.join('、') || 'なし' : '（最初から持っている）'}`);
+      }
+      const bs = (sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes);
+      out.push(`工房（build <種類> confirm）: ${bs.length ? '' : 'このシナリオでは建てられない'}`);
+      for (const b of bs) out.push(`  ${BUILDINGS[b].name}(${b}): ${BUILDINGS[b].cost}銀  維持費${BUILDINGS[b].upkeep}/日  1日${BUILDINGS[b].batches}回  ${BUILDINGS[b].recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
+      out.push(`道の整備（road <番号> confirm）: ${(sc.buildings || []).includes('road') ? `小道を街道にする。距離×${BUILDINGS.road.costPerLength}銀` : 'このシナリオではできない'}`);
+      out.push(`護衛: 1人1日${G.BALANCE.guardWage}銀（travel <町> --guards n）`);
+      break;
+    }
+    case 'inherit': {
+      if (!world.finished?.win) throw new Error('家訓はシナリオを達成すると受け継げる');
+      const hh = HEIRLOOMS[pos[0]];
+      if (!hh) throw new Error(`家訓を選ぶ: ${Object.entries(HEIRLOOMS).map(([k, x]) => `${k}（${x.name}: ${x.text}）`).join(' / ')}`);
+      const list = [...world.player.heirlooms, pos[0]];
+      const idx = SCENARIO_ORDER.indexOf(world.scenarioId);
+      const next = SCENARIO_ORDER[idx + 1];
+      out.push(`家訓「${hh.name}」を受け継いだ。`);
+      out.push(next ? `次のシナリオ: node cli/toshoki.js new --scenario ${next} --heirlooms ${list.join(',')} --save save-${next}.json` : 'これが最後のシナリオだった。');
       break;
     }
     case 'continue': G.continueAfterEnd(world); out.push('目標の後も遊び続ける'); break;
@@ -412,7 +498,10 @@ function run(world, cmd, pos, opts) {
   }
   const ev = G.drainEvents(world);
   if (ev.length) out.push(...ev.map(eventLine));
-  if (world.finished && ['travel', 'wait'].includes(cmd)) out.push('', statusText(world), world.finished.win ? '\n家訓を1つ受け継げる: ' + Object.entries(HEIRLOOMS).map(([k, h]) => `${h.name}(${k}): ${h.text}`).join(' / ') : '');
+  if (world.finished && !world.endShown) {
+    world.endShown = true;
+    out.push('', statusText(world), world.finished.win ? '\n家訓を1つ受け継げる（inherit <名前>）: ' + Object.entries(HEIRLOOMS).map(([k, x]) => `${k}（${x.name}: ${x.text}）`).join(' / ') : '');
+  }
   res.text = out.join('\n');
   return res;
 }

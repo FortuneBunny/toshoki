@@ -11,6 +11,7 @@ import { departWithExpectation, validateOrder, runOrder } from './orders.js';
 import { cargoUsed, findPath } from './caravan.js';
 import { buildingInputs } from './production.js';
 import { emit } from './events.js';
+import { checkGoals } from './scoring.js';
 
 const fail = (error) => ({ ok: false, error });
 
@@ -33,8 +34,8 @@ export function preview(world, mid, lines) {
 export function trade(world, mid, lines) {
   const [m, err] = idle(world, mid);
   if (err) return err;
-  if (world.player.silver < 0 && lines.some((l) => l.qty > 0)) return fail('借金があるうちは仕入れられない');
   const r = executeTrade(world, m, lines);
+  if (r.ok) checkGoals(world);
   return r.ok ? r : fail(r.errors.join(' / '));
 }
 
@@ -142,7 +143,7 @@ export function setOrder(world, mid, order) {
     const r = findPath(world, order.stops[0].city, s.city, m.transport);
     if (!r) return fail(`${world.cities[s.city].name}へは今の輸送手段で行けない`);
   }
-  m.order = { stops: order.stops, next: 0, paused: false };
+  m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0 };
   emit(world, { type: 'order', merchant: m.id, big: true, text: `${m.name}の定期便を設定した。あとは自動で回る` });
   if (!m.travel) {
     // 今いる町が停泊地ならそこから始め、違えば最初の停泊地へ向かう
@@ -159,6 +160,14 @@ export function resumeOrder(world, mid) {
   m.order.paused = false;
   if (!m.travel) runOrder(world, m);
   return { ok: true };
+}
+
+export function pauseOrderAtNext(world, mid) {
+  const m = getMerchant(world, mid);
+  if (!m?.order) return fail('定期便がない');
+  if (!m.travel) { m.order.paused = true; return { ok: true, now: true }; }
+  m.order.pauseNext = true;
+  return { ok: true, now: false };
 }
 
 export function clearOrder(world, mid) {

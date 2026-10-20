@@ -10,7 +10,12 @@ import { cargoUsed, cargoCap, startTravel } from './caravan.js';
 export function arriveAt(world, m) {
   observe(world, m.city);
   world.stats.trips += 1;
+  if (m.order?.pauseNext) {
+    m.order.pauseNext = false;
+    m.order.paused = true;
+  }
   if (m.order && !m.order.paused) {
+    m.order.runs = (m.order.runs || 0) + 1;
     runOrder(world, m);
     return;
   }

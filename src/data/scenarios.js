@@ -13,7 +13,7 @@ const s1 = {
   edges: [{ a: 'mugi', b: 'natsume', kind: 'trail' }],
   knownAtStart: ['natsume'],
   goals: [{ type: 'silver', amount: 600 }],
-  deadline: 240, rankS: 0.5,
+  deadline: 240, rankS: 0.35,
   events: false, contracts: false, bandits: false,
   tutorial: [
     { text: '麦の里で「交易」を開き、麦を買えるだけ買う', done: (w) => (w.stats.bought.wheat || 0) > 0 },
@@ -27,13 +27,13 @@ const s1 = {
 const s2 = {
   id: 's2', no: 2, title: 'なつめやしの谷',
   intro: '谷には4つの町がある。相場は日々動き、遠くの町の情報はどんどん古くなる。「着いたとき、まだ高いか？」を読み切れ。麦の里を「町」に育て、一族の資産を3000銀にせよ。',
-  goods: ['wheat', 'dates', 'honey', 'rawsugar', 'silk'],
+  goods: ['wheat', 'dates', 'honey', 'rawsugar'],
   start: { silver: 220, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'mugi' }] },
   cities: [
     { id: 'mugi', name: '麦の里', x: 170, y: 390, pop: 640, produces: { wheat: 10 } },
     { id: 'natsume', name: 'ナツメ泉', x: 470, y: 170, pop: 380, produces: { dates: 7 }, tags: ['desert'] },
     { id: 'kanbi', name: '甘蔗の浜', x: 520, y: 470, pop: 470, produces: { rawsugar: 2.6, honey: 1.2, wheat: 2 } },
-    { id: 'kohaku', name: '琥珀京', x: 830, y: 300, pop: 3300, produces: { silk: 1.7, wheat: 9, dates: 2 } },
+    { id: 'kohaku', name: '琥珀京', x: 830, y: 300, pop: 3300, produces: { wheat: 9, dates: 2 } },
   ],
   edges: [
     { a: 'mugi', b: 'natsume', kind: 'trail' },
@@ -43,7 +43,7 @@ const s2 = {
     { a: 'kanbi', b: 'kohaku', kind: 'trail' },
   ],
   goals: [{ type: 'cityTier', city: 'mugi', tier: 2 }, { type: 'networth', amount: 3000 }],
-  deadline: 360, rankS: 0.5,
+  deadline: 360, rankS: 0.4,
   events: true, contracts: true, bandits: false, newsDaysPerHop: 4,
   disabledEvents: ['sandstorm', 'plague'],
   maxMerchants: 2,

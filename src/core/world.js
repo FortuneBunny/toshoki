@@ -123,7 +123,7 @@ export function createWorld(scenarioId, { seed = 1, heirlooms = [] } = {}) {
 
 export function addMerchant(world, { name, portrait, city, transport = 'donkey' }) {
   const m = {
-    id: world.nextId++, name, portrait: portrait || 'merchant-1', city, transport,
+    id: world.player.merchants.length + 1, name, portrait: portrait || 'merchant-1', city, transport,
     cargo: {}, cost: {}, guards: 0, travel: null, order: null, lifetime: 0, expected: null,
   };
   world.player.merchants.push(m);
@@ -159,6 +159,13 @@ function upkeep(world) {
   for (const m of pl.merchants) cost += B.merchantWage + TRANSPORTS[m.transport].upkeep;
   cost *= 1 - (pl.heirloomUpkeep || 0);
   pl.silver -= cost;
+  const noCargo = pl.merchants.every((m) => !Object.keys(m.cargo).length);
+  if (pl.silver < 0 && noCargo && !pl.aidUsed) {
+    pl.aidUsed = true;
+    pl.silver += 200;
+    pl.rep = Math.max(0, pl.rep - 30);
+    emit(world, { type: 'aid', big: true, text: '一族の長老から援助が届いた（+200 銀、評判 -30）。援助は一度きり' });
+  }
   if (pl.silver < 0 && !pl.debtWarned) {
     pl.debtWarned = true;
     emit(world, { type: 'debt', bad: true, text: '銀が底をついた！借金の状態では仕入れができない' });

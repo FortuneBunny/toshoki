@@ -65,7 +65,7 @@ export const BALANCE = {
   streakMax: 10,
 
   // 事件
-  eventChancePerDay: 0.035,
+  eventChancePerDay: 0.05,
   contractChancePerDay: 0.02,
   rumorChancePerDay: 0.05,
 };

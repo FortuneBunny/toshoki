@@ -241,11 +241,11 @@ node cli/glucose.js help
 ### 3段階の腕前
 | 腕前 | 使うモデル | 呼び出し方 |
 |---|---|---|
-| 上手い | Opus、Codex Sol 6.1 | Agent ツール（`model: opus`）、`codex exec -m <Sol 6.1 のモデルID>` |
-| そこそこ | Sonnet、Gemini 3.8 Flash | Agent ツール（`model: sonnet`）、`agy -p --model gemini-3.8-flash-medium` |
-| 下手 | Haiku、Codex Luna 6 | Agent ツール（`model: haiku`）、`codex exec -m <Luna 6 のモデルID>` |
+| 上手い | Opus、Codex Sol 6.1 | Agent ツール（`model: opus`）、`codex exec -m gpt-6.1-sol` |
+| そこそこ | Sonnet、Gemini 3.8 Flash | Agent ツール（`model: sonnet`）、`agy --model gemini-3.8-flash-medium -p ...` |
+| 下手 | Haiku、Codex Luna 6 | Agent ツール（`model: haiku`）、`codex exec -m gpt-6-luna` |
 
-- Codex の正確なモデルIDは、フェーズ2の最初に短い呼び出しで確認する（`codex exec -m <候補> "say ok"`）。
+- Codex のモデルIDは `gpt-6.1-sol` と `gpt-6-luna`（確認済み）。`codex exec --skip-git-repo-check --ephemeral -s workspace-write -C <作業ディレクトリ>` で動かす。
 - Gemini は Antigravity CLI（`agy`）から呼ぶ。`agy models` で `gemini-3.8-flash-high/medium/low` が使えることを確認済み。
   標準は medium を使う。`--output-format json` で結果を受け取る。
 - Codex と agy のテスターも、Claude のテスターと同じプロンプトと同じルール（ソースを読ませない、作業ディレクトリを限定する）で動かす。

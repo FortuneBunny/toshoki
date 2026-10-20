@@ -79,11 +79,12 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       world.stats.sold[city.id][good] = (world.stats.sold[city.id][good] || 0) + n;
       world.stats.soldTotal[good] = (world.stats.soldTotal[good] || 0) + n;
       m.lifetime += p;
-      if (expected !== undefined && actualMid > expected * 1.03 && p > 0) {
+      if (!auto && expected !== undefined && actualMid > expected * 1.15 && p > 0) {
         const diff = (actualMid - expected) * n;
         hit = { good, diff };
       }
       fx.push({ type: 'sale', good, qty: n, gain, profit: p });
+      if (auto && m.order) { m.order.profit = (m.order.profit || 0) + p; }
       contractProgress(world, city, good, n, fx);
     }
   }
@@ -99,7 +100,7 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       fx.push({ type: 'profit', amount: profit, streak: pl.streak, rep });
       if (hit) {
         world.stats.hits += 1;
-        gainRep(world, 5);
+        gainRep(world, 15);
         fx.push({ type: 'hit', good: hit.good, diff: hit.diff });
         emit(world, { type: 'hit', merchant: m.id, city: city.id, big: true, text: `読み的中！${GOODS[hit.good].name}が予想より高く売れた（+${Math.round(hit.diff)} 銀）` });
       }
@@ -112,8 +113,24 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       emit(world, { type: 'loss', merchant: m.id, city: city.id, amount: profit, auto, bad: true, text: `${m.name}: ${city.name}で売却、損失 ${Math.round(profit)} 銀` });
     }
   }
+  if (!auto) recordRecent(m, city.id, world.day, lines);
   observe(world, city.id);
   return { ...pv, ok: true, fx, profit };
+}
+
+// 直近の取引（町ごと）。定期便の下書きに使う
+function recordRecent(m, cityId, day, lines) {
+  m.recent = m.recent || [];
+  let r = m.recent[m.recent.length - 1];
+  if (!r || r.city !== cityId) {
+    r = { city: cityId, day, buy: {}, sell: {} };
+    m.recent.push(r);
+    if (m.recent.length > 6) m.recent.shift();
+  }
+  for (const { good, qty } of lines) {
+    if (qty > 0) r.buy[good] = (r.buy[good] || 0) + qty;
+    else if (qty < 0) r.sell[good] = true;
+  }
 }
 
 function contractProgress(world, city, good, n, fx) {

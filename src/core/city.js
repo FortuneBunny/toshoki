@@ -60,10 +60,12 @@ function consume(world, city) {
   }
   const scale = wantGlu > need * B.baseFoodCap ? (need * B.baseFoodCap) / wantGlu : 1;
   let baseGlu = 0;
+  city.diet = {};
   for (const id of foods) {
     const eat = want[id] * scale;
     city.stock[id] -= eat;
     baseGlu += eat * GOODS[id].glu;
+    if (eat > 0) city.diet[id] = (eat * GOODS[id].glu) / Math.max(1e-9, need);
   }
   // 甘味はそれぞれの需要どおりに消費し、糖度を上乗せする
   let sweetGlu = 0;
@@ -73,7 +75,9 @@ function consume(world, city) {
     const eat = Math.min(city.stock[id] || 0, dailyDemand(city, id));
     if (eat <= 0) continue;
     city.stock[id] -= eat;
-    sweetGlu += Math.min(eat * GOODS[id].glu * gluEff, need * B.singleSweetCap);
+    const add = Math.min(eat * GOODS[id].glu * gluEff, need * B.singleSweetCap);
+    sweetGlu += add;
+    city.diet[id] = (add * B.sweetGain) / Math.max(1e-9, need);
   }
   // 非糖の品は「暮らしの豊かさ」として成長倍率に効く
   let luxWant = 0;
