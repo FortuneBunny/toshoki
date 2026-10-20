@@ -74,10 +74,14 @@ export function goalProgress(world, g) {
   }
 }
 
+// 一度達成した目標は、あとで数値が下がっても達成済みのまま
 export function goalsStatus(world) {
-  return world.scenario.goals.map((g) => {
+  world.goalsDone = world.goalsDone || [];
+  return world.scenario.goals.map((g, i) => {
     const r = goalProgress(world, g);
-    return { ...r, p: Math.max(0, Math.min(1, r.p)), done: r.p >= 1 };
+    if (r.p >= 1) world.goalsDone[i] = true;
+    const done = !!world.goalsDone[i];
+    return { ...r, p: done ? 1 : Math.max(0, Math.min(1, r.p)), done };
   });
 }
 

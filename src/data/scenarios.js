@@ -91,7 +91,7 @@ const s3 = {
 
 const s4 = {
   id: 's4', no: 4, title: '砂の海',
-  intro: '東の玻璃の都の絹を、西の緑門へ。間には砂の海が広がる。隊商は砂漠で毎日食べ物を食べ、盗賊も出る。ラクダと護衛と食料を整えて渡れ。絹を緑門で150反売り、蜃気楼オアシスを「町」に育てよ。',
+  intro: '東の玻璃の都の絹を、西の緑門へ。間には砂の海が広がる。隊商は砂漠で食べ物を食べ、盗賊も出る。ラクダ（隊商宿の町などの砂漠の町で買える）と護衛と食料を整えて渡れ。絹を緑門で150反売り、蜃気楼オアシスを「町」に育てよ。オアシスはなつめやししか採れない──麦やぶどう、甘味を届けると育つ。',
   goods: ['wheat', 'dates', 'grapes', 'raisins', 'rawsugar', 'salt', 'spice', 'silk'],
   start: { silver: 900, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'ryokumon' }] },
   cities: [
@@ -154,7 +154,7 @@ const s5 = {
 
 const s6 = {
   id: 's6', no: 6, title: '季節風の港',
-  intro: '海を渡れば、香辛料と茶の島々。ダウ船は季節風に乗れば速く、逆らえば遅い。夏は東へ、冬は西へ。風を読んで、胡椒港の香辛料を白檀港で200袋売り、資産を9000銀にせよ。',
+  intro: '海を渡れば、香辛料と茶の島々。ダウ船は季節風に乗れば速く、逆らえば遅い。夏は東へ、冬は西へ。胡椒港の香辛料を白檀港で200袋売り、資産を9000銀にせよ。ただし今の白檀港は「町」で、香辛料を買い取らない。米や甘味を届けて「都市」（人口3000）に育てると、香辛料が売れるようになる。',
   goods: ['wheat', 'rice', 'dates', 'rawsugar', 'whitesugar', 'salt', 'spice', 'tea', 'pottery'],
   start: { silver: 800, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'byakudan', transport: 'dhow' }] },
   cities: [

@@ -199,7 +199,8 @@ export function departDialog(app, mid, to) {
   const m = G.getMerchant(world, mid);
   const route = G.findPath(world, m.city, to, m.transport);
   const dest = world.cities[to];
-  let guards = route.edges.some((e) => e.danger) && world.scenario.bandits ? 2 : 0;
+  const maxDanger = Math.max(0, ...route.edges.map((e) => e.danger || 0));
+  let guards = maxDanger && world.scenario.bandits ? maxDanger * 2 + 1 : 0;
   const desertDays = route.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + G.edgeDays(world, e, m.transport, e.a), 0);
   const food = G.PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
   const need = Math.ceil(desertDays * G.cargoCap(m) * G.BALANCE.provisionPerCap);

@@ -405,7 +405,8 @@ function run(world, cmd, pos, opts) {
         const food = G.PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
         const need = Math.ceil(desertDays * G.cargoCap(m) * G.BALANCE.provisionPerCap);
         if (desertDays && food < need) out.push(`⚠ 砂漠を約${desertDays}日渡るのに、隊商の食料が ${food}/${need} しかない（なつめやし・干しぶどう・キビ・麦・米）`);
-        if (plan.danger && world.scenario.bandits && !Number(opts.guards || 0)) out.push(`⚠ 盗賊の出る道（危険度${plan.danger}）を護衛なしで進む（--guards n で護衛を雇える）`);
+        const rec = plan.danger * 2 + 1;
+        if (plan.danger && world.scenario.bandits && Number(opts.guards || 0) < rec) out.push(`⚠ 盗賊の出る道（危険度${plan.danger}）。護衛は${rec}人いればたいてい撃退できる（今 ${Number(opts.guards || 0)}人。--guards n で雇う、1人1日${G.BALANCE.guardWage}銀）`);
       }
       if (world.player.silver < 0) out.push('⚠ 銀がマイナス。着いた町で売らないと仕入れができない');
       const r = after(G.travel(world, m.id, pos[0], { guards: Number(opts.guards || 0) }));
