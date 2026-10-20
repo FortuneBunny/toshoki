@@ -45,7 +45,7 @@ const s2 = {
     { a: 'kanbi', b: 'kohaku', kind: 'trail' },
   ],
   goals: [{ type: 'cityTier', city: 'mugi', tier: 2 }, { type: 'networth', amount: 3000 }],
-  deadline: 360, rankS: 0.4,
+  deadline: 400, rankS: 0.36,
   events: true, contracts: true, bandits: false, newsDaysPerHop: 4,
   disabledEvents: ['sandstorm', 'plague'],
   maxMerchants: 2,
