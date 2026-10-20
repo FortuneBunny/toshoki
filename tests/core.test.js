@@ -95,3 +95,29 @@ test('倉庫との積み下ろしは整数だけ受け付ける（NaN で倉庫�
   assert.equal(G.trade(w, 1, [{ good: 'wheat', qty: NaN }]).ok, false);
   for (const v of Object.values(w.player.warehouses.toumitsu.stock)) assert.ok(Number.isFinite(v));
 });
+
+test('区画: 町の生産は区画の建物の合計で、シナリオの指定と同じ', () => {
+  for (const id of G.SCENARIO_ORDER) {
+    const sc = G.SCENARIOS[id];
+    const w = G.createWorld(id, { seed: 3 });
+    for (const def of sc.cities) {
+      const c = w.cities[def.id];
+      assert.equal(c.district.terrain.length, 144);
+      assert.ok(c.district.buildings.some((b) => b.type === 'market'));
+      for (const [g, rate] of Object.entries(def.produces || {})) assert.ok(Math.abs((c.produces[g] || 0) - rate) < 1e-9, `${id} ${def.id} ${g}`);
+      assert.ok(!c.district.buildings.some((b) => b.virtual), `${id} ${def.id} に置けなかった建物がある`);
+    }
+  }
+});
+
+test('区画: 版1のセーブは読み込み時に区画を作って移す', () => {
+  const w = G.createWorld('s2', { seed: 4 });
+  G.advance(w, 10, silent);
+  const old = JSON.parse(G.serialize(w));
+  old.version = 1;
+  for (const c of Object.values(old.cities)) delete c.district;
+  const w2 = G.deserialize(JSON.stringify(old));
+  assert.equal(w2.version, G.SAVE_VERSION);
+  for (const c of Object.values(w2.cities)) assert.ok(c.district?.buildings.length >= 1);
+  G.advance(w2, 5, silent);
+});

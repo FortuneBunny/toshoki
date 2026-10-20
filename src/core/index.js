@@ -8,6 +8,8 @@ export * from './knowledge.js';
 export * from './scoring.js';
 export * from './save.js';
 export { buildingInputs } from './production.js';
+export * from './district.js';
+export { PRODUCERS, PRODUCER_FOR, TERRAIN, RESOURCES, DISTRICT_SIZE, MARKET_RADIUS } from '../data/district.js';
 export { GOODS, GOOD_IDS, CATEGORIES, PROVISIONS } from '../data/goods.js';
 export { TRANSPORTS, ROUTE_KINDS } from '../data/transports.js';
 export { BUILDINGS } from '../data/buildings.js';

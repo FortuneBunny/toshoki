@@ -4,6 +4,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { midPrice, targetStock } from './market.js';
 import { jitter } from './rng.js';
 import { emit } from './events.js';
+import { districtProduction } from './district.js';
 
 export function cityTier(city) {
   let t = 0;
@@ -38,6 +39,7 @@ export function glucoseNeed(city) {
 }
 
 function produce(world, city) {
+  if (city.district) city.produces = districtProduction(city);
   const labor = Math.min(2, Math.max(0.5, Math.sqrt(city.pop / city.basePop)));
   for (const [id, rate] of Object.entries(city.produces || {})) {
     const cap = Math.max(20, dailyDemand(city, id, false) * B.stockCapDays, rate * 15);

@@ -1,6 +1,7 @@
 // セーブとロード（JSON）。シナリオの定義は保存せず、ID から引き直す。
 import { SCENARIOS } from '../data/scenarios.js';
 import { SAVE_VERSION, resolveScenario } from './world.js';
+import { generateDistrict, districtProduction } from './district.js';
 
 export function serialize(world) {
   const base = resolveScenario(world.scenarioId, world.seed);
@@ -24,8 +25,21 @@ function hopTable(world) {
   return table;
 }
 
+// 版1 → 版2: 区画がないので、今の生産量から区画を作る
+function migrateV1(data) {
+  const sc = resolveScenario(data.scenarioId, data.seed);
+  for (const c of Object.values(data.cities)) {
+    if (!c.district) {
+      c.district = generateDistrict(c, { seed: data.seed, scenarioGoods: sc?.goods || [] });
+      c.produces = districtProduction(c);
+    }
+  }
+  data.version = 2;
+}
+
 export function deserialize(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
+  if (data.version === 1) migrateV1(data);
   if (data.version !== SAVE_VERSION) throw new Error(`セーブデータの版が違う（${data.version}）`);
   const sc = resolveScenario(data.scenarioId, data.seed);
   if (!sc) throw new Error(`不明なシナリオ: ${data.scenarioId}`);

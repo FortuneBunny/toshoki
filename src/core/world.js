@@ -14,8 +14,9 @@ import { stepTravel } from './caravan.js';
 import { updateProduction } from './production.js';
 import { updateRivals } from './rival.js';
 import { checkGoals } from './scoring.js';
+import { generateDistrict, districtProduction } from './district.js';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 // 地図の1ピクセルが表す距離（ロバは1日に10進む）
 export const MAP_SCALE = 0.2;
 
@@ -95,6 +96,12 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   });
   world.hopDistance = hopTable(world.cities, world.edges);
   Object.defineProperty(world, 'hopDistance', { enumerable: false, writable: true, value: world.hopDistance });
+
+  // 区画: 町の中のマス目。生産は区画の建物から集計する（開始時の合計は produces と同じ）
+  for (const c of Object.values(world.cities)) {
+    c.district = generateDistrict(c, { seed: world.seed, scenarioGoods: sc.goods });
+    c.produces = districtProduction(c);
+  }
 
   // 初期在庫: 産地は多め、需要だけある品は少なめ
   for (const c of Object.values(world.cities)) {
