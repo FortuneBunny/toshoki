@@ -173,6 +173,8 @@ img { user-select: none; }
 .chip { display: inline-flex; align-items: center; gap: 3px; background: var(--panel-3); border-radius: 12px; padding: 1px 8px 1px 3px; font-size: 12px; }
 .section { margin: 12px 0 4px; font-weight: 900; color: var(--amber); font-size: 13px; letter-spacing: 0.05em; }
 .prices-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.table-scroll { overflow-x: auto; }
+.table-scroll .prices-table td:first-child { white-space: nowrap; position: sticky; left: 0; background: var(--panel); }
 .prices-table th { text-align: right; color: var(--text-faint); font-weight: 700; padding: 2px 4px; }
 .prices-table th:first-child, .prices-table td:first-child { text-align: left; }
 .prices-table td { text-align: right; padding: 2px 4px; border-top: 1px solid #30261c; }

@@ -360,7 +360,7 @@ function transportButton(m) {
         h('button', { class: 'btn primary small', onclick: () => { const r = app.run(() => G.buyTransport(w, m.id, t)); if (r.ok) { sfx.fanfare(); md.close(); } } }, `${d.cost - TRANSPORTS[m.transport].cost * 0.5}銀`));
     }), h('div', { class: 'faint' }, `今の${TRANSPORTS[m.transport].name}は半額で下取り。`));
     const md = modal(app, `${m.name}の輸送手段`, body);
-  } }, '乗り換え');
+  } }, '乗換');
 }
 
 function openTradeFor(mid) {

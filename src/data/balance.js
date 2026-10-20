@@ -47,14 +47,14 @@ export const BALANCE = {
   diffusionThreshold: 1.35,
 
   // 移動と危険
-  banditBase: 0.05,           // 危険度1の道で、1日あたり襲われる確率
+  banditBase: 0.025,          // 危険度1の道で、1日あたり襲われる確率
   guardWage: 2,               // 護衛1人の1日の給金
   guardPower: 1,              // 護衛1人の強さ
   banditPower: [1, 4],        // 盗賊の強さの範囲
   banditLoss: 0.35,           // 負けたときに奪われる積荷の割合
   starveSlow: 2,              // 砂漠で食料が尽きたときの移動の遅れ（倍率）
-  starveLoss: 0.08,           // 食料が尽きた日ごとに失う積荷の割合
-  provisionPerDay: 1,         // 砂漠で1日に食べる量（積載20ごと）
+  starveLoss: 0.03,           // 食料が尽きた日ごとに失う積荷の割合
+  provisionPerCap: 1 / 60,    // 砂漠で1日に食べる量 = 積載量 × これ（ロバなら3日で1個）
 
   // 人と組織
   merchantHireCost: 150,

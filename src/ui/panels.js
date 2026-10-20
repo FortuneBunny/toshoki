@@ -167,7 +167,7 @@ function overview(app) {
         return h('td', { class: `num ${p < GOODS[g].base * 0.75 ? 'good' : p > GOODS[g].base * 1.35 ? 'bad' : ''}`, style: want ? {} : { opacity: 0.4 } }, fmt(p, p < 10 ? 1 : 0));
       })));
   }
-  box.append(t, h('div', { class: 'faint', style: { fontSize: '11px' } }, '緑=安い（仕入れどき）、赤=高い（売りどき）。情報は商人が最後にいたときのもの。'));
+  box.append(h('div', { class: 'table-scroll' }, t), h('div', { class: 'faint', style: { fontSize: '11px' } }, '緑=安い（仕入れどき）、赤=高い（売りどき）。情報は商人が最後にいたときのもの。'));
   // 定期便
   const orders = world.player.merchants.filter((m) => m.order);
   if (orders.length) {
@@ -189,7 +189,7 @@ export function departDialog(app, mid, to) {
   let guards = route.edges.some((e) => e.danger) && world.scenario.bandits ? 2 : 0;
   const desertDays = route.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + G.edgeDays(world, e, m.transport, e.a), 0);
   const food = G.PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
-  const need = desertDays * Math.max(1, Math.ceil(G.cargoCap(m) / 20)) * G.BALANCE.provisionPerDay;
+  const need = Math.ceil(desertDays * G.cargoCap(m) * G.BALANCE.provisionPerCap);
   const k = world.player.knowledge[to];
   const body = h('div', {});
   const draw = () => {

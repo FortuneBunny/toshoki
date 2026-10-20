@@ -1,7 +1,7 @@
 // プレイヤーの操作。ブラウザの UI と CLI は必ずここを通す。
 // どの関数も { ok: true, ... } か { ok: false, error } を返す。
 import { GOODS } from '../data/goods.js';
-import { TRANSPORTS } from '../data/transports.js';
+import { TRANSPORTS, ROUTE_KINDS } from '../data/transports.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { BALANCE as B } from '../data/balance.js';
 import { tick, addMerchant, drainEvents } from './world.js';
@@ -76,6 +76,10 @@ export function buyTransport(world, mid, type) {
   const city = world.cities[m.city];
   if (!canBuyTransportAt(world, city, type)) return fail(`${city.name}では${t.name}を買えない`);
   if (cargoUsed(m) > t.cap) return fail('今の積荷が載り切らない');
+  // 今いる町から1本も通れる道がないなら買わせない（立ち往生の罠を防ぐ）
+  if (!world.edges.some((e) => (e.a === m.city || e.b === m.city) && t.modes.includes(e.kind))) {
+    return fail(`${city.name}からは${t.name}で通れる道がない（${t.modes.map((x) => ROUTE_KINDS[x].name).join('・')}が必要）`);
+  }
   const refund = TRANSPORTS[m.transport].cost * 0.5;
   const price = t.cost - refund;
   if (world.player.silver < price) return fail(`銀が足りない（${Math.ceil(price)}必要）`);

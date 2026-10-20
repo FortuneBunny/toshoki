@@ -98,8 +98,11 @@ function beginLeg(world, m) {
 
 function eatProvisions(world, m, edge) {
   if (edge.kind !== 'desert') return;
-  const need = Math.max(1, Math.ceil(cargoCap(m) / 20)) * B.provisionPerDay;
-  let left = need;
+  // 端数は持ち越して、まとまったら1個食べる
+  m.hunger = (m.hunger || 0) + cargoCap(m) * B.provisionPerCap;
+  let left = Math.floor(m.hunger);
+  if (left <= 0) return;
+  m.hunger -= left;
   for (const id of PROVISIONS) {
     const have = m.cargo[id] || 0;
     const eat = Math.min(have, left);
@@ -111,6 +114,7 @@ function eatProvisions(world, m, edge) {
     if (!left) break;
   }
   if (left > 0) {
+    m.hunger += left;
     // 食料が尽きた: 進みが遅れ、積荷の一部を失う
     m.travel.daysLeft += 1 / B.starveSlow;
     let lost = 0;
@@ -132,7 +136,7 @@ function banditCheck(world, m, edge) {
   if (!edge.danger || !world.scenario.bandits) return;
   const p = B.banditBase * edge.danger * (1 - (world.player.heirloomSafety || 0));
   if (!chance(world, p)) return;
-  const power = randInt(world, B.banditPower[0], Math.round(B.banditPower[1] * Math.min(1.5, edge.danger)));
+  const power = randInt(world, B.banditPower[0], Math.round(B.banditPower[1] * Math.min(1.5, (1 + edge.danger) / 2)));
   const guard = m.guards * B.guardPower;
   if (guard >= power) {
     world.player.rep += 10;
