@@ -54,6 +54,7 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--json') opts.json = true;
+    else if (a === '--nowait') opts.nowait = true;
     else if (a.startsWith('--')) opts[a.slice(2)] = argv[++i];
     else if (a === '-m') opts.merchant = argv[++i];
     else pos.push(a);
@@ -321,7 +322,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   build <種類> [confirm]               今いる町に工房を建てる（mill, confectionery, winery, malthouse）
   workshops                            工房の一覧（レシピ、生産数、倉庫）
   workshop <番号> on|off|autobuy|noautobuy
-  load <品物> <数> / unload <品物> <数>  倉庫との積み下ろし
+  load <品物> <数|all>                 倉庫から商人へ積む
+  unload <品物> <数|all>               商人から倉庫へ下ろす（工房の材料はここに入れる）
   road <道の番号> [confirm]            小道を街道に整備する
   donate [confirm]                     今いる町に寄進する（費用は人口に比例。90日間、成長が早まる）
   order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..."
@@ -332,7 +334,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   order clear | order resume
   inherit <家訓>                       シナリオ達成後、家訓を選んで次のシナリオの始め方を表示
 
---json を付けると結果を JSON で出す。`;
+--json を付けると結果を JSON で出す。
+-m <番号> はコマンドのどこに書いてもよい。続けて打つときは ; ではなく && でつなぐと、失敗したところで止まる。`;
 
 
 
@@ -462,8 +465,16 @@ function run(world, cmd, pos, opts) {
     }
     case 'load': case 'unload': {
       const m = needIdle(world, opts);
-      after(G.warehouse(world, m.id, pos[0], (cmd === 'load' ? 1 : -1) * Number(pos[1])));
-      out.push('移した');
+      const good = pos[0];
+      if (!GOODS[good]) throw new Error(`品物を指定する（例: ${cmd} cane 20 / ${cmd} cane all）`);
+      const wh = world.player.warehouses[m.city];
+      let n;
+      if (pos[1] === 'all' || pos[1] === undefined) {
+        n = cmd === 'load' ? Math.min(Math.floor(wh?.stock[good] || 0), Math.floor((G.cargoCap(m) - G.cargoUsed(m)) / GOODS[good].weight)) : m.cargo[good] || 0;
+      } else n = parseInt(pos[1], 10);
+      if (!(n > 0)) throw new Error(cmd === 'load' ? `倉庫から積める${GOODS[good].name}がない（倉庫 ${Math.floor(wh?.stock[good] || 0)}個、積載の空き ${G.cargoCap(m) - G.cargoUsed(m)}）` : `${GOODS[good].name}を積んでいない`);
+      after(G.warehouse(world, m.id, good, (cmd === 'load' ? 1 : -1) * n));
+      out.push(cmd === 'load' ? `倉庫から${m.name}へ ${GOODS[good].name}を${n}個積んだ（倉庫の残り ${Math.floor(wh.stock[good] || 0)}）` : `${m.name}から倉庫へ ${GOODS[good].name}を${n}個下ろした（倉庫 ${Math.floor(wh.stock[good] || 0)}個）`);
       break;
     }
     case 'road': {

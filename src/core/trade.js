@@ -168,6 +168,7 @@ export function gainRep(world, amount) {
 
 // 倉庫との積み下ろし（qty > 0 は倉庫から積む、qty < 0 は倉庫へ下ろす）
 export function moveWarehouse(world, m, good, qty) {
+  if (!Number.isInteger(qty) || qty === 0) return { ok: false, error: '数量は1以上の整数で指定する' };
   const wh = world.player.warehouses[m.city];
   if (!wh) return { ok: false, error: 'この町に倉庫（工房）がない' };
   const g = GOODS[good];

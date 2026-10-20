@@ -86,3 +86,12 @@ test('目標を満たすと勝ちになる', () => {
   G.advance(w, 1, silent);
   assert.ok(w.finished?.win);
 });
+
+test('倉庫との積み下ろしは整数だけ受け付ける（NaN で倉庫が壊れない）', () => {
+  const w = G.createWorld('s3', { seed: 1 });
+  w.player.silver = 5000;
+  G.build(w, 'toumitsu', 'mill');
+  assert.equal(G.warehouse(w, 1, 'cane', NaN).ok, false);
+  assert.equal(G.trade(w, 1, [{ good: 'wheat', qty: NaN }]).ok, false);
+  for (const v of Object.values(w.player.warehouses.toumitsu.stock)) assert.ok(Number.isFinite(v));
+});

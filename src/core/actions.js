@@ -35,6 +35,7 @@ export function preview(world, mid, lines) {
 export function trade(world, mid, lines) {
   const [m, err] = idle(world, mid);
   if (err) return err;
+  if (lines.some((l) => !Number.isInteger(l.qty))) return fail('数量は整数で指定する');
   const r = executeTrade(world, m, lines);
   if (r.ok) checkGoals(world);
   return r.ok ? r : fail(r.errors.join(' / '));
