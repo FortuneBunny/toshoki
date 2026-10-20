@@ -59,9 +59,13 @@ export function runOrder(world, m, { depart = true } = {}) {
       if (n <= 0) { notes.push(`${GOODS[s.good].name}は売値 ${(quote(world, city, s.good, -1)).toFixed(2)} が最低売値 ${s.min} を下回るので売らずに持ち越し`); continue; }
       executeTrade(world, m, [{ good: s.good, qty: -n }], { auto: true });
     }
+    // 次の区間で砂漠を渡るなら、食料の分の積載と銀を空けておく（品物で積荷が埋まって飢えないように）
+    const nextCity = o.stops[(o.next + 1) % o.stops.length].city;
+    const food = PROVISIONS.includes(stop.buy?.[0]?.good) ? 0 : foodNeed(world, m, nextCity);
     // 買い: 上限価格を超えない範囲で、指定数まで
     for (const b of stop.buy || []) {
-      const room = Math.floor((cargoCap(m) - cargoUsed(m)) / GOODS[b.good].weight);
+      const reserve = PROVISIONS.includes(b.good) ? 0 : food;
+      const room = Math.floor((cargoCap(m) - cargoUsed(m) - reserve) / GOODS[b.good].weight);
       const want = Math.max(0, b.qty - (m.cargo[b.good] || 0));
       let n = Math.min(room, want, Math.floor(city.stock[b.good] || 0));
       while (n > 0 && (quote(world, city, b.good, n) / n > (b.max || Infinity) || quote(world, city, b.good, n) > world.player.silver)) n = Math.floor(n * 0.7);
@@ -100,12 +104,23 @@ export function departWithExpectation(world, m, to) {
 }
 
 // 砂漠を渡るなら、足りない食料を今いる町で買い足す
-function autoProvision(world, m, to) {
+// 次の行き先までに砂漠で食べる食料の数（足りている分は引かない）
+function foodNeed(world, m, to) {
+  if (!to || to === m.city) return 0;
   const route = findPath(world, m.city, to, m.transport);
-  if (!route) return;
+  if (!route) return 0;
   const desertDays = route.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + edgeDays(world, e, m.transport, e.a), 0);
-  if (!desertDays) return;
-  const need = Math.ceil(desertDays * cargoCap(m) * B.provisionPerCap) + 1;
+  if (!desertDays) return 0;
+  const need = Math.ceil(desertDays * cargoCap(m) * B.provisionPerCap * (world.player.mods?.provision ?? 1) * (m.talent === 'desert' ? 0.5 : 1)) + 1;
+  const have = PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
+  return Math.max(0, need - have);
+}
+
+function autoProvision(world, m, to) {
+  if (!foodNeed(world, m, to)) return;
+  const route = findPath(world, m.city, to, m.transport);
+  const desertDays = route.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + edgeDays(world, e, m.transport, e.a), 0);
+  const need = Math.ceil(desertDays * cargoCap(m) * B.provisionPerCap * (world.player.mods?.provision ?? 1) * (m.talent === 'desert' ? 0.5 : 1)) + 1;
   let have = PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
   const city = world.cities[m.city];
   for (const g of PROVISIONS) {

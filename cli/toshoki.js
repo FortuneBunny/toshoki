@@ -418,8 +418,9 @@ function resolveAll(world, m, lines) {
 }
 
 // 定期便の停泊地: "kohaku sell:wheat@5,dates buy:silk*10@30 unload:rawsugar load:whitesugar"
-function parseStop(str) {
-  const [city, ...parts] = str.trim().split(/\s+/);
+function parseStop(str, world) {
+  const [name, ...parts] = str.trim().split(/\s+/);
+  const city = world ? cityArg(world, name) : name;
   const stop = { city, sell: [], buy: [], unload: [], load: [] };
   for (const p of parts) {
     const [kind, list] = p.split(':');
@@ -780,7 +781,7 @@ function run(world, cmd, pos, opts) {
       if (pos[0] === 'resume') { after(G.resumeOrder(world, m.id)); out.push('定期便を再開した'); break; }
       if (pos[0] === 'pause') { const r = after(G.pauseOrderAtNext(world, m.id)); out.push(r.now ? '定期便を止めた（今いる町で待機）' : '次に町に着いたら止まる'); break; }
       if (pos[0] !== 'add') throw new Error('order add|list|pause|resume|clear');
-      const stops = pos.slice(1).map(parseStop);
+      const stops = pos.slice(1).map((p) => parseStop(p, world));
       const replaced = !!m.order;
       after(G.setOrder(world, m.id, { stops, guards: Number(opts.guards || 0) }));
       if (replaced) out.push('（以前の定期便は置き換えた）');
@@ -915,6 +916,7 @@ function main(argv) {
   const log = (entry) => { if (opts.save) appendFileSync(`${opts.save}.log.jsonl`, JSON.stringify(entry) + '\n'); };
   try {
     if (cmd === 'help') return print(rest[0] === 'rules' ? RULES : HELP, opts);
+    if ((cmd === 'heirlooms' || cmd === 'inherit') && !opts.save) return print(heirloomList(), opts);
     if (cmd === 'scenarios') return print([...SCENARIO_ORDER.map((id) => `${id}: ${SCENARIOS[id].no}. ${SCENARIOS[id].title}（期限 ${SCENARIOS[id].deadline}日）`), 'free: フリープレイ（--seed ごとに地図が変わる）'].join('\n'), opts);
     if (cmd === 'new') {
       const sc = opts.scenario || 's1';
