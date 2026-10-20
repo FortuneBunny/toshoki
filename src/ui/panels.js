@@ -356,7 +356,11 @@ export function settingsDialog(app) {
     h('div', { class: 'section' }, '演出の強さ'),
     h('div', { class: 'chips' }, ['控えめ', '標準', '最大'].map((n, i) => h('button', { class: `btn small ${st.fx === i ? 'primary' : 'ghost'}`, onclick: () => { app.setSetting('fx', i); settingsRefresh(); } }, n))),
     h('div', { class: 'section' }, '効果音'),
-    h('div', { class: 'chips' }, h('button', { class: `btn small ${st.sound ? 'primary' : 'ghost'}`, onclick: () => { app.setSetting('sound', !st.sound); settingsRefresh(); } }, st.sound ? 'オン' : 'オフ')),
+    h('div', { class: 'chips' }, h('button', { class: `btn small ${st.sound ? 'primary' : 'ghost'}`, onclick: () => { app.setSetting('sound', !st.sound); settingsRefresh(); } }, st.sound ? 'オン' : 'オフ'),
+      h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: st.sfxVol ?? 0.5, oninput: (e) => app.setSetting('sfxVol', Number(e.target.value)), 'aria-label': '効果音の音量' })),
+    h('div', { class: 'section' }, '音楽（地域ごとの曲。シュガーラッシュの間は変奏）'),
+    h('div', { class: 'chips' }, h('button', { class: `btn small ${(st.music ?? true) ? 'primary' : 'ghost'}`, onclick: () => { app.setSetting('music', !(st.music ?? true)); settingsRefresh(); } }, (st.music ?? true) ? 'オン' : 'オフ'),
+      h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: st.musicVol ?? 0.35, oninput: (e) => app.setSetting('musicVol', Number(e.target.value)), 'aria-label': '音楽の音量' })),
     h('div', { class: 'section' }, '自動一時停止'),
     h('label', {}, h('input', { type: 'checkbox', checked: st.autoPause || undefined, onchange: (e) => app.setSetting('autoPause', e.target.checked) }), ' 手動の商人が町に着いたら一時停止する'));
   let m;

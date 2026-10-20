@@ -4,6 +4,7 @@ import { createWorldView } from './world.js';
 import { openTrade } from './tradeDialog.js';
 import { renderSide, departDialog, orderDialog, ledgerDialog, helpDialog, settingsDialog, resultDialog, titleScreen, modal, techDialog, hireDialog } from './panels.js';
 import { sfx, setSound } from './audio.js';
+import { setMusic, setMusicMood, regionFor } from './music.js';
 import { openDistrict } from './district.js';
 import * as fx from './juice.js';
 import * as G from '../core/index.js';
@@ -33,13 +34,16 @@ const app = {
   shownSilver: 0,
 };
 
-setSound(app.settings.sound);
+setSound(app.settings.sound, app.settings.sfxVol ?? 0.5);
 fx.setFxLevel(app.settings.fx);
+// 音楽はブラウザの決まりで、最初に画面を触ってから鳴らす
+document.addEventListener('pointerdown', () => setMusic(app.settings.music ?? true, app.settings.musicVol ?? 0.35), { once: true });
 
 app.setSetting = (k, v) => {
   app.settings[k] = v;
   writeJSON(KEY_SET, app.settings);
-  setSound(app.settings.sound);
+  setSound(app.settings.sound, app.settings.sfxVol ?? 0.5);
+  setMusic(app.settings.music ?? true, app.settings.musicVol ?? 0.35);
   fx.setFxLevel(app.settings.fx);
 };
 
@@ -496,6 +500,12 @@ function renderTutorial() {
 }
 
 app.render = () => {
+  // 音楽: 選んだ商人のいる地域。ラッシュの町にいれば変奏
+  if (app.world) {
+    const m = G.getMerchant(app.world, app.state.selMerchant) || app.world.player.merchants[0];
+    const cid = m ? (m.travel ? m.travel.to : m.city) : null;
+    setMusicMood(regionFor(app.world, cid), Object.values(app.world.cities).some((c) => c.rush > 0));
+  }
   if (app.els.posts && app.world) app.els.posts.textContent = `交易所 ${G.postsFounded(app.world)}/${G.postsAllowed(app.world)}`;
   if (!app.world) return;
   renderTop();

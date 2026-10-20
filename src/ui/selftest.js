@@ -39,6 +39,14 @@ export async function selftest(app) {
   await step('帳簿', () => { click('.topbar .btn', '帳簿'); click('.modal header .btn'); });
   await step('町パネル', () => { app.clickCity('mugi'); if (!document.body.textContent.includes('糖度')) throw new Error('町パネルが出ない'); });
   await step('地図の canvas がある', () => { if (!document.querySelector('canvas.worldview')) throw new Error('canvas なし'); });
+  await step('音楽: 地域の曲とラッシュの変奏が鳴らせる', async () => {
+    const mu = await import('./music.js');
+    for (const r of ['desert', 'east', 'sea', 'plain']) { mu.setMusic(true, 0.01); mu.setMusicMood(r, r === 'sea'); await wait(250); }
+    mu.setMusic(false);
+    click('.btn', '設定');
+    if (!document.body.textContent.includes('音楽')) throw new Error('設定に音楽がない');
+    click('.modal .btn, .btn', '✕');
+  });
   await step('地図の上で麦畑を建てる', () => {
     w().player.silver = Math.max(w().player.silver, 1000);
     const before = w().stats.placed || 0;
