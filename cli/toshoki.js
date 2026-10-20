@@ -69,6 +69,7 @@ function dwellingLine(world, c) {
   const tier = G.cityTier(c);
   const st = G.dwellingStatus(c, tier);
   const all = (c.dwellWants || []).map((g) => GOODS[g].name).join('・') || 'なし';
+  if (!(c.dwellWants || []).length) return '住居の求める品: なし（このシナリオで手に入る品の中に、この町の住居が求めるものはない）';
   if (!st.wants.length) return `住居の求める品: まだない（育つと ${all} を求める）`;
   const list = st.wants.map((g) => `${GOODS[g].name}${st.met.includes(g) ? '○' : '×'}`).join(' ');
   const rule = st.wants.length === 1 ? '今求めるのは1つだけ。届かなくても家は建つ' : `今求めるのは${st.wants.length}つ。そのうち${st.wants.length - 1}つ以上そろえば新しい家が建つ`;
@@ -386,8 +387,8 @@ function buildableText(world, id) {
 }
 
 function mapText(world) {
-  const out = ['■ 地図（町と道）'];
-  for (const c of Object.values(world.cities)) out.push(`  ${c.name}(${c.id})  位置(${c.x},${c.y})${c.tags.length ? `  [${c.tags.join(',')}]` : ''}`);
+  const out = ['■ 地図（町と道）。マスは look・sites・found と同じ座標'];
+  for (const c of Object.values(world.cities)) out.push(`  ${c.name}(${c.id})  マス(${world.grid.cityTiles[c.id].join(',')})${c.tags.length ? `  [${c.tags.join(',')}]` : ''}`);
   out.push('道（日数はロバの場合の目安）:');
   for (const e of world.edges) {
     const days = Math.max(1, Math.round(e.len / TRANSPORTS.donkey.speed / (e.kind === 'desert' ? 0.6 : 1)));
@@ -435,7 +436,7 @@ function resolveAll(world, m, lines) {
       while (n > 0 && G.quote(world, city, l.good, n) > money) n--;
     } else if (n > Math.floor(city.stock[l.good] || 0)) {
       n = Math.floor(city.stock[l.good] || 0);
-      notes.push(`${GOODS[l.good].name}は${city.name}に${n}個しかないので、${n}個にした`);
+      notes.push(n ? `${GOODS[l.good].name}は${city.name}に${n}個しかないので、${n}個にした` : `${GOODS[l.good].name}は${city.name}に在庫がないので、買えない（見積もりから外した）`);
     }
     if (n > Math.floor(room / GOODS[l.good].weight)) {
       n = Math.max(0, Math.floor(room / GOODS[l.good].weight));
@@ -675,6 +676,7 @@ function run(world, cmd, pos, opts) {
       const m = needIdle(world, opts);
       const lines = resolveAll(world, m, parseTradeLines(pos));
       const pv = G.preview(world, m.id, lines);
+      out.push(...notes.splice(0));
       const city = world.cities[m.city];
       if (!pv.rows.length) out.push('取引する数量が0（all は「積載の空き・在庫・手持ちの銀」の一番少ない所で止まる。どれかが足りない）');
       for (const r of pv.rows) {
