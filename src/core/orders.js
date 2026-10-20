@@ -58,6 +58,13 @@ export function runOrder(world, m, { depart = true } = {}) {
       const n = Math.min(have, room, limit);
       if (n > 0) moveWarehouse(world, m, good, n);
     }
+    // どの停泊地でも扱わない積荷（定期便を組み替える前の残りなど）は、買い取る町で売る（砂漠の食料は残す）
+    const handled = new Set(o.stops.flatMap((st) => [...(st.sell || []).map((x) => x.good), ...(st.unload || []), ...(st.buy || []).map((x) => x.good), ...(st.load || []).map((x) => String(x).split('*')[0])]));
+    for (const good of Object.keys(m.cargo)) {
+      if (handled.has(good) || PROVISIONS.includes(good) || !cityWants(city, good)) continue;
+      executeTrade(world, m, [{ good, qty: -m.cargo[good] }], { auto: true });
+      notes.push(`便で扱わない${GOODS[good].name}を売り払った`);
+    }
     // 売り: 最低価格を下回るなら売らずに持ち越す（赤字売りを防ぐ）
     for (const s of stop.sell || []) {
       const have = (m.cargo[s.good] || 0) - (s.keep || 0);

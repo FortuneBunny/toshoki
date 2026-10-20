@@ -74,8 +74,8 @@ function dwellingLine(world, c) {
   if (!st.wants.length) return `住居の求める品: まだない（育つと ${all} を求める）`;
   // 1日に使う量と、今の在庫で何日もつか
   const list = st.wants.map((g) => { const d = G.dailyDemand(c, g, false); const days = d > 0 ? Math.floor((c.stock[g] || 0) / d) : 0; const src = Object.values(world.cities).filter((x) => x.id !== c.id && (x.produces?.[g] || 0) > 0.3).map((x) => x.name); return `${GOODS[g].name}${st.met.includes(g) ? '○' : '×'}（1日約${fmt(d, 1)}個、在庫${days}日分${src.length ? `、産地: ${src.join('・')}` : '、工房で作る品'}）`; }).join(' ');
-  const rule = st.wants.length === 1 ? '今求めるのは1つだけ。届かなくても家は建つ' : `今求めるのは${st.wants.length}つ。そのうち${st.wants.length - 1}つ以上そろえば新しい家が建つ`;
-  return `住居の求める品（${rule}。住民が毎日使うので、在庫が切れると×に戻る）: ${list}  → ${st.ok ? '家は建つ' : '⚠ 家が建たない＝人口が伸びない'}${(c.dwellWants || []).length > st.wants.length ? `（育つと ${all} を求める）` : ''}`;
+  const rule = st.wants.length === 1 ? '今求めるのは1つだけ。届かなくても家は建つ' : `今求めるのは${st.wants.length}つ。そのうち${st.wants.length - 1}つ以上そろえば家がどんどん建つ`;
+  return `住居の求める品（${rule}。住民が毎日使うので、在庫が切れると×に戻る）: ${list}  → ${st.ok ? '家は建つ' : '⚠ 家がゆっくりしか建たない（5日に1軒）'}${(c.dwellWants || []).length > st.wants.length ? `（育つと ${all} を求める）` : ''}`;
 }
 
 // ラッシュまでの目安: 糖度140以上と、その日の甘味の摂取（必要量に対する割合）70%以上の両方

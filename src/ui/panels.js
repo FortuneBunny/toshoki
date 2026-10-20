@@ -476,5 +476,5 @@ export function techDialog(app) {
 function dwellingEl(c, tier) {
   const st = G.dwellingStatus(c, tier);
   if (!st.wants.length) return h('span', { class: 'dim' }, (c.dwellWants || []).length ? `まだない（育つと ${(c.dwellWants || []).map((g) => GOODS[g].name).join('・')} を求める）` : 'なし');
-  return h('span', {}, st.wants.map((g) => h('span', { class: `chip ${st.met.includes(g) ? 'good' : 'bad'}`, title: st.met.includes(g) ? 'そろっている' : '足りない' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${st.met.includes(g) ? '○' : '×'}`)), st.ok ? (st.wants.length === 1 ? h('div', { class: 'dim', style: { fontSize: '11px' } }, '今求めるのは1つだけ。届かなくても家は建つ') : null) : h('div', { class: 'bad', style: { fontSize: '11px' } }, `家が建たない（${st.wants.length}つのうち${st.wants.length - 1}つ以上そろえば建つ）`));
+  return h('span', {}, st.wants.map((g) => h('span', { class: `chip ${st.met.includes(g) ? 'good' : 'bad'}`, title: st.met.includes(g) ? 'そろっている' : '足りない' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${st.met.includes(g) ? '○' : '×'}`)), st.ok ? (st.wants.length === 1 ? h('div', { class: 'dim', style: { fontSize: '11px' } }, '今求めるのは1つだけ。届かなくても家は建つ') : null) : h('div', { class: 'bad', style: { fontSize: '11px' } }, `家がゆっくりしか建たない（${st.wants.length}つのうち${st.wants.length - 1}つ以上そろえば、どんどん建つ）`));
 }

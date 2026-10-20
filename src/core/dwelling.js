@@ -12,7 +12,7 @@ const REGION_PREFS = {
   plain: ['pottery', 'salt', 'wine', 'tools', 'honey', 'raisins', 'rawsugar', 'molasses'],
 };
 export const DWELLING_RATE = 0.3; // 求める品の需要（人口千人あたり1日）
-const SAT_LINE = 0.5; // ならした充足率がこれ以上なら「そろっている」
+const SAT_LINE = 0.3; // ならした充足率（その品の需要全体のうち食べられた割合）がこれ以上なら「そろっている」
 
 export function dwellingRegion(world, city) {
   if (city.tags.includes('desert')) return 'desert';
