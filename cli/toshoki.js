@@ -77,12 +77,12 @@ function dwellingLine(world, c) {
 }
 
 // ラッシュまでの目安: 糖度140以上と、その日の甘味の摂取（必要量に対する割合）70%以上の両方
-function rushGap(glucose, sweet, plan = null) {
+function rushGap(glucose, sweet, plan = null, line = 140) {
   if (glucose === undefined) return 'ラッシュの目安は町を見ないと分からない';
   const g = Math.round(glucose);
   const s = Math.round(sweet * 100);
   const need = [];
-  if (g < 140) need.push(`糖度をあと${140 - g}（今${g}。食べ物を何種類も届ける）`);
+  if (g < line) need.push(`糖度をあと${line - g}（今${g}。食べ物を何種類も届ける）`);
   if (s < G.BALANCE.rushSweetLine * 100) need.push(`甘味の摂取をあと${Math.round(G.BALANCE.rushSweetLine * 100) - s}%（今${s}%＝今日の甘味の必要量のうち食べた割合。甘味を2種類以上まとめて届ける${plan?.length ? `。目安は ${plan.slice(0, 2).map((p) => `${GOODS[p.good].name} 1日約${Math.ceil(p.perDay)}個（20日ごとの便なら1回に約${Math.ceil(p.perDay * 20)}個）`).join(' ＋ ')}。届けた日だけでなく、毎日切らさないこと（ほかの甘味でもよい）` : ''}）`);
   return need.length ? `ラッシュまで ${need.join('、')}` : '条件はそろっている（明日にもラッシュ）';
 }
@@ -183,7 +183,7 @@ function statusText(world) {
       const k = world.player.knowledge[c.id];
       const here = world.player.merchants.some((m) => m.city === c.id);
       const adv = here ? G.dietAdvice(world, c).slice(0, 3) : [];
-      out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、${rushGap(here ? c.glucose : k?.glucose, (here ? c.sweetLevel : k?.sweetLevel) || 0, G.rushSweetPlan(world, c))}` : ''}${here ? (() => { const why = G.growthBlocker(world, c); return why ? `。⚠ ${why}` : ''; })() : k?.blocker ? `。⚠ ${world.day - k.day}日前に見たとき: ${k.blocker}` : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}（20日ごとの便なら1回に約${Math.ceil(a.perDay * 20)}個）`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
+      out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、${rushGap(here ? c.glucose : k?.glucose, (here ? c.sweetLevel : k?.sweetLevel) || 0, G.rushSweetPlan(world, c), G.rushLineOf(world))}` : ''}${here ? (() => { const why = G.growthBlocker(world, c); return why ? `。⚠ ${why}` : ''; })() : k?.blocker ? `。⚠ ${world.day - k.day}日前に見たとき: ${k.blocker}` : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}（20日ごとの便なら1回に約${Math.ceil(a.perDay * 20)}個）`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
     }
   });
   out.push('商人:');
@@ -296,7 +296,7 @@ function cityText(world, id) {
     if (refuse.length) out.push(`この町が買い取らない品: ${refuse.map((g) => GOODS[g].name).join('・')}（町が育つと買い取るものもある）`);
     if (diet.length) out.push(`食卓（糖度への寄与）: ${diet.map(([g, v]) => `${GOODS[g].name} +${Math.round(v * 100)}`).join(' / ')}`);
     const missingFood = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && G.dailyDemand(c, g, false) > 0 && !(c.diet?.[g] > 0.02));
-    out.push(`シュガーラッシュまで: ${rushGap(c.glucose, c.sweetLevel || 0, G.rushSweetPlan(world, c))}`);
+    out.push(`シュガーラッシュまで: ${rushGap(c.glucose, c.sweetLevel || 0, G.rushSweetPlan(world, c), G.rushLineOf(world))}`);
     out.push(`※ 1種類の食べ物で上げられる糖度は50まで、甘味は1種類45まで。種類を増やすほど糖度が上がる。${missingFood.length ? `今足りない食べ物: ${missingFood.map((g) => GOODS[g].name).join('、')}` : ''}`);
     const adv = G.dietAdvice(world, c).slice(0, 6);
     if (adv.length) out.push(`伸びしろ（1日あたりの目安量で、糖度がどれだけ上がるか）: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join(' / ')}`);
@@ -509,6 +509,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
   hire [番号] [confirm] [--at 町]      商人を雇う（confirm なしなら費用と候補3人の才能を表示。定期便が回っている町でも雇える）
   transport <種類> [confirm]           輸送手段を買い替える（camel, cart, dhow, carrack）
+  guards <人数> [-m 番号]              その商人が手動で出発するとき、いつも雇う護衛の人数
   dismiss [-m 番号] [confirm]          商人に暇を出す（輸送手段を半額で下取り、積荷は売る。銀が尽きたときの立て直しに）
   build <種類> [confirm]               今いる町に工房を建てる（mill, confectionery, winery, malthouse）
   workshops                            工房の一覧（レシピ、生産数、倉庫）
@@ -719,6 +720,8 @@ function run(world, cmd, pos, opts) {
     }
     case 'travel': {
       const m = needIdle(world, opts);
+      // いつもの護衛（guards コマンドで決めた人数）を、--guards がなければ使う
+      if (opts.guards === undefined && m.defaultGuards) opts.guards = m.defaultGuards;
       const plan = G.routeInfo(world, m.id, pos[0]);
       if (plan) {
         const desertDays = plan.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + G.edgeDays(world, e, m.transport, e.a), 0);
@@ -767,6 +770,13 @@ function run(world, cmd, pos, opts) {
       if (!atCity) throw new Error('どの町で雇うか --at <町id> で指定する（商人が滞在している町か、定期便が回っている町）');
       const r = after(G.hireMerchant(world, atCity, pick));
       out.push(`雇った（${r.cost}銀）。新しい商人の番号は #${r.merchant}（-m ${r.merchant} で操作）`);
+      break;
+    }
+    case 'guards': {
+      const m = pickMerchant(world, opts);
+      const n = Math.max(0, Math.min(12, parseInt(pos[0], 10) || 0));
+      m.defaultGuards = n;
+      out.push(`${m.name}は手動で出発するとき、いつも護衛を${n}人雇う（--guards で毎回変えられる。定期便は order add の --guards）`);
       break;
     }
     case 'dismiss': {

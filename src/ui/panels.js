@@ -64,7 +64,7 @@ function cityPanel(app, id) {
       G.civicsIn(c).length ? h('div', {}, h('div', { class: 'section' }, '需要施設'), h('div', { class: 'chips' }, G.civicsIn(c).map((b) => h('span', { class: 'chip', title: `${G.CIVICS[b.type].name}: ${G.civicWants(b.type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}が届くほど成長` }, h('img', { src: `assets/svg/cities/${b.type}.svg`, class: 'icon-sm', alt: '' }), `${G.CIVICS[b.type].name} 満足度 ${Math.round((c.civicSat?.[b.type] || 0) * 100)}%`)))) : null,
       h('div', { class: 'section' }, '食卓（糖度への寄与）'),
       dietChips(world, c),
-      h('div', { class: 'faint', style: { fontSize: '11px' } }, `甘味の摂取 ${Math.round((c.sweetLevel || 0) * 100)}%（今日の甘味の必要量のうち食べた割合）。${Math.round(G.BALANCE.rushSweetLine * 100)}%以上かつ糖度140以上でシュガーラッシュ。1種類の食べ物で上げられるのは50まで、甘味は45まで。`),
+      h('div', { class: 'faint', style: { fontSize: '11px' } }, `甘味の摂取 ${Math.round((c.sweetLevel || 0) * 100)}%（今日の甘味の必要量のうち食べた割合）。${Math.round(G.BALANCE.rushSweetLine * 100)}%以上かつ糖度${G.rushLineOf(world)}以上でシュガーラッシュ。1種類の食べ物で上げられるのは50まで、甘味は45まで。`),
       adviceBlock(world, c));
   } else {
     add(box, h('div', { class: 'faint' }, age === null ? 'まだ訪れていない町。商人を送ると相場が分かる。' : `最後に見たのは ${age} 日前。今どうなっているかは分からない。`));

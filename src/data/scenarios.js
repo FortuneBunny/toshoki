@@ -127,7 +127,7 @@ const s4 = {
 
 const s5 = {
   id: 's5', no: 5, title: '甘い熱狂',
-  intro: '祭都は甘味に飢えている。よく食べている町（糖度140以上）に甘味を2種類以上まとめて届けるとシュガーラッシュ──甘味が飛ぶように売れる。だが熱狂のあとにはクラッシュが来て、町の成長が止まる。甘味は甘蔗浜（粗糖・白糖）とぶどう谷（蜂蜜）で手に入る。ラッシュを2回起こしつつ、祭都を「都市」に育てよ。祭りの都にふさわしく、稲田・ぶどう谷・甘蔗浜から祭都へ街道を通すこと（町の画面の「街道を敷く」/ CLI: path）。コツ: 定期便を一時停止して商人の到着をそろえ、甘味を一気に届けると条件がそろいやすい。',
+  intro: '祭都は甘味に飢えている。よく食べている町（このシナリオでは糖度130以上）に甘味を2種類以上まとめて届けるとシュガーラッシュ──甘味が飛ぶように売れる。だが熱狂のあとにはクラッシュが来て、町の成長が止まる。甘味は甘蔗浜（粗糖・白糖）とぶどう谷（蜂蜜）で手に入る。ラッシュを2回起こしつつ、祭都を「都市」に育てよ。祭りの都にふさわしく、稲田・ぶどう谷・甘蔗浜から祭都へ街道を通すこと（町の画面の「街道を敷く」/ CLI: path）。コツ: 定期便を一時停止して商人の到着をそろえ、甘味を一気に届けると条件がそろいやすい。',
   goods: ['wheat', 'rice', 'dates', 'grapes', 'honey', 'rawsugar', 'malt', 'mizuame', 'wine', 'sweets', 'whitesugar'],
   start: { silver: 700, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'saito' }, { name: 'ライラ', portrait: 'merchant-2', city: 'saito' }] },
   cities: [
@@ -146,6 +146,7 @@ const s5 = {
     { a: 'ine', b: 'budou', kind: 'trail' },
     { a: 'satou', b: 'natsu', kind: 'trail' },
   ],
+  rushLine: 130, // 祭りの都は浮かれやすい（ラッシュが目標なので、ほかの町より低い糖度で起きる）
   goals: [{ type: 'rushes', city: 'saito', count: 2 }, { type: 'cityTier', city: 'saito', tier: 3 }, { type: 'network', cities: ['saito', 'ine', 'budou', 'satou'], mode: 'road' }],
   deadline: 480, rankS: 0.45,
   transports: ['donkey', 'cart'],

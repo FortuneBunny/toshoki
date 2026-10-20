@@ -166,7 +166,7 @@ function rushCycle(world, city) {
     if (city.crash === 0) emit(world, { type: 'crashEnd', city: city.id, text: `${city.name}の糖の反動が収まった` });
     return;
   }
-  if (city.glucose >= B.rushLine && (city.sweetLevel || 0) >= B.rushSweetLine) {
+  if (city.glucose >= rushLineOf(world) && (city.sweetLevel || 0) >= B.rushSweetLine) {
     city.rush = B.rushDays;
     city.rushCount = (city.rushCount || 0) + 1;
     world.stats.rushes = (world.stats.rushes || 0) + 1;
@@ -210,6 +210,11 @@ export function updateCity(world, city) {
 
 // 食卓の診断。届けると糖度が伸びる品と、その量の目安
 // ラッシュに要る甘味の目安: 甘味2種類で、それぞれ1日何個（必要量の割合を半分ずつ）
+// ラッシュが起きる糖度（シナリオで変えられる。s5 はラッシュが目標なので低め）
+export function rushLineOf(world) {
+  return world.scenario.rushLine ?? B.rushLine;
+}
+
 export function rushSweetPlan(world, city) {
   const need = glucoseNeed(city);
   const each = (B.rushSweetLine / 2) * need / B.sweetGain;
