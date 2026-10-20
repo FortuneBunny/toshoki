@@ -194,6 +194,9 @@ function overview(app) {
   add(box, h('div', { class: 'faint', style: { fontSize: '11px', marginTop: '4px' } }, `ランク: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`));
   const active = world.contracts.filter((c) => !c.done && !c.failed);
   if (active.length) add(box, h('div', { class: 'section' }, '大口注文'), active.map((c) => contractEl(world, c)));
+  // 次の一手の例: 選んでいる商人（町にいて、定期便がない）
+  const am = world.player.merchants.find((m) => m.id === app.state.selMerchant) || world.player.merchants[0];
+  if (am && !am.travel && !am.order) add(box, h('div', { class: 'section' }, `💡 ${am.name}の次の一手の例`), h('ul', { class: 'advice' }, G.adviceText(world, am.id).map((l) => h('li', {}, l))));
   // 全部の町の相場（知っている範囲）
   add(box, h('div', { class: 'section' }, '知っている相場'));
   const t = h('table', { class: 'prices-table' });

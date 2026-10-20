@@ -164,6 +164,8 @@ function statusText(world) {
   });
   out.push('商人:');
   for (const m of pl.merchants) out.push('  ' + merchantLine(world, m));
+  // 町にいて定期便のない商人には、次の一手の例を1つ（詳しくは advice）
+  for (const m of pl.merchants) if (!m.travel && !m.order && world.day < 120) out.push(`  💡 #${m.id} 次の一手の例: ${G.adviceText(world, m.id)[0]}（ほかの案は advice）`);
   const stalled = world.player.buildings.filter((b) => b.active && !b.lastMade && world.day > 0);
   for (const b of stalled) out.push(`⚠ ${world.cities[b.city].name}の${BUILDINGS[b.type].name}が止まっている: ${b.why || '材料がない'}（workshops で詳細）`);
   const active = world.contracts.filter((c) => !c.done && !c.failed);
@@ -456,6 +458,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   district [町id]   町の区画（マス目）。建物・地形・資源と市場の圏
   buildable [町id]  その町に置ける生産施設と、置けるマスの候補
   merchants         商人の一覧
+  advice [-m 番号]  次の一手の例（どこで何を買って、どこで売るか。初めての人向け）
   route <町id>      そこまでの経路と日数
   log [n]           最近の出来事
   ledger            帳簿（収支、取引の成績）
@@ -596,6 +599,13 @@ function run(world, cmd, pos, opts) {
       const at = hereCity(world, opts);
       if (pos[0] !== 'confirm') { const why = G.portCheck(world, at); out.push(why ? `✖ ${why}` : `${world.cities[at].name}に港を開く: ${Math.round(G.PORT_COST * (world.player.mods?.buildCost ?? 1))}銀。確定するには: port confirm`); break; }
       out.push(`港を開いた（${after(G.buildPort(world, at)).cost}銀）`);
+      break;
+    }
+    case 'advice': {
+      const m = pickMerchant(world, opts);
+      if (m.travel) { out.push(`${m.name}は移動中`); break; }
+      out.push(`■ ${m.name}の次の一手の例（知っている相場から。古い相場は外れることもある）`);
+      for (const l of G.adviceText(world, m.id)) out.push(`  ・${l}`);
       break;
     }
     case 'merchants': out.push(world.player.merchants.map((m) => merchantLine(world, m)).join('\n')); break;
