@@ -21,6 +21,7 @@ export function arriveAt(world, m) {
   }
   if (m.order && !m.order.paused) {
     m.order.runs = (m.order.runs || 0) + 1;
+    emit(world, { type: 'orderArrive', merchant: m.id, city: m.city, quiet: true, text: `${m.name}（定期便）が${world.cities[m.city].name}に着いた` });
     runOrder(world, m);
     return;
   }

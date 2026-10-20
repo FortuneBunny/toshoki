@@ -30,7 +30,7 @@ const gname = (id) => `${GOODS[id].name}(${id})`;
 // 定期便の売却はまとめて1行にする（大事な通知が埋もれないように）
 function compactEvents(events) {
   const autos = events.filter((e) => (e.type === 'profit' || e.type === 'loss') && e.auto);
-  const rest = events.filter((e) => !autos.includes(e) && e.type !== 'orderNote');
+  const rest = events.filter((e) => !autos.includes(e) && e.type !== 'orderNote' && !e.quiet);
   const out = rest.map(eventLine);
   if (autos.length) {
     const sum = autos.reduce((acc, e) => acc + e.amount, 0);
@@ -314,7 +314,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   quote buy wheat 20 sell dates 10    取引の見積もり（確定しない）
   trade buy wheat 20 sell dates 10    取引を確定（数量に all も使える）
   travel <町id> [--guards n] [--nowait]  出発して、到着か事件まで日を進める（--nowait なら時間を進めない）
-  wait <日数>                          日を進める（最大120日。商人の到着や重要な出来事で止まる）
+  wait <日数> [-m 番号]                日を進める（最大120日。手動の商人の到着や重要な出来事で止まる。-m を付けるとその商人が町に着いたら止まる）
   shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
   hire [confirm]                       今いる町で商人を雇う（confirm なしなら費用だけ表示）
   transport <種類> [confirm]           輸送手段を買い替える（camel, cart, dhow, carrack）
@@ -419,7 +419,11 @@ function run(world, cmd, pos, opts) {
     case 'wait': {
       const asked = Number(pos[0] || 1);
       const n = Math.max(1, Math.min(120, asked));
-      const adv = G.advance(world, n);
+      // -m を付けると、その商人が（定期便でも）町に着いたところで止まる
+      const watch = opts.merchant ? G.getMerchant(world, opts.merchant)?.id : null;
+      const adv = watch
+        ? (() => { const evs = []; for (let i = 0; i < n; i++) { const a = G.advance(world, 1); evs.push(...a.events); if (a.events.some((e) => ['arrive', 'orderArrive'].includes(e.type) && e.merchant === watch) || a.events.some((e) => ['victory', 'defeat'].includes(e.type))) break; } return { events: evs }; })()
+        : G.advance(world, n);
       out.push(...compactEvents(adv.events));
       out.push(`（${world.day}日目${asked > 120 ? '。wait は1回120日まで' : ''}${adv.events.some((e) => e.type === 'arrive') ? '。商人が到着したので止まった' : ''}）`);
       break;

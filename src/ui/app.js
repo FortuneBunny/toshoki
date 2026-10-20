@@ -170,6 +170,7 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
   const evs = events || G.drainEvents(app.world);
   const feed = app.els.feed;
   for (const e of evs) {
+    if (e.quiet) continue;
     if (feed) addFeed(e);
     if (quiet) continue;
     const at = cityScreen(e.city);
