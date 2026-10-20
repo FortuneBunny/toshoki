@@ -75,6 +75,7 @@ export function runOrder(world, m, { depart = true } = {}) {
   const target = o.stops[o.next].city;
   if (target === m.city) return;
   autoProvision(world, m, target);
+  m.guards = o.guards || 0;
   const res = departWithExpectation(world, m, target);
   if (!res.ok) {
     o.paused = true;

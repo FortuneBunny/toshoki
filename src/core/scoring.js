@@ -74,14 +74,18 @@ export function goalProgress(world, g) {
   }
 }
 
-// 一度達成した目標は、あとで数値が下がっても達成済みのまま
+// 積み上げ型の目標（つくった数・売った数・ラッシュの回数）は一度届けば達成のまま。
+// 状態の目標（銀・資産・人口・町の段階）は、すべての目標がそろう瞬間に満たしている必要がある。
+const CUMULATIVE = new Set(['produce', 'deliver', 'rushes', 'share']);
 export function goalsStatus(world) {
   world.goalsDone = world.goalsDone || [];
+  world.goalsReached = world.goalsReached || [];
   return world.scenario.goals.map((g, i) => {
     const r = goalProgress(world, g);
-    if (r.p >= 1) world.goalsDone[i] = true;
-    const done = !!world.goalsDone[i];
-    return { ...r, p: done ? 1 : Math.max(0, Math.min(1, r.p)), done };
+    if (r.p >= 1) { world.goalsReached[i] = true; if (CUMULATIVE.has(g.type)) world.goalsDone[i] = true; }
+    const done = CUMULATIVE.has(g.type) ? !!world.goalsDone[i] : r.p >= 1;
+    const slipped = !done && world.goalsReached[i] && !CUMULATIVE.has(g.type);
+    return { ...r, text: slipped ? `${r.text}（一度届いたが今は下回っている。全部の目標がそろう時に満たす必要がある）` : r.text, p: done ? 1 : Math.max(0, Math.min(1, r.p)), done };
   });
 }
 

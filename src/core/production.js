@@ -13,6 +13,7 @@ export function buildingInputs(type) {
 }
 
 function tryBatch(world, b, recipe, wh, city) {
+  b.why = null;
   const missing = {};
   for (const [id, n] of Object.entries(recipe.in)) {
     const lack = n - Math.floor(wh.stock[id] || 0);
@@ -20,15 +21,16 @@ function tryBatch(world, b, recipe, wh, city) {
   }
   // 足りない材料を市場から買う（基準価格の1.5倍まで）
   if (Object.keys(missing).length) {
-    if (!b.autoBuy) return false;
+    const names = Object.keys(missing).map((id) => GOODS[id].name).join('・');
+    if (!b.autoBuy) { b.why = `倉庫に${names}がない（自動仕入れは切ってある）`; return false; }
     let total = 0;
     for (const [id, n] of Object.entries(missing)) {
-      if ((city.stock[id] || 0) < n) return false;
+      if ((city.stock[id] || 0) < n) { b.why = `倉庫にも${city.name}の市場にも${GOODS[id].name}が足りない`; return false; }
       const cost = quote(world, city, id, n);
-      if (cost / n > GOODS[id].base * 1.5) return false;
+      if (cost / n > GOODS[id].base * 1.5) { b.why = `${GOODS[id].name}の相場（${(cost / n).toFixed(1)}）が自動仕入れの上限（基準の1.5倍 = ${(GOODS[id].base * 1.5).toFixed(1)}）を超えている`; return false; }
       total += cost;
     }
-    if (world.player.silver - total < B.autoBuyReserve) return false;
+    if (world.player.silver - total < B.autoBuyReserve) { b.why = `手元の銀が少ないので自動仕入れを控えている（${B.autoBuyReserve}銀を残す）`; return false; }
     for (const [id, n] of Object.entries(missing)) {
       const cost = quote(world, city, id, n);
       city.stock[id] -= n;
@@ -72,7 +74,7 @@ export function updateProduction(world) {
     b.lastMade = made;
     if (made === 0 && !b.idleWarned) {
       b.idleWarned = true;
-      emit(world, { type: 'idle', city: b.city, text: `${city.name}の${def.name}は材料がなく止まっている（材料: ${buildingInputs(b.type).map((id) => GOODS[id].name).join('、')}）` });
+      emit(world, { type: 'idle', city: b.city, text: `${city.name}の${def.name}が止まっている: ${b.why || '材料がない'}（材料: ${buildingInputs(b.type).map((id) => GOODS[id].name).join('、')}。倉庫へ下ろせば動く）` });
     } else if (made > 0) b.idleWarned = false;
   }
 }

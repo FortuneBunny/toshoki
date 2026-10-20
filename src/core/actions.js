@@ -16,6 +16,11 @@ import { gainRep as gainRepFromAction } from './trade.js';
 
 const fail = (error) => ({ ok: false, error });
 
+// その町に自分の手がかりがあるか（商人が滞在している、または定期便がその町を回っている）
+export function hasPresence(world, cityId) {
+  return world.player.merchants.some((m) => m.city === cityId || m.order?.stops.some((s) => s.city === cityId));
+}
+
 export function getMerchant(world, id) {
   return world.player.merchants.find((m) => m.id === Number(id) || m.name === id);
 }
@@ -96,7 +101,7 @@ const NAMES = [['ライラ', 'merchant-2'], ['ユースフ', 'merchant-3'], ['�
 export function hireMerchant(world, cityId) {
   const city = world.cities[cityId];
   if (!city) return fail('不明な町');
-  if (!world.player.merchants.some((m) => m.city === cityId)) return fail('雇うには、その町に自分の商人がいる必要がある');
+  if (!hasPresence(world, cityId)) return fail('雇うには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   const max = world.scenario.maxMerchants ?? 4;
   if (world.player.merchants.length >= max) return fail(`このシナリオで雇える商人は${max}人まで`);
   const cost = B.merchantHireCost * world.player.merchants.length;
@@ -113,7 +118,7 @@ export function build(world, cityId, type) {
   const def = BUILDINGS[type];
   if (!city || !def?.recipes) return fail('建てられない');
   if (!(world.scenario.buildings || []).includes(type)) return fail('このシナリオでは建てられない');
-  if (!world.player.merchants.some((m) => m.city === cityId)) return fail('建てるには、その町に自分の商人がいる必要がある');
+  if (!hasPresence(world, cityId)) return fail('建てるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   if (world.player.buildings.some((b) => b.city === cityId && b.type === type)) return fail('すでにある');
   if (world.player.silver < def.cost) return fail(`銀が足りない（${def.cost}必要）`);
   world.player.silver -= def.cost;
@@ -132,7 +137,7 @@ export function donateCost(world, cityId) {
 export function donate(world, cityId) {
   const city = world.cities[cityId];
   if (!city) return fail('不明な町');
-  if (!world.player.merchants.some((m) => m.city === cityId)) return fail('寄進するには、その町に自分の商人がいる必要がある');
+  if (!hasPresence(world, cityId)) return fail('寄進するには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   if (city.donatedUntil > world.day) return fail(`${city.name}への寄進はまだ効いている（あと${city.donatedUntil - world.day}日）`);
   const cost = donateCost(world, cityId);
   if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
@@ -167,7 +172,7 @@ export function setOrder(world, mid, order) {
     const r = findPath(world, order.stops[0].city, s.city, m.transport);
     if (!r) return fail(`${world.cities[s.city].name}へは今の輸送手段で行けない`);
   }
-  m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0 };
+  m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0, guards: Math.max(0, Math.min(12, Math.floor(order.guards || 0))) };
   emit(world, { type: 'order', merchant: m.id, big: true, text: `${m.name}の定期便を設定した。あとは自動で回る` });
   if (!m.travel) {
     // 今いる町が停泊地ならそこから始め、違えば最初の停泊地へ向かう

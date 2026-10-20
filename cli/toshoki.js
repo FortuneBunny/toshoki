@@ -55,6 +55,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--json') opts.json = true;
     else if (a === '--nowait') opts.nowait = true;
+    else if (a === '--force') opts.force = true;
     else if (a.startsWith('--')) opts[a.slice(2)] = argv[++i];
     else if (a === '-m') opts.merchant = argv[++i];
     else pos.push(a);
@@ -86,7 +87,17 @@ function statusText(world) {
   out.push(`ランクの基準: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`);
   out.push(`このシナリオ: 輸送手段 ${world.allowedTransports.map((t) => TRANSPORTS[t].name).join('・')} / 商人は最大${sc.maxMerchants ?? 4}人 / 工房 ${(sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes).map((b) => BUILDINGS[b].name).join('・') || 'なし'}${(sc.buildings || []).includes('road') ? ' / 道の整備あり' : ''}（費用は shop）`);
   out.push('目標:');
-  for (const g of G.goalsStatus(world)) out.push(`  ${g.done ? '✔' : '□'} ${g.text}  [${'█'.repeat(Math.round(g.p * 10))}${'░'.repeat(10 - Math.round(g.p * 10))}] ${Math.round(g.p * 100)}%`);
+  G.goalsStatus(world).forEach((g, i) => {
+    out.push(`  ${g.done ? '✔' : '□'} ${g.text}  [${'█'.repeat(Math.round(g.p * 10))}${'░'.repeat(10 - Math.round(g.p * 10))}] ${Math.round(g.p * 100)}%`);
+    const def = sc.goals[i];
+    if (!g.done && ['cityTier', 'cityPop', 'rushes'].includes(def.type)) {
+      const c = world.cities[def.city];
+      const k = world.player.knowledge[c.id];
+      const here = world.player.merchants.some((m) => m.city === c.id);
+      const adv = here ? G.dietAdvice(world, c).slice(0, 3) : [];
+      out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、甘味の摂取 ${Math.round(((here ? c.sweetLevel : k?.sweetLevel) || 0) * 100)}/75` : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
+    }
+  });
   out.push('商人:');
   for (const m of pl.merchants) out.push('  ' + merchantLine(world, m));
   const active = world.contracts.filter((c) => !c.done && !c.failed);
@@ -241,6 +252,7 @@ function parseTradeLines(pos) {
   return lines;
 }
 
+const notes = [];
 function resolveAll(world, m, lines) {
   const city = world.cities[m.city];
   // 売りを先に確定させ、空いた積載と入る銀を見込んでから「買えるだけ」を計算する
@@ -259,6 +271,13 @@ function resolveAll(world, m, lines) {
     if (n === Infinity) {
       n = Math.min(Math.floor(room / GOODS[l.good].weight), Math.floor(city.stock[l.good] || 0));
       while (n > 0 && G.quote(world, city, l.good, n) > money) n--;
+    } else if (n > Math.floor(city.stock[l.good] || 0)) {
+      n = Math.floor(city.stock[l.good] || 0);
+      notes.push(`${GOODS[l.good].name}は${city.name}に${n}個しかないので、${n}個にした`);
+    }
+    if (n > Math.floor(room / GOODS[l.good].weight)) {
+      n = Math.max(0, Math.floor(room / GOODS[l.good].weight));
+      notes.push(`積載の空きに合わせて${GOODS[l.good].name}を${n}個にした`);
     }
     if (n > 0) {
       buys.push({ good: l.good, qty: n });
@@ -317,7 +336,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   travel <町id> [--guards n] [--nowait]  出発して、到着か事件まで日を進める（--nowait なら時間を進めない）
   wait <日数> [-m 番号]                日を進める（最大120日。手動の商人の到着や重要な出来事で止まる。-m を付けるとその商人が町に着いたら止まる）
   shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
-  hire [confirm]                       今いる町で商人を雇う（confirm なしなら費用だけ表示）
+  hire [confirm] [--at 町]             商人を雇う（confirm なしなら費用だけ表示。定期便が回っている町でも雇える）
   transport <種類> [confirm]           輸送手段を買い替える（camel, cart, dhow, carrack）
   build <種類> [confirm]               今いる町に工房を建てる（mill, confectionery, winery, malthouse）
   workshops                            工房の一覧（レシピ、生産数、倉庫）
@@ -326,7 +345,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   unload <品物> <数|all>               商人から倉庫へ下ろす（工房の材料はここに入れる）
   road <道の番号> [confirm]            小道を街道に整備する
   donate [confirm]                     今いる町に寄進する（費用は人口に比例。90日間、成長が早まる）
-  order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..."
+  order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..." [--guards n]
                                        定期便を設定（停泊地を2つ以上）。例:
                                        order add "mugi buy:wheat*20@3" "kohaku sell:wheat@5"
   order list                           定期便ごとの損益
@@ -389,6 +408,7 @@ function run(world, cmd, pos, opts) {
       const m = needIdle(world, opts);
       const lines = resolveAll(world, m, parseTradeLines(pos));
       if (!lines.length) throw new Error('取引する数量が0');
+      out.push(...notes.splice(0));
       const r = after(G.trade(world, m.id, lines));
       for (const row of r.rows) out.push(`  ${row.qty > 0 ? '買' : '売'} ${gname(row.good)} ×${Math.abs(row.qty)}  ${row.total > 0 ? '+' : ''}${fmt(row.total)} 銀`);
       out.push(`銀 ${Math.floor(world.player.silver)}（${r.silverDelta >= 0 ? '+' : ''}${fmt(r.silverDelta)}）  積載 ${G.cargoUsed(m)}/${G.cargoCap(m)}`);
@@ -407,7 +427,10 @@ function run(world, cmd, pos, opts) {
         const desertDays = plan.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + G.edgeDays(world, e, m.transport, e.a), 0);
         const food = G.PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
         const need = Math.ceil(desertDays * G.cargoCap(m) * G.BALANCE.provisionPerCap);
-        if (desertDays && food < need) out.push(`⚠ 砂漠を約${desertDays}日渡るのに、隊商の食料が ${food}/${need} しかない（なつめやし・干しぶどう・キビ・麦・米）`);
+        if (desertDays && food < need) {
+          if (!('force' in opts)) throw new Error(`砂漠を約${desertDays}日渡るのに、隊商の食料が ${food}/${need} しかない。なつめやし・干しぶどう・キビ・麦・米を積んでから出発しよう（それでも行くなら --force）`);
+          out.push(`⚠ 食料が足りないまま砂漠へ（${food}/${need}）`);
+        }
         const rec = plan.danger * 2 + 1;
         if (plan.danger && world.scenario.bandits && Number(opts.guards || 0) < rec) out.push(`⚠ 盗賊の出る道（危険度${plan.danger}）。護衛は${rec}人いればたいてい撃退できる（今 ${Number(opts.guards || 0)}人。--guards n で雇う、1人1日${G.BALANCE.guardWage}銀）`);
       }
@@ -435,9 +458,9 @@ function run(world, cmd, pos, opts) {
     case 'hire': {
       const cost = G.BALANCE.merchantHireCost * world.player.merchants.length;
       if (pos[0] !== 'confirm') { out.push(`商人を雇うと ${cost} 銀（銀 ${Math.floor(world.player.silver)} → ${Math.floor(world.player.silver - cost)}）。上限 ${world.scenario.maxMerchants ?? 4} 人。確定するには: hire confirm`); break; }
-      const at = opts.merchant ? pickMerchant(world, opts) : world.player.merchants.find((x) => !x.travel);
-      if (!at || at.travel) throw new Error('雇えるのは、商人が滞在している町だけ（全員移動中なら wait か order pause で止める）');
-      const r = after(G.hireMerchant(world, at.city));
+      const atCity = opts.at || (opts.merchant ? pickMerchant(world, opts).city : world.player.merchants.find((x) => !x.travel)?.city);
+      if (!atCity) throw new Error('どの町で雇うか --at <町id> で指定する（商人が滞在している町か、定期便が回っている町）');
+      const r = after(G.hireMerchant(world, atCity));
       out.push(`雇った（${r.cost}銀）。新しい商人の番号は #${r.merchant}（-m ${r.merchant} で操作）`);
       break;
     }
@@ -450,7 +473,8 @@ function run(world, cmd, pos, opts) {
       break;
     }
     case 'build': {
-      const m = needIdle(world, opts);
+      const m = opts.at ? { city: opts.at } : needIdle(world, opts);
+      if (!world.cities[m.city]) throw new Error(`不明な町: ${m.city}`);
       const b = BUILDINGS[pos[0]];
       if (!b?.recipes) throw new Error('種類を指定（費用は shop）');
       if (pos[1] !== 'confirm') { out.push(`${b.name}: ${b.cost}銀、維持費 ${b.upkeep}/日。確定するには: build ${pos[0]} confirm`); break; }
@@ -471,7 +495,11 @@ function run(world, cmd, pos, opts) {
       let n;
       if (pos[1] === 'all' || pos[1] === undefined) {
         n = cmd === 'load' ? Math.min(Math.floor(wh?.stock[good] || 0), Math.floor((G.cargoCap(m) - G.cargoUsed(m)) / GOODS[good].weight)) : m.cargo[good] || 0;
-      } else n = parseInt(pos[1], 10);
+      } else {
+        n = parseInt(pos[1], 10);
+        const avail = cmd === 'load' ? Math.min(Math.floor(wh?.stock[good] || 0), Math.floor((G.cargoCap(m) - G.cargoUsed(m)) / GOODS[good].weight)) : m.cargo[good] || 0;
+        if (n > avail && avail > 0) { out.push(`（${n}個は無理なので、あるだけの${avail}個にした）`); n = avail; }
+      }
       if (!(n > 0)) throw new Error(cmd === 'load' ? `倉庫から積める${GOODS[good].name}がない（倉庫 ${Math.floor(wh?.stock[good] || 0)}個、積載の空き ${G.cargoCap(m) - G.cargoUsed(m)}）` : `${GOODS[good].name}を積んでいない`);
       after(G.warehouse(world, m.id, good, (cmd === 'load' ? 1 : -1) * n));
       out.push(cmd === 'load' ? `倉庫から${m.name}へ ${GOODS[good].name}を${n}個積んだ（倉庫の残り ${Math.floor(wh.stock[good] || 0)}）` : `${m.name}から倉庫へ ${GOODS[good].name}を${n}個下ろした（倉庫 ${Math.floor(wh.stock[good] || 0)}個）`);
@@ -501,7 +529,7 @@ function run(world, cmd, pos, opts) {
       if (pos[0] !== 'add') throw new Error('order add|list|pause|resume|clear');
       const stops = pos.slice(1).map(parseStop);
       const replaced = !!m.order;
-      after(G.setOrder(world, m.id, { stops }));
+      after(G.setOrder(world, m.id, { stops, guards: Number(opts.guards || 0) }));
       if (replaced) out.push('（以前の定期便は置き換えた）');
       out.push(`定期便: ${stops.map((s) => world.cities[s.city].name).join(' → ')} → …`);
       out.push(...G.drainEvents(world).map(eventLine));
@@ -512,7 +540,7 @@ function run(world, cmd, pos, opts) {
       const pl = world.player;
       const max = sc.maxMerchants ?? 4;
       out.push('■ 投資の費用と条件');
-      out.push(`商人を雇う（hire confirm）: ${pl.merchants.length >= max ? `上限（${max}人）に達している` : `${G.BALANCE.merchantHireCost * pl.merchants.length} 銀。自分の商人がいる町で雇える。最大${max}人。給金は1人1日${G.BALANCE.merchantWage}銀`}`);
+      out.push(`商人を雇う（hire confirm [--at 町]）: ${pl.merchants.length >= max ? `上限（${max}人）に達している` : `次は ${G.BALANCE.merchantHireCost * pl.merchants.length} 銀（150×今の人数。雇うほど高くなる）。商人が滞在している町か、定期便が回っている町で雇える。最大${max}人。給金は1人1日${G.BALANCE.merchantWage}銀`}`);
       out.push('輸送手段（transport <種類> confirm。今のものは半額で下取り）:');
       for (const [k, t] of Object.entries(TRANSPORTS)) {
         if (!world.allowedTransports.includes(k)) { out.push(`  ${t.name}(${k}): このシナリオでは使えない`); continue; }
@@ -520,7 +548,7 @@ function run(world, cmd, pos, opts) {
         out.push(`  ${t.name}(${k}): ${t.cost}銀  積載${t.cap}  速さ${t.speed}  維持費${t.upkeep}/日  通れる道: ${t.modes.map((x) => G.ROUTE_KINDS[x].name).join('・')}  買える町: ${t.cost ? where.join('、') || 'なし' : '（最初から持っている）'}`);
       }
       const bs = (sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes);
-      out.push(`工房（build <種類> confirm）: ${bs.length ? '同じ種類は1つの町に1つまで。倉庫が付く' : 'このシナリオでは建てられない'}`);
+      out.push(`工房（build <種類> confirm [--at 町]）: ${bs.length ? '同じ種類は1つの町に1つまで。倉庫が付く。材料は倉庫から使い、足りなければ市場で自動仕入れ（基準価格の1.5倍まで、手元の銀300は残す）' : 'このシナリオでは建てられない'}`);
       for (const b of bs) out.push(`  ${BUILDINGS[b].name}(${b}): ${BUILDINGS[b].cost}銀  維持費${BUILDINGS[b].upkeep}/日  1日${BUILDINGS[b].batches}回  ${BUILDINGS[b].recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
       out.push(`道の整備（road <番号> confirm）: ${(sc.buildings || []).includes('road') ? `小道を街道にする。距離×${BUILDINGS.road.costPerLength}銀` : 'このシナリオではできない'}`);
       out.push(`護衛: 1人1日${G.BALANCE.guardWage}銀（travel <町> --guards n）`);
@@ -538,7 +566,8 @@ function run(world, cmd, pos, opts) {
       break;
     }
     case 'donate': {
-      const m = needIdle(world, opts);
+      const m = opts.at ? { city: opts.at } : needIdle(world, opts);
+      if (!world.cities[m.city]) throw new Error(`不明な町: ${m.city}`);
       const cost = G.donateCost(world, m.city);
       if (pos[0] !== 'confirm') { out.push(`${world.cities[m.city].name}への寄進: ${cost}銀。${G.BALANCE.donateDays}日間、成長が${Math.round((G.BALANCE.donateGrowth - 1) * 100)}%早まる（糖度が40以上で成長しているときだけ）。確定するには: donate confirm`); break; }
       out.push(`寄進した（${after(G.donate(world, m.city)).cost}銀）`);
@@ -551,7 +580,7 @@ function run(world, cmd, pos, opts) {
         const wh = world.player.warehouses[b.city];
         out.push(`#${b.id} ${def.name}（${world.cities[b.city].name}）${b.active ? '稼働中' : '停止中'}  自動仕入れ${b.autoBuy ? 'あり（手元の銀が300を切ると止まる）' : 'なし'}  昨日 ${b.lastMade || 0}回  累計 ${Object.entries(b.made || {}).map(([g, n]) => `${GOODS[g].name}${n}`).join(' ') || 'なし'}`);
         out.push(`   レシピ（上から順に試す。1日${def.batches}回）: ${def.recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
-        out.push(`   材料は倉庫から使い、足りなければ町の市場で買う（基準価格の1.5倍まで）。できた品は倉庫に入る（load で積む）。`);
+        out.push(`   材料は倉庫から使い、足りなければ町の市場で買う（基準価格の1.5倍まで）。できた品は倉庫に入る（load で積む）。${b.why ? `\n   ⚠ 止まっている理由: ${b.why}` : ''}`);
         out.push(`   倉庫: ${Object.entries(wh?.stock || {}).filter(([, q]) => q >= 1).map(([g, q]) => `${GOODS[g].name}${Math.floor(q)}`).join(' ') || '空'}`);
       }
       break;
