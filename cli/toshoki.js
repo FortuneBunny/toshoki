@@ -74,14 +74,14 @@ function dwellingLine(world, c) {
   return `住居の求める品（今の段階で ${st.wants.length}つ。1つ欠けまでそろえば新しい家が建つ）: ${list}${st.ok ? '' : '  ⚠ 家が建たない＝人口が伸びない'}${(c.dwellWants || []).length > st.wants.length ? `（育つと ${all} を求める）` : ''}`;
 }
 
-// ラッシュまでの目安: 糖度140以上と、その日の甘味の摂取（必要量に対する割合）75%以上の両方
+// ラッシュまでの目安: 糖度140以上と、その日の甘味の摂取（必要量に対する割合）70%以上の両方
 function rushGap(glucose, sweet) {
   if (glucose === undefined) return 'ラッシュの目安は町を見ないと分からない';
   const g = Math.round(glucose);
   const s = Math.round(sweet * 100);
   const need = [];
   if (g < 140) need.push(`糖度をあと${140 - g}（今${g}。食べ物を何種類も届ける）`);
-  if (s < 75) need.push(`甘味の摂取をあと${75 - s}%（今${s}%＝今日の甘味の必要量のうち食べた割合。甘味を2種類以上まとめて届ける）`);
+  if (s < G.BALANCE.rushSweetLine * 100) need.push(`甘味の摂取をあと${Math.round(G.BALANCE.rushSweetLine * 100) - s}%（今${s}%＝今日の甘味の必要量のうち食べた割合。甘味を2種類以上まとめて届ける）`);
   return need.length ? `ラッシュまで ${need.join('、')}` : '条件はそろっている（明日にもラッシュ）';
 }
 
@@ -812,7 +812,7 @@ function run(world, cmd, pos, opts) {
           if (!x.order) { out.push(`#${x.id} ${x.name}: 定期便なし`); continue; }
           const days = Math.max(1, world.day - x.order.since);
           out.push(`#${x.id} ${x.name}: ${x.order.paused ? '（停止中）' : ''}${days}日で損益 ${Math.round(x.order.profit || 0)}銀（1日あたり ${fmt((x.order.profit || 0) / days)}）`);
-          for (const st of x.order.stops) out.push(`    ${world.cities[st.city].name}(${st.city}): ${[...(st.sell || []).map((v) => `売 ${GOODS[v.good].name}(最低${v.min})`), ...(st.buy || []).map((v) => `買 ${GOODS[v.good].name}×${v.qty}(上限${v.max === Infinity || v.max === null ? 'なし' : v.max})`), ...(st.unload || []).map((g) => `下ろす ${GOODS[g].name}`), ...(st.load || []).map((g) => `積む ${GOODS[g].name}`)].join('、') || '何もしない'}`);
+          for (const st of x.order.stops) out.push(`    ${world.cities[st.city].name}(${st.city}): ${[...(st.sell || []).map((v) => `売 ${GOODS[v.good].name}(最低${v.min})`), ...(st.buy || []).map((v) => `買 ${GOODS[v.good].name}×${v.qty}(上限${v.max === Infinity || v.max === null ? 'なし' : v.max})`), ...(st.unload || []).map((g) => `下ろす ${GOODS[g].name}`), ...(st.load || []).map((g) => { const [id, n] = String(g).split('*'); return `積む ${GOODS[id]?.name || id}${n ? `（${n}個まで）` : ''}`; })].join('、') || '何もしない'}`);
         }
         break;
       }
@@ -860,6 +860,8 @@ function run(world, cmd, pos, opts) {
       const m = { city: hereCity(world, opts) };
       if (!world.cities[m.city]) throw new Error(`不明な町: ${m.city}`);
       const cost = G.donateCost(world, m.city);
+      const warn = G.spendWarning(world, cost);
+      if (warn && pos[0] !== 'confirm') out.push(`⚠ 寄進すると${warn}`);
       if (pos[0] !== 'confirm') { out.push(`${world.cities[m.city].name}への寄進: ${cost}銀。${G.BALANCE.donateDays}日間、成長が${Math.round((G.BALANCE.donateGrowth - 1) * 100)}%早まる（糖度が40以上で成長しているときだけ）。確定するには: donate confirm`); break; }
       out.push(`寄進した（${after(G.donate(world, m.city)).cost}銀）`);
       break;

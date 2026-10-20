@@ -171,3 +171,12 @@ export function checkGoals(world) {
     emit(world, { type: 'defeat', bad: true, text: `期限切れ。届かなかった目標: ${lacking}` });
   }
 }
+
+// 寄進などで銀を使うと、資産・銀の目標を割るか（警告用）
+export function spendWarning(world, cost) {
+  for (const g of world.scenario.goals) {
+    if (g.type === 'networth' && netWorth(world) >= g.amount && netWorth(world) - cost < g.amount) return `資産が目標の${g.amount}銀を割る（全部の目標がそろう時に満たしている必要がある）`;
+    if (g.type === 'silver' && world.player.silver >= g.amount && world.player.silver - cost < g.amount) return `銀が目標の${g.amount}を割る`;
+  }
+  return null;
+}

@@ -64,7 +64,7 @@ function cityPanel(app, id) {
       G.civicsIn(c).length ? h('div', {}, h('div', { class: 'section' }, '需要施設'), h('div', { class: 'chips' }, G.civicsIn(c).map((b) => h('span', { class: 'chip', title: `${G.CIVICS[b.type].name}: ${G.civicWants(b.type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}が届くほど成長` }, h('img', { src: `assets/svg/cities/${b.type}.svg`, class: 'icon-sm', alt: '' }), `${G.CIVICS[b.type].name} 満足度 ${Math.round((c.civicSat?.[b.type] || 0) * 100)}%`)))) : null,
       h('div', { class: 'section' }, '食卓（糖度への寄与）'),
       dietChips(world, c),
-      h('div', { class: 'faint', style: { fontSize: '11px' } }, `甘味の摂取 ${Math.round((c.sweetLevel || 0) * 100)}%（今日の甘味の必要量のうち食べた割合）。75%以上かつ糖度140以上でシュガーラッシュ。1種類の食べ物で上げられるのは50まで、甘味は45まで。`),
+      h('div', { class: 'faint', style: { fontSize: '11px' } }, `甘味の摂取 ${Math.round((c.sweetLevel || 0) * 100)}%（今日の甘味の必要量のうち食べた割合）。${Math.round(G.BALANCE.rushSweetLine * 100)}%以上かつ糖度140以上でシュガーラッシュ。1種類の食べ物で上げられるのは50まで、甘味は45まで。`),
       adviceBlock(world, c));
   } else {
     add(box, h('div', { class: 'faint' }, age === null ? 'まだ訪れていない町。商人を送ると相場が分かる。' : `最後に見たのは ${age} 日前。今どうなっているかは分からない。`));
@@ -123,7 +123,8 @@ function cityPanel(app, id) {
     }
     if (!(c.donatedUntil > world.day)) {
       const cost = G.donateCost(world, id);
-      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`${c.name}に寄進する（${cost}銀）`, `井戸と市場を寄付します。${G.BALANCE.donateDays}日間、成長が${Math.round((G.BALANCE.donateGrowth - 1) * 100)}%早まります（糖度が足りて成長しているときだけ）。`, () => app.run(() => G.donate(world, id), 'build')) }, `寄進 ${cost}銀`));
+      const warn = G.spendWarning(world, cost);
+      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`${c.name}に寄進する（${cost}銀）`, `${warn ? `⚠ ${warn}。` : ''}井戸と市場を寄付します。${G.BALANCE.donateDays}日間、成長が${Math.round((G.BALANCE.donateGrowth - 1) * 100)}%早まります（糖度が足りて成長しているときだけ）。`, () => app.run(() => G.donate(world, id), 'build')) }, `寄進 ${cost}銀`));
     } else add(acts, h('span', { class: 'chip' }, `寄進の効果 あと${c.donatedUntil - world.day}日`));
     for (const b of (world.scenario.buildings || []).filter((x) => BUILDINGS[x]?.recipes)) {
       if (world.player.buildings.some((x) => x.city === id && x.type === b)) continue;
@@ -306,7 +307,7 @@ export function orderDialog(app, mid) {
       (st.buy ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '買う', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), h('input', { type: 'number', value: x.qty, onchange: (e) => { x.qty = Number(e.target.value); } }), '個まで、上限', h('input', { type: 'number', step: '0.1', value: x.max === Infinity ? '' : x.max, onchange: (e) => { x.max = e.target.value === '' ? Infinity : Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.buy.splice(j, 1); draw(); } }, '✕'))));
       if (world.player.warehouses[st.city]) {
         add(box, h('div', { class: 'row' }, '倉庫:', h('label', {}, '下ろす ', h('select', { onchange: (e) => { st.unload = e.target.value ? [e.target.value] : []; } }, h('option', { value: '' }, '—'), goodOpts((st.unload || [])[0]))),
-          h('label', {}, ' 積む ', h('select', { onchange: (e) => { st.load = e.target.value ? [e.target.value] : []; } }, h('option', { value: '' }, '—'), goodOpts((st.load || [])[0])))));
+          h('label', {}, ' 積む ', h('select', { onchange: (e) => { st.load = e.target.value ? [e.target.value] : []; } }, h('option', { value: '' }, '—'), goodOpts(String((st.load || [])[0] || '').split('*')[0])))));
       }
       add(box, h('div', { class: 'row' },
         h('button', { class: 'btn tiny', onclick: () => { st.sell.push({ good: goods[0], min: GOODS[goods[0]].base * 0.8 }); draw(); } }, '+ 売る品'),

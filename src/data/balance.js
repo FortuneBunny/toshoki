@@ -33,7 +33,7 @@ export const BALANCE = {
   tierNames: ['集落', '村', '町', '都市', '大都市'],
 
   // シュガーラッシュとクラッシュ
-  rushSweetLine: 0.75,        // ラッシュには、その日の甘味の摂取が必要量の75%以上（甘味2種類以上が目安）
+  rushSweetLine: 0.7,        // ラッシュには、その日の甘味の摂取が必要量の70%以上（甘味2種類以上が目安）
   rushDays: 8,
   rushSweetDemand: 1.8,
   rushGrowthBonus: 0.004,
