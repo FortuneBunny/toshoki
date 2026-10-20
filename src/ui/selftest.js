@@ -1,0 +1,46 @@
+// 開発用の自己テスト: #play=s2&selftest で、実際にボタンを押して一通り遊び、結果を画面に出す。
+export async function selftest(app) {
+  const log = [];
+  const errors = [];
+  window.addEventListener('error', (e) => errors.push(`${e.message} @${e.filename?.split('/').pop()}:${e.lineno}`));
+  window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const click = (sel, text) => {
+    const els = [...document.querySelectorAll(sel)].filter((el) => !text || el.textContent.includes(text));
+    if (!els.length) throw new Error(`見つからない: ${sel} ${text || ''}`);
+    els[0].click();
+  };
+  const step = async (name, fn) => {
+    try { await fn(); log.push(`✔ ${name}`); } catch (e) { log.push(`✖ ${name}: ${e.message}`); }
+    await wait(120);
+  };
+  const w = () => app.world;
+  await wait(300);
+  await step('交易画面を開く', () => click('.mcard .btn', '交易'));
+  await step('麦を買えるだけ（«）', () => click('.trow .btn', '«'));
+  await step('取引を確定', () => click('footer .btn', '取引を確定'));
+  await step('積荷に麦がある', () => { if (!(w().player.merchants[0].cargo.wheat > 0)) throw new Error('麦がない'); });
+  await step('出発 → 行き先を選ぶ', () => click('.mcard .btn', '出発'));
+  await step('ナツメ泉をクリック', () => { document.querySelector('.city-node:nth-child(2)').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await step('出発ダイアログで出発', () => click('footer .btn', '出発'));
+  await step('移動中になる', () => { if (!w().player.merchants[0].travel) throw new Error('移動していない'); });
+  log.push(`  state: modals=${app.state.modals} speed=${app.state.speed} day=${w().day}`);
+  await step('時間を進める（到着まで）', async () => {
+    for (let i = 0; i < 60 && w().player.merchants[0].travel; i++) await wait(100);
+    if (w().player.merchants[0].travel) throw new Error(`到着しない modals=${app.state.modals} speed=${app.state.speed} day=${w().day}`);
+  });
+  await step('到着で自動一時停止', () => { if (app.state.speed !== 0) throw new Error(`速度 ${app.state.speed}`); });
+  await step('交易で全部売る（»）', () => { click('.mcard .btn', '交易'); click('.trow .btn', '»'); click('footer .btn', '取引を確定'); });
+  await step('利益が出た', () => { if (!(w().stats.profit > 0)) throw new Error(`利益 ${w().stats.profit}`); });
+  await step('定期便ダイアログ', () => { click('.mcard .btn', '定期便'); click('footer .btn', '定期便を開始'); });
+  await step('定期便が設定された', () => { if (!w().player.merchants[0].order) throw new Error('なし'); });
+  await step('帳簿', () => { click('.topbar .btn', '帳簿'); click('.modal header .btn'); });
+  await step('町パネル', () => { document.querySelector('.city-node').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await step('セーブとロード', () => { app.save(); app.loadSave(); if (!w()) throw new Error('ロード失敗'); });
+  await wait(400);
+  const box = document.createElement('pre');
+  box.style.cssText = 'position:fixed;left:10px;top:60px;z-index:999;background:#000d;color:#fff;padding:10px;font:12px monospace;max-width:600px;white-space:pre-wrap';
+  box.textContent = [...log, '', `errors: ${errors.length}`, ...errors].join('\n');
+  document.body.append(box);
+  document.title = errors.length || log.some((l) => l.startsWith('✖')) ? 'SELFTEST FAIL' : 'SELFTEST OK';
+}
