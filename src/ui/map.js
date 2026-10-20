@@ -128,9 +128,10 @@ export function createMap(container, world, handlers) {
     const sub = s('text', { y: 71, 'text-anchor': 'middle', class: 'sub' }, '');
     const badges = s('g', { transform: 'translate(30,-46)' });
     const pick = s('text', { y: -54, 'text-anchor': 'middle', class: 'sub' }, '');
-    const g = s('g', { class: 'city-node', transform: `translate(${c.x},${c.y})`, onclick: (ev) => handlers.onCity?.(c.id, ev) }, glow, ringBg, ring, img, label, sub, badges, pick);
+    const sprawl = s('g', { class: 'sprawl' });
+    const g = s('g', { class: 'city-node', transform: `translate(${c.x},${c.y})`, onclick: (ev) => handlers.onCity?.(c.id, ev) }, sprawl, glow, ringBg, ring, img, label, sub, badges, pick);
     cityLayer.append(g);
-    cityEls[c.id] = { g, ring, img, sub, glow, badges, pick, imgKey: cityImage(c) };
+    cityEls[c.id] = { g, ring, img, sub, glow, badges, pick, sprawl, slots: houseSlots(c.id), houses: 0, imgKey: cityImage(c) };
   }
   svg.append(cityLayer);
 
@@ -181,6 +182,11 @@ export function createMap(container, world, handlers) {
         }
         el.glow.setAttribute('opacity', c.rush > 0 && (here || (k && world.day - k.day < 10)) ? 0.7 : 0);
         const age = G.knowledgeAge(world, c.id);
+        // 町の広がり: 知っている人口に応じて家を足し引きする
+        const shownPop = here ? c.pop : k?.pop ?? null;
+        const want = shownPop === null ? 0 : Math.min(el.slots.length, Math.floor(Math.sqrt(shownPop) / 3.2));
+        while (el.houses < want) el.sprawl.append(house(el.slots[el.houses++], G.cityTier(c)));
+        while (el.houses > want) { el.sprawl.lastChild?.remove(); el.houses--; }
         el.sub.textContent = `${G.tierName(G.cityTier(c))} ${Math.round(c.pop).toLocaleString('ja-JP')}人${age === null ? ' ・未訪問' : age > 0 && !here ? ` ・情報${age}日前` : ''}`;
         el.g.classList.toggle('sel', state.selCity === c.id);
         // 小さなバッジ: 大口注文、工房、ラッシュ、クラッシュ
@@ -262,6 +268,38 @@ export function createMap(container, world, handlers) {
     },
     unitPos,
   };
+}
+
+// 家を置く場所（町ごとに決まった並び）。名前の下は空けておく
+function houseSlots(id) {
+  const r = rand(hash(`h:${id}`));
+  const slots = [];
+  for (let i = 0; i < 400 && slots.length < 40; i++) {
+    const ring = slots.length < 14 ? 1 : slots.length < 28 ? 2 : 3;
+    const a = r() * Math.PI * 2;
+    const d = 50 + ring * 16 + r() * 12;
+    const x = Math.cos(a) * d * 1.25;
+    const y = Math.sin(a) * d * 0.8;
+    if (y > 38 && Math.abs(x) < 70) continue;
+    if (slots.some((p) => Math.hypot(p[0] - x, p[1] - y) < 15)) continue;
+    slots.push([x, y, r()]);
+  }
+  return slots.sort((a, b) => Math.hypot(a[0], a[1] * 1.5) - Math.hypot(b[0], b[1] * 1.5));
+}
+
+const WALLS = ['#f3dfb3', '#e2c08a', '#f0d6a0'];
+const ROOFS = ['#c8553d', '#d9822b', '#8e3b2e', '#a65a1b'];
+function house([x, y, v], tier) {
+  const w = 9 + v * 5;
+  const hh = 6 + v * 3;
+  const wall = WALLS[Math.floor(v * WALLS.length)];
+  const roof = ROOFS[Math.floor(v * 7) % ROOFS.length];
+  const g = s('g', { transform: `translate(${x.toFixed(1)},${y.toFixed(1)})`, class: 'house' });
+  g.append(s('rect', { x: -w / 2, y: -hh, width: w, height: hh, fill: wall, stroke: '#3b2618', 'stroke-width': 1.2 }));
+  if (tier >= 3 && v > 0.8) g.append(s('path', { d: `M${-w / 2 + 1},${-hh} Q0,${-hh - w * 0.8} ${w / 2 - 1},${-hh} Z`, fill: v > 0.9 ? '#ffd166' : '#5bb4d6', stroke: '#3b2618', 'stroke-width': 1.2 }));
+  else g.append(s('path', { d: `M${-w / 2 - 1.5},${-hh} L0,${-hh - 5} L${w / 2 + 1.5},${-hh} Z`, fill: roof, stroke: '#3b2618', 'stroke-width': 1.2 }));
+  g.append(s('rect', { x: -1.5, y: -3.5, width: 3, height: 3.5, fill: '#3b2618', opacity: 0.6 }));
+  return g;
 }
 
 function pointInPoly([x, y], pts) {

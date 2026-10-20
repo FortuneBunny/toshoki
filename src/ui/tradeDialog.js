@@ -132,6 +132,7 @@ export function openTrade(app, merchantId) {
 
     const row = (id, dim) => {
       const g = GOODS[id];
+      const hist = world.player.knowledge[m.city]?.history?.[id] || [];
       const have = m.cargo[id] || 0;
       const stock = Math.floor(city.stock[id] || 0);
       const q = qty[id] || 0;
@@ -158,10 +159,17 @@ export function openTrade(app, merchantId) {
         onchange: (e) => setQty(id, parseInt(e.target.value, 10) || 0),
         onfocus: (e) => e.target.select(),
       });
-      const hist = world.player.knowledge[m.city]?.history?.[id] || [];
       const sp = hist.length > 1 ? sparkline(hist.map((x) => x[1]), 56, 18) : h('span');
+      // 基準価格に対する今の値段（真ん中が基準）と、最近の上げ下げ
+      const mid = G.midPrice(city, id);
+      const ratio = Math.min(2, mid / g.base);
+      const trendUp = hist.length > 1 ? hist[hist.length - 1][1] - hist[Math.max(0, hist.length - 4)][1] : 0;
+      const bar = h('span', { class: 'pbar', title: `基準 ${g.base} 銀 / 今 ${fmt(mid, 1)} 銀（手数料抜き）` },
+        h('i', { style: { width: `${ratio * 50}%`, background: ratio < 0.75 ? 'var(--good)' : ratio > 1.35 ? 'var(--bad)' : 'var(--amber)' } }),
+        h('b'),
+        Math.abs(trendUp) > g.base * 0.03 ? h('em', { class: trendUp > 0 ? 'up' : 'down' }, trendUp > 0 ? '▲' : '▼') : null);
       const r = h('div', { class: `trow ${q ? 'active' : ''} ${dim ? 'unwanted' : ''}` },
-        goodIcon(id), h('span', { class: 'nm', title: CATEGORIES[g.cat] }, g.name, g.kind === 'sweet' ? h('span', { class: 'faint', style: { fontSize: '10px' } }, ' 甘') : null),
+        goodIcon(id), h('span', { class: 'nm', title: CATEGORIES[g.cat] }, h('span', {}, g.name, g.kind === 'sweet' ? h('span', { class: 'faint', style: { fontSize: '10px' } }, ' 甘') : null), bar),
         h('span', { class: 'r num' }, have ? fmt(have) : ''),
         h('span', { class: `r num price ${sell ? cheapness(sell) : ''}`, onmousemove: (e) => sell && showTip(e, priceTip(id, 'sell')), onmouseleave: hideTip }, sell ? fmt(sell, 1) : '—'),
         left, input, right,
@@ -171,6 +179,12 @@ export function openTrade(app, merchantId) {
       return r;
     };
     for (const id of shown) add(table, row(id, false));
+    // ひとことの助言（原作の市場パネルにならって）
+    const dear = shown.filter((id) => G.midPrice(city, id) > GOODS[id].base * 1.35 && G.dailyDemand(city, id, false) > 0);
+    const cheap = shown.filter((id) => G.midPrice(city, id) < GOODS[id].base * 0.75 && (city.stock[id] || 0) >= 1);
+    add(table, h('div', { class: 'trade-hint' },
+      dear.length ? `${city.name}では${dear.slice(0, 3).map((id) => GOODS[id].name).join('・')}が品薄で高い。届ければ高く売れて、町の糖度も上がる。` : `${city.name}の市場は落ち着いている。`,
+      cheap.length ? ` ${cheap.slice(0, 3).map((id) => GOODS[id].name).join('・')}は安い──仕入れどき。` : ''));
     if (unwanted.length) {
       add(table, h('div', { class: 'faint', style: { margin: '6px 4px 2px', fontSize: '12px' } }, `── ${city.name}では買い取らない品 ──`));
       for (const id of unwanted) add(table, row(id, true));

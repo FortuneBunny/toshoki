@@ -152,6 +152,8 @@ img { user-select: none; }
 .edge.river { stroke: #4ea6cf; stroke-width: 4; }
 .edge-hit { stroke: transparent; stroke-width: 16; fill: none; cursor: pointer; }
 .edge-danger { fill: #c8553d; font: 900 12px var(--font); }
+.sprawl .house { animation: houseIn 0.6s cubic-bezier(0.2, 1.6, 0.4, 1); transform-box: fill-box; }
+@keyframes houseIn { from { opacity: 0; transform: scale(0.2); } }
 .merchant-sprite { pointer-events: none; transition: transform 0.25s linear; }
 .merchant-sprite.mine .tag { fill: #ffd166; }
 .merchant-sprite.rival .tag { fill: #b48cf2; }
@@ -207,7 +209,14 @@ img { user-select: none; }
 .trow.active { background: #3a2e1a; box-shadow: 0 0 0 1px #8a6a2e inset; }
 .trow.silver { background: #2c2618; border: 1px solid #5c4a24; margin-bottom: 4px; }
 .trow.unwanted { opacity: 0.45; }
-.trow .nm { display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trow .nm { display: flex; flex-direction: column; justify-content: center; gap: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pbar { position: relative; display: block; width: 70px; height: 4px; background: #3a2e22; border-radius: 2px; }
+.pbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+.pbar b { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: #f5ead8; opacity: 0.6; }
+.pbar em { position: absolute; right: -14px; top: -6px; font-style: normal; font-size: 9px; }
+.pbar em.up { color: var(--bad); }
+.pbar em.down { color: var(--good); }
+.trade-hint { margin: 8px 4px 0; padding: 6px 10px; border-left: 3px solid var(--amber-deep); background: #261e17; font-size: 12px; color: var(--text-dim); }
 .trow .r { text-align: right; }
 .trow .arrows { display: flex; gap: 2px; }
 .trow .arrows.l { justify-content: flex-end; }
