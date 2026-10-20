@@ -50,6 +50,8 @@ export function previewTrade(world, m, lines) {
 }
 
 export function executeTrade(world, m, lines, { auto = false } = {}) {
+  // 売りを先に（売った銀で買えるように）
+  lines = [...lines].sort((a, b) => a.qty - b.qty);
   const pv = previewTrade(world, m, lines);
   if (!pv.ok) return pv;
   const city = world.cities[m.city];

@@ -317,12 +317,16 @@ export function setOrder(world, mid, order) {
   }
   m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0, guards: Math.max(0, Math.min(12, Math.floor(order.guards || 0))) };
   emit(world, { type: 'order', merchant: m.id, big: true, text: `${m.name}の定期便を設定した。あとは自動で回る` });
-  if (!m.travel) {
-    // 今いる町が停泊地ならそこから始め、違えば最初の停泊地へ向かう
-    const idx = order.stops.findIndex((s) => s.city === m.city);
-    m.order.next = idx >= 0 ? idx : 0;
-    runOrder(world, m);
+  // 始める停泊地: 今いる町（移動中なら行き先）が停泊地ならそこ。違えば、積荷を売る停泊地、なければ一番近い停泊地
+  const here = m.travel ? m.travel.to : m.city;
+  let idx = order.stops.findIndex((s) => s.city === here);
+  if (idx < 0) idx = order.stops.findIndex((s) => (s.sell || []).some((x) => m.cargo[x.good] > 0));
+  if (idx < 0) {
+    let best = Infinity;
+    order.stops.forEach((s, i) => { const r = findPath(world, here, s.city, m.transport); if (r && r.days < best) { best = r.days; idx = i; } });
   }
+  m.order.next = Math.max(0, idx);
+  if (!m.travel) runOrder(world, m);
   return { ok: true };
 }
 
