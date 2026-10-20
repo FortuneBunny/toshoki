@@ -108,15 +108,19 @@ export function banner(title, sub, img) {
 }
 
 // 所持金のカウントアップ
+// 新しいカウントアップが始まったら、前のものは止める（古い値で上書きしないように）
 export function countUp(el, from, to, dur = 600) {
   const start = performance.now();
-  function step(now) {
-    const t = Math.min(1, (now - start) / dur);
+  const token = (el.__countToken = (el.__countToken || 0) + 1);
+  el.textContent = Math.floor(from).toLocaleString('ja-JP');
+  function step() {
+    if (el.__countToken !== token) return;
+    const t = Math.min(1, (performance.now() - start) / dur);
     const e = 1 - Math.pow(1 - t, 3);
     el.textContent = Math.floor(from + (to - from) * e).toLocaleString('ja-JP');
-    if (t < 1) requestAnimationFrame(step);
+    if (t < 1) setTimeout(step, 16);
   }
-  requestAnimationFrame(step);
+  step();
 }
 
 export const STAR_IMG = STAR;

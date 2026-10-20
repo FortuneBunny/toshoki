@@ -16,6 +16,7 @@ export async function selftest(app) {
   };
   const w = () => app.world;
   await wait(300);
+  if (app.world.scenarioId === 's3') return selftestWorkshop(app, { step, click, wait, log, errors });
   await step('交易画面を開く', () => click('.mcard .btn', '交易'));
   await step('麦を買えるだけ（«）', () => click('.trow .btn', '«'));
   await step('取引を確定', () => click('footer .btn', '取引を確定'));
@@ -43,4 +44,24 @@ export async function selftest(app) {
   box.textContent = [...log, '', `errors: ${errors.length}`, ...errors].join('\n');
   document.body.append(box);
   document.title = errors.length || log.some((l) => l.startsWith('✖')) ? 'SELFTEST FAIL' : 'SELFTEST OK';
+}
+
+async function selftestWorkshop(app, { step, click, wait, log, errors }) {
+  const w = () => app.world;
+  w().player.silver = 3000;
+  await step('町パネルを開く', () => { app.state.selCity = 'toumitsu'; app.render(); });
+  await step('製糖所を建てるボタン', () => click('.side .btn', '製糖所'));
+  await step('確認して建てる', () => click('footer .btn', '決定'));
+  await step('製糖所ができた', () => { if (!w().player.buildings.length) throw new Error('なし'); });
+  await step('粗糖を倉庫に入れる', () => { w().player.warehouses.toumitsu.stock.rawsugar = 10; });
+  await step('数日進める', async () => { app.state.speed = 3; await wait(2500); app.state.speed = 0; });
+  await step('白糖ができた', () => { if (!(w().stats.produced.whitesugar > 0)) throw new Error(`produced ${JSON.stringify(w().stats.produced)}`); });
+  await step('交易画面に倉庫が出る', () => { click('.mcard .btn', '交易'); if (!document.body.textContent.includes('自分の倉庫')) throw new Error('倉庫なし'); });
+  await step('倉庫から積む', () => click('.btn', '« 積む'));
+  await step('白糖を積んだ', () => { if (!(w().player.merchants[0].cargo.whitesugar > 0)) throw new Error(JSON.stringify(w().player.merchants[0].cargo)); });
+  await wait(300);
+  const box = document.createElement('pre');
+  box.style.cssText = 'position:fixed;left:10px;top:60px;z-index:999;background:#000d;color:#fff;padding:10px;font:12px monospace;max-width:600px;white-space:pre-wrap';
+  box.textContent = [...log, '', `errors: ${errors.length}`, ...errors].join('\n');
+  document.body.append(box);
 }
