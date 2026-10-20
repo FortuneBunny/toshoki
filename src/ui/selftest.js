@@ -1,3 +1,4 @@
+import * as G from '../core/index.js';
 // 開発用の自己テスト: #play=s2&selftest で、実際にボタンを押して一通り遊び、結果を画面に出す。
 export async function selftest(app) {
   const log = [];
@@ -38,6 +39,15 @@ export async function selftest(app) {
   await step('帳簿', () => { click('.topbar .btn', '帳簿'); click('.modal header .btn'); });
   await step('町パネル', () => { app.clickCity('mugi'); if (!document.body.textContent.includes('糖度')) throw new Error('町パネルが出ない'); });
   await step('地図の canvas がある', () => { if (!document.querySelector('canvas.worldview')) throw new Error('canvas なし'); });
+  await step('地図の上で麦畑を建てる', () => {
+    w().player.silver = Math.max(w().player.silver, 1000);
+    const before = w().stats.placed || 0;
+    app.startBuild('mugi', 'producer', 'wheat_farm');
+    const [dx, dy] = app.state.build.tiles[0];
+    const [wx, wy] = G.districtToWorld(w().cities.mugi, dx, dy);
+    app.buildAt(wx, wy);
+    if (!((w().stats.placed || 0) > before)) throw new Error('建たなかった');
+  });
   await step('区画を開く', () => { app.openDistrict('mugi'); if (!document.querySelector('.district-map')) throw new Error('区画の画面がない'); });
   await step('麦畑を選んで置く', () => {
     w().player.silver = Math.max(w().player.silver, 1000);

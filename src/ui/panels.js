@@ -88,6 +88,22 @@ function cityPanel(app, id) {
   // この町でできること
   const acts = h('div', { class: 'chips', style: { gap: '6px' } });
   add(acts, h('button', { class: 'btn small primary', onclick: () => app.openDistrict(id) }, '区画を見る'));
+  // 地図の上で建てる: 置ける生産施設と需要施設
+  if (G.hasPresence(world, id) && G.districtEnabled(world)) {
+    const tier = G.cityTier(c);
+    const opts = [];
+    for (const [k, p] of Object.entries(G.PRODUCERS)) {
+      if (!world.scenario.goods.includes(p.good)) continue;
+      if (['food', 'sweet'].includes(GOODS[p.good].kind) && !(c.district.native || []).includes(p.good)) continue;
+      if (!G.placeableTiles(c, tier, k).length) continue;
+      opts.push(h('button', { class: 'btn tiny', title: `${p.name}: ${GOODS[p.good].name} +${p.rate}/日、働き手${p.workers}人`, onclick: () => app.startBuild(id, 'producer', k) }, goodIcon(p.good, 'icon-sm'), ` ${p.name} ${Math.round(p.cost * (world.player.mods?.buildCost ?? 1))}`));
+    }
+    for (const k of Object.keys(G.CIVICS)) {
+      if (G.civicCheck(world, id, k)) continue;
+      opts.push(h('button', { class: 'btn tiny', title: G.CIVICS[k].effect, onclick: () => app.startBuild(id, 'civic', k) }, h('img', { src: `assets/svg/cities/${k}.svg`, class: 'icon-sm', alt: '' }), ` ${G.CIVICS[k].name} ${G.civicCost(world, k)}`));
+    }
+    if (opts.length) add(box, h('div', { class: 'section' }, '地図の上で建てる'), h('div', { class: 'chips' }, opts));
+  }
   if (here.length) {
     const max = world.scenario.maxMerchants ?? 4;
     if (world.player.merchants.length < max) {

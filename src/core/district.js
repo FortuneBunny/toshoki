@@ -66,13 +66,13 @@ function freeTiles(d, r, ok, maxDist = N) {
 
 // 資源のかたまりを置く（中心から dmin〜dmax の距離に n マス）
 function placeDeposit(d, r, code, n, dmin, dmax) {
-  const cands = freeTiles(d, r, (i, x, y) => d.res[i] === '-' && dist(x, y) >= dmin && dist(x, y) <= dmax);
+  const cands = freeTiles(d, r, (i, x, y) => d.res[i] === '-' && !TERRAIN[d.terrain[i]].blocked && dist(x, y) >= dmin && dist(x, y) <= dmax);
   if (!cands.length) return [];
   const seed = cands[Math.floor(r() * Math.min(cands.length, 6))];
   const cluster = [seed];
   d.res[seed.i] = code;
   while (cluster.length < n) {
-    const near = freeTiles(d, r, (i, x, y) => d.res[i] === '-' && cluster.some((c) => Math.abs(c.x - x) <= 1 && Math.abs(c.y - y) <= 1));
+    const near = freeTiles(d, r, (i, x, y) => d.res[i] === '-' && !TERRAIN[d.terrain[i]].blocked && cluster.some((c) => Math.abs(c.x - x) <= 1 && Math.abs(c.y - y) <= 1));
     if (!near.length) break;
     const t = near[0];
     d.res[t.i] = code;
@@ -88,9 +88,11 @@ function canPlaceProducer(d, type, i) {
 }
 
 // 区画を生成する。produces（町の今の生産量）を、同じ合計になる生産施設に置き換える
-export function generateDistrict(city, { seed, scenarioGoods = [] }) {
+export function generateDistrict(city, { seed, scenarioGoods = [], landAt = null, origin = null }) {
   const r = localRng(`district:${seed}:${city.id}`);
   const land = makeLand(r, city.tags || []);
+  // 世界のマス目があれば、その地形をそのまま使う（区画は町のまわり N×N の世界のマス）
+  if (landAt) for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!(x === C && y === C)) land.terrain[idx(x, y)] = landAt(x - C, y - C);
   const d = { terrain: land.terrain, res: land.res, used: new Array(N * N).fill(false) };
   d.used[idx(C, C)] = true;
   const buildings = [{ id: 1, type: 'market', x: C, y: C, owner: 'town' }];
@@ -133,7 +135,7 @@ export function generateDistrict(city, { seed, scenarioGoods = [] }) {
 
   // 元から作っている品（食べ物・甘味は、これの増産だけ認める）
   const native = Object.keys(city.produces || {}).filter((g) => (city.produces[g] || 0) > 0);
-  return { size: N, terrain: d.terrain.join(''), res: d.res.join(''), buildings, nextId, radiusBonus: 0, native };
+  return { size: N, terrain: d.terrain.join(''), res: d.res.join(''), buildings, nextId, radiusBonus: 0, native, origin };
 }
 
 // 町の生産量（品物ごと）を区画の建物から集計する。挿入順は建物の順＝元の produces の順
@@ -246,6 +248,18 @@ export function updateHousing(city, tier, max = 1) {
     return { built: -1, full: false };
   }
   return { built: 0, full: false };
+}
+
+// 区画の座標 ↔ 世界のマス
+export function districtToWorld(city, x, y) {
+  const [ox, oy] = city.district.origin || [0, 0];
+  return [ox + x - C, oy + y - C];
+}
+export function worldToDistrict(city, wx, wy) {
+  const [ox, oy] = city.district.origin || [0, 0];
+  const x = wx - ox + C;
+  const y = wy - oy + C;
+  return inside(x, y) ? [x, y] : null;
 }
 
 // その町の今の市場の圏

@@ -92,13 +92,15 @@ export function buildGrid(world) {
   for (const c of Object.values(world.cities)) {
     const [cx, cy] = tileOf(c.x, c.y);
     cityTiles[c.id] = [cx, cy];
-    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
       const x = cx + dx;
       const y = cy + dy;
       if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) continue;
       const k = key(x, y);
       if (terrain[k] === T.MOUNTAIN) terrain[k] = T.HILL;
-      if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && terrain[k] === T.WATER && !(c.tags || []).includes('port')) terrain[k] = T.PLAIN;
+      // 町のまわりは陸地（港町も2マスは陸。海への水路はこのあと掘る）
+      const landR = (c.tags || []).includes('port') ? 3 : 1;
+      if (Math.abs(dx) <= landR && Math.abs(dy) <= landR && terrain[k] === T.WATER) terrain[k] = T.PLAIN;
     }
     terrain[key(cx, cy)] = c.tags?.includes('desert') ? T.SAND : T.PLAIN;
   }

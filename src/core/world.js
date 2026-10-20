@@ -15,7 +15,7 @@ import { updateProduction } from './production.js';
 import { updateRivals } from './rival.js';
 import { checkGoals } from './scoring.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
-import { buildGrid } from './grid.js';
+import { buildGrid, GRID_W, GRID_H, gridKey } from './grid.js';
 import { PRODUCERS } from '../data/district.js';
 
 export const SAVE_VERSION = 2;
@@ -106,7 +106,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
 
   // 区画: 町の中のマス目。生産は区画の建物から集計する（開始時の合計は produces と同じ）
   for (const c of Object.values(world.cities)) {
-    c.district = generateDistrict(c, { seed: world.seed, scenarioGoods: sc.goods });
+    c.district = generateDistrict(c, { seed: world.seed, scenarioGoods: sc.goods, ...districtLand(world, c) });
     c.produces = districtProduction(c);
     updateHousing(c, cityTier(c), 999);
   }
@@ -148,6 +148,23 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   for (const id of sc.knownAtStart || []) observe(world, id);
   emit(world, { type: 'start', text: sc.intro });
   return world;
+}
+
+// 区画の地形を世界のマス目から引く（町のマスを中心に N×N）
+const TERRAIN_CODE = ['.', 'f', 's', 'h', 'm', 'w'];
+export function districtLand(world, c) {
+  const grid = world.grid;
+  const [ox, oy] = grid.cityTiles[c.id];
+  const landAt = (dx, dy) => {
+    const x = ox + dx;
+    const y = oy + dy;
+    if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return 'w';
+    const k = gridKey(x, y);
+    if (grid.cityAt.has(k)) return 'r';
+    if (grid.path[k]) return 'r';
+    return TERRAIN_CODE[grid.terrain[k]];
+  };
+  return { landAt, origin: [ox, oy] };
 }
 
 export function addMerchant(world, { name, portrait, city, transport = 'donkey' }) {

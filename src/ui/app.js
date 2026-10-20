@@ -284,6 +284,7 @@ function mount(world) {
     onCity: (id) => onCityClick(id),
     onCityDouble: (id) => app.openDistrict(id),
     onHoverCity: (id) => hoverRouteTo(id),
+    onBuildTile: (wx, wy) => buildAt(wx, wy),
   });
   G.drainEvents(world);
   for (const e of world.log.slice(-40)) addFeed(e);
@@ -292,7 +293,27 @@ function mount(world) {
   // 最初は一時停止で始める。手引きのあるシナリオでは手引きを出す
 }
 
+// 建設モード: 町のパネルで建物を選ぶと、地図の上で置けるマスが光る
+app.startBuild = (cityId, kind, type) => {
+  const city = app.world.cities[cityId];
+  const tiles = G.placeableTiles(city, G.cityTier(city), kind === 'civic' ? null : type);
+  app.state.build = { city: cityId, kind, type, tiles };
+  setSpeed(0);
+  app.map.centerOn?.(city.x, city.y);
+  const name = kind === 'civic' ? G.CIVICS[type].name : G.PRODUCERS[type].name;
+  fx.toast(`${name}を置くマスを地図で選ぶ（光っているマス。Esc でやめる）`, { icon: 'ui/workshop' });
+  app.render();
+};
+function buildAt(wx, wy) {
+  const b = app.state.build;
+  const city = app.world.cities[b.city];
+  const xy = G.worldToDistrict(city, wx, wy);
+  if (!xy || !b.tiles.some(([x, y]) => x === xy[0] && y === xy[1])) return app.error('そのマスには置けない（光っているマスを選ぶ）');
+  const r = b.kind === 'civic' ? app.run(() => G.buildCivic(app.world, b.city, b.type, xy), 'build') : app.run(() => G.placeProducer(app.world, b.city, b.type, xy[0], xy[1]), 'build');
+  if (r.ok) { app.state.build = null; app.render(); }
+}
 app.clickCity = (id) => onCityClick(id);
+app.buildAt = (wx, wy) => buildAt(wx, wy);
 function onCityClick(id) {
   const st = app.state;
   if (st.pick) {
@@ -488,6 +509,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === ' ' && app.state.modals === 0) { e.preventDefault(); setSpeed(app.state.speed ? 0 : app.lastSpeed || 1); }
   if (['1', '2', '3'].includes(e.key) && app.state.modals === 0) setSpeed(Number(e.key));
   if (e.key === 'Escape' && app.state.pick) { app.state.pick = null; app.state.hoverRoute = null; app.render(); }
+  if (e.key === 'Escape' && app.state.build) { app.state.build = null; app.render(); }
 });
 
 // 行き先を選んでいる間は、カーソルの町までの経路を光らせる

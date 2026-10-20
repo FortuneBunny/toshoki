@@ -186,8 +186,61 @@ export function createWorldView(container, world, handlers) {
     c.setLineDash([]);
   }
 
+  // 区画の建物を世界のマスに描く（家・生産施設・需要施設・工房）。市場は町の絵で描く
+  function drawDistrict(c, city) {
+    const d = city.district;
+    if (!d?.origin || cam.zoom < 0.45) return false;
+    const list = d.buildings.filter((b) => !b.virtual && b.type !== 'market').map((b) => ({ b, w: G.districtToWorld(city, b.x, b.y) }));
+    list.sort((p, q) => (p.w[0] + p.w[1]) - (q.w[0] + q.w[1]));
+    const hw = (TW / 2) * cam.zoom;
+    const hh = (TH / 2) * cam.zoom;
+    for (const { b, w } of list) {
+      const [sx, sy] = toScreen(...iso(w[0], w[1]));
+      if (sx < -60 || sy < -60 || sx > canvas.clientWidth + 60 || sy > canvas.clientHeight + 60) continue;
+      if (b.type === 'house') {
+        const v = ((b.x * 7 + b.y * 11) % 10) / 10;
+        const ww = (12 + v * 5) * cam.zoom;
+        const h2 = (8 + v * 3) * cam.zoom;
+        c.fillStyle = ['#f3dfb3', '#e2c08a', '#f0d6a0'][Math.floor(v * 3)];
+        c.strokeStyle = '#3b2618';
+        c.lineWidth = Math.max(0.6, cam.zoom);
+        c.fillRect(sx - ww / 2, sy - h2 + 2 * cam.zoom, ww, h2);
+        c.strokeRect(sx - ww / 2, sy - h2 + 2 * cam.zoom, ww, h2);
+        c.fillStyle = G.cityTier(city) >= 3 && v > 0.75 ? (v > 0.9 ? '#ffd166' : '#5bb4d6') : ['#c8553d', '#d9822b', '#8e3b2e', '#a65a1b'][Math.floor(v * 4)];
+        c.beginPath();
+        c.moveTo(sx - ww / 2 - 1.5 * cam.zoom, sy - h2 + 2 * cam.zoom);
+        c.lineTo(sx, sy - h2 - 5 * cam.zoom);
+        c.lineTo(sx + ww / 2 + 1.5 * cam.zoom, sy - h2 + 2 * cam.zoom);
+        c.closePath();
+        c.fill();
+        c.stroke();
+        continue;
+      }
+      if (G.PRODUCERS[b.type]) {
+        const building = b.readyDay !== undefined && world.day < b.readyDay;
+        c.fillStyle = b.placed ? 'rgba(242,169,59,0.55)' : 'rgba(160,122,72,0.5)';
+        c.beginPath();
+        c.moveTo(sx, sy - hh);
+        c.lineTo(sx + hw, sy);
+        c.lineTo(sx, sy + hh);
+        c.lineTo(sx - hw, sy);
+        c.closePath();
+        c.fill();
+        const im = img(`goods/${G.PRODUCERS[b.type].good}`);
+        const s = 22 * cam.zoom;
+        if (ready(im)) { c.globalAlpha = building ? 0.45 : 1; c.drawImage(im, sx - s / 2, sy - s * 0.85, s, s); c.globalAlpha = 1; }
+        continue;
+      }
+      const path = G.CIVICS[b.type] ? `cities/${b.type}` : `cities/${b.type}`;
+      const im = img(path);
+      const s = 40 * cam.zoom;
+      if (ready(im)) c.drawImage(im, sx - s / 2, sy - s * 0.8, s, s);
+    }
+    return true;
+  }
+
   function drawHouses(c, city, sx, sy) {
-    // 町のまわりに家（人口に応じて）。G2 で区画の家と置き換える
+    // 区画のない町（古いセーブなど）だけ、人口に応じた飾りの家
     const k = world.player.knowledge[city.id];
     const here = world.player.merchants.some((m) => m.city === city.id);
     const pop = here ? city.pop : k?.pop;
@@ -244,8 +297,39 @@ export function createWorldView(container, world, handlers) {
     for (const c of cities) {
       const [tx, ty] = world.grid.cityTiles[c.id];
       const [sx, sy] = toScreen(...iso(tx, ty));
-      if (sx < -200 || sy < -200 || sx > canvas.clientWidth + 200 || sy > canvas.clientHeight + 200) continue;
-      drawHouses(ctx, c, sx, sy);
+      if (sx < -300 || sy < -300 || sx > canvas.clientWidth + 300 || sy > canvas.clientHeight + 300) continue;
+      // 選んだ町の市場の圏
+      if ((state.selCity === c.id || state.build?.city === c.id) && c.district?.origin && cam.zoom >= 0.45) {
+        const rr = G.cityRadius(c, G.cityTier(c));
+        const pts = [[-rr - 0.5, -rr - 0.5], [rr + 0.5, -rr - 0.5], [rr + 0.5, rr + 0.5], [-rr - 0.5, rr + 0.5]].map(([dx, dy]) => toScreen(...iso(tx + dx, ty + dy)));
+        ctx.strokeStyle = 'rgba(255,209,102,0.85)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+        ctx.closePath();
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      // 建設モード: 置けるマスを光らせる
+      if (state.build?.city === c.id && state.build.tiles) {
+        ctx.strokeStyle = '#7dff6a';
+        ctx.lineWidth = 2;
+        const hw = (TW / 2) * cam.zoom;
+        const hh2 = (TH / 2) * cam.zoom;
+        for (const [dx, dy] of state.build.tiles) {
+          const [wx, wy] = G.districtToWorld(c, dx, dy);
+          const [px, py] = toScreen(...iso(wx, wy));
+          ctx.beginPath();
+          ctx.moveTo(px, py - hh2);
+          ctx.lineTo(px + hw, py);
+          ctx.lineTo(px, py + hh2);
+          ctx.lineTo(px - hw, py);
+          ctx.closePath();
+          ctx.stroke();
+        }
+      }
+      if (!drawDistrict(ctx, c)) drawHouses(ctx, c, sx, sy);
       const k = world.player.knowledge[c.id];
       const here = world.player.merchants.some((m) => m.city === c.id);
       const gl = here ? c.glucose : k?.glucose;
@@ -428,6 +512,11 @@ export function createWorldView(container, world, handlers) {
     const wasDrag = drag?.moved;
     drag = null;
     if (wasDrag) return;
+    if (state.build) {
+      const [tx, ty] = tileFromWorld(...fromScreen(e.clientX - r.left, e.clientY - r.top));
+      handlers.onBuildTile?.(tx, ty);
+      return;
+    }
     const id = cityAtScreen(e.clientX - r.left, e.clientY - r.top);
     if (id) handlers.onCity?.(id, e);
   });
@@ -470,7 +559,7 @@ export function createWorldView(container, world, handlers) {
       const [tx, ty] = world.grid.cityTiles[m0.city];
       const full = cam.zoom;
       [cam.x, cam.y] = iso(tx, ty);
-      cam.zoom = Math.max(full, 0.75);
+      cam.zoom = Math.max(full, 1.1);
     }
     invalidate();
     draw();

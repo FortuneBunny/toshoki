@@ -13,6 +13,8 @@ export const TERRAIN = {
   f: { name: '肥えた土地' },
   s: { name: '砂地' },
   w: { name: '水辺', blocked: true },
+  m: { name: '山', blocked: true },
+  r: { name: '道', blocked: true },
   h: { name: '丘' },
 };
 
