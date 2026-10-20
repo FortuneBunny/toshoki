@@ -175,7 +175,7 @@ function statusText(world) {
   const out = [];
   out.push(`■ ${world.scenario.no}. ${world.scenario.title}   ${G.dateString(world.day)}（${world.day}日目 / 期限 ${world.scenario.deadline}日）`);
   if (pl.heirloom) out.push(`家訓: ${G.heirloomText(pl.heirloom)}`);
-  out.push(`銀 ${Math.floor(pl.silver)}   資産 ${Math.floor(G.netWorth(world))}（銀＋品物×基準の8割＋輸送手段・工房×半額。区画の施設・道・交易所・技術・寄進は入らない）   評判 Lv${pl.repLevel}（${pl.rep}）   連続黒字 ${pl.streak}`);
+  out.push(`銀 ${Math.floor(pl.silver)}   資産 ${Math.floor(G.netWorth(world))}（銀＋積荷×基準の8割＋倉庫の品はその町で売った値の8割＋輸送手段・工房×半額。区画の施設・道・交易所・技術・寄進は入らない）   評判 Lv${pl.repLevel}（${pl.rep}）   連続黒字 ${pl.streak}`);
   if (world.scenario.goods.some((id) => ['sea', 'river'].length) && world.edges.some((e) => e.monsoon)) out.push(`季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（切り替わるまで あと${180 - (world.day % 180)}日。夏は東へ、冬は西へ追い風）`);
   const sc = world.scenario;
   out.push(`ランクの基準: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`);
@@ -300,7 +300,8 @@ function cityText(world, id) {
   if (!c) throw new Error(`不明な町: ${id}`);
   const k = world.player.knowledge[id];
   // 自分の交易所は、商人がいなくても様子が分かる
-  const here = world.player.merchants.some((m) => m.city === id) || !!world.cities[id]?.founded;
+  // 自分の交易所と、今日だれかが立ち寄った町は、今の様子が分かる
+  const here = world.player.merchants.some((m) => m.city === id) || !!world.cities[id]?.founded || world.player.knowledge[id]?.day === world.day;
   const out = [`■ ${c.name}(${id})  ${G.tierName(G.cityTier(c))}  人口 ${here ? Math.floor(c.pop) : k?.pop !== undefined ? `${Math.floor(k.pop)}（${world.day - k.day}日前）` : '?'}`];
   if (here) {
     const tierIdx = G.cityTier(c);

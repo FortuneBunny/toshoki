@@ -69,7 +69,10 @@ export function updateProduction(world) {
     for (let i = 0; i < def.batches + (world.player.mods?.batchBonus || 0); i++) {
       const recipes = def.recipes.filter((r) => (r.minTier ?? 0) <= cityTier(city) && (!b.recipe || b.recipe === r.name));
       let ok = false;
-      for (const r of recipes) if (tryBatch(world, b, r, wh, city)) { ok = true; made++; break; }
+      // 止まった理由は、一番上（優先）のレシピのものを残す
+      let firstWhy = null;
+      for (const r of recipes) { if (tryBatch(world, b, r, wh, city)) { ok = true; made++; break; } if (!firstWhy) firstWhy = b.why; }
+      if (!ok && firstWhy) b.why = firstWhy;
       if (!ok) break;
     }
     b.lastMade = made;

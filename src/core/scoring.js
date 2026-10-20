@@ -3,7 +3,7 @@ import { GOODS } from '../data/goods.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { TRANSPORTS } from '../data/transports.js';
 import { cityTier, tierName } from './city.js';
-import { cityWants } from './market.js';
+import { cityWants, quote } from './market.js';
 import { emit } from './events.js';
 import { BALANCE as B } from '../data/balance.js';
 import { GRID_W, GRID_H, T } from './grid.js';
@@ -15,7 +15,15 @@ export function netWorth(world) {
     for (const [id, q] of Object.entries(m.cargo)) w += q * GOODS[id].base * 0.8;
     w += TRANSPORTS[m.transport].cost * 0.5;
   }
-  for (const wh of Object.values(pl.warehouses)) for (const [id, q] of Object.entries(wh.stock)) w += q * GOODS[id].base * 0.8;
+  // 倉庫の品は、その町で全部売ったときの値の8割（買い取らない品は0）。売れない在庫を積んで資産を増やせないように
+  for (const [cid, wh] of Object.entries(pl.warehouses)) {
+    const city = world.cities[cid];
+    for (const [id, q] of Object.entries(wh.stock)) {
+      if (q <= 0) continue;
+      if (!city || !cityWants(city, id)) continue;
+      w += Math.min(q * GOODS[id].base, quote(world, city, id, -Math.floor(q))) * 0.8;
+    }
+  }
   for (const b of pl.buildings) w += BUILDINGS[b.type].cost * 0.5;
   return w;
 }
