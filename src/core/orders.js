@@ -50,7 +50,7 @@ export function runOrder(world, m, { depart = true } = {}) {
       if (have <= 0 || !cityWants(city, s.good)) continue;
       let n = have;
       while (n > 0 && quote(world, city, s.good, -n) / n < (s.min || 0)) n = Math.floor(n * 0.7);
-      if (n <= 0) { notes.push(`${GOODS[s.good].name}は売値 ${(quote(world, city, s.good, -1)).toFixed(1)} が最低売値 ${s.min} を下回るので売らずに持ち越し`); continue; }
+      if (n <= 0) { notes.push(`${GOODS[s.good].name}は売値 ${(quote(world, city, s.good, -1)).toFixed(2)} が最低売値 ${s.min} を下回るので売らずに持ち越し`); continue; }
       executeTrade(world, m, [{ good: s.good, qty: -n }], { auto: true });
     }
     // 買い: 上限価格を超えない範囲で、指定数まで
@@ -62,7 +62,7 @@ export function runOrder(world, m, { depart = true } = {}) {
       if (n <= 0) {
         if (want > 0) {
           const unit = quote(world, city, b.good, 1);
-          notes.push(!(city.stock[b.good] >= 1) ? `${GOODS[b.good].name}は${city.name}に在庫がない` : unit > (b.max || Infinity) ? `${GOODS[b.good].name}は買値 ${unit.toFixed(1)} が上限 ${b.max} を超えるので買わない` : room <= 0 ? `${GOODS[b.good].name}は積載がいっぱい` : `${GOODS[b.good].name}は銀が足りず買えない`);
+          notes.push(!(city.stock[b.good] >= 1) ? `${GOODS[b.good].name}は${city.name}に在庫がない` : unit > (b.max || Infinity) ? `${GOODS[b.good].name}は買値 ${unit.toFixed(2)} が上限 ${b.max} を超えるので買わない` : room <= 0 ? `${GOODS[b.good].name}は積載がいっぱい` : `${GOODS[b.good].name}は銀が足りず買えない`);
         }
         continue;
       }

@@ -123,8 +123,10 @@ export function openDistrict(app, cityId) {
       add(g, s('image', { href: `assets/svg/cities/${b.type}.svg`, x: cx - 26, y: cy - 44, width: 52, height: 52 }));
     } else {
       const p = G.PRODUCERS[b.type];
+      const building = b.readyDay !== undefined && world.day < b.readyDay;
       add(g, s('polygon', { points: diamond(cx, cy + 1), fill: b.placed ? '#f2a93b' : '#a07a48', opacity: 0.55 }));
-      add(g, s('image', { href: `assets/svg/goods/${p.good}.svg`, x: cx - 16, y: cy - 30, width: 32, height: 32 }));
+      add(g, s('image', { href: `assets/svg/goods/${p.good}.svg`, x: cx - 16, y: cy - 30, width: 32, height: 32, opacity: building ? 0.45 : 1 }));
+      if (building) add(g, s('text', { x: cx, y: cy + 6, 'text-anchor': 'middle', style: 'font:900 10px sans-serif;fill:#3b2618' }, `建設中 あと${b.readyDay - world.day}日`));
     }
     return g;
   }
@@ -135,6 +137,7 @@ export function openDistrict(app, cityId) {
     if (t.res !== '-') parts.push(G.RESOURCES[t.res].name);
     if (t.building) {
       const b = t.building;
+      if (b.readyDay !== undefined && world.day < b.readyDay) parts.push(`建設中（あと${b.readyDay - world.day}日）`);
       parts.push(G.CIVICS[b.type] ? `${G.CIVICS[b.type].name}（満足度 ${Math.round((city.civicSat?.[b.type] || 0) * 100)}%）` : b.type === 'house' ? `家（${G.houseCap(G.cityTier(city))}人まで住める）` : b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の${G.BUILDINGS[b.type].name}` : `${G.PRODUCERS[b.type].name}（${G.GOODS[G.PRODUCERS[b.type].good].name} ${fmt(b.rate ?? G.PRODUCERS[b.type].rate, 1)}/日${b.placed ? '、自分が建てた' : ''}）`);
     }
     return parts.join('・');

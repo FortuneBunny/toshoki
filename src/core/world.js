@@ -15,6 +15,7 @@ import { updateProduction } from './production.js';
 import { updateRivals } from './rival.js';
 import { checkGoals } from './scoring.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
+import { PRODUCERS } from '../data/district.js';
 
 export const SAVE_VERSION = 2;
 // 地図の1ピクセルが表す距離（ロバは1日に10進む）
@@ -180,6 +181,8 @@ function upkeep(world) {
   const pl = world.player;
   let cost = 0;
   for (const m of pl.merchants) cost += B.merchantWage + TRANSPORTS[m.transport].upkeep;
+  // 自分が置いた生産施設の維持費
+  for (const c of Object.values(world.cities)) for (const b of c.district?.buildings || []) if (b.placed && PRODUCERS[b.type]) cost += B.producerUpkeep;
   cost = cost * (pl.mods?.upkeep ?? 1) + (pl.mods?.dailyFee || 0);
   pl.silver -= cost;
   const noCargo = pl.merchants.every((m) => !Object.keys(m.cargo).length);

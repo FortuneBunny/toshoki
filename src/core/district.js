@@ -4,6 +4,7 @@ import { DISTRICT_SIZE as N, DISTRICT_CENTER as C, MARKET_RADIUS, TERRAIN, RESOU
 const RESOURCE_NAMES = Object.fromEntries(Object.entries(RESOURCES).map(([k, v]) => [k, v.name]));
 import { hashSeed } from './rng.js';
 import { BALANCE as B } from '../data/balance.js';
+import { GOODS } from '../data/goods.js';
 
 function localRng(seed) {
   let t = hashSeed(seed);
@@ -125,9 +126,10 @@ export function generateDistrict(city, { seed, scenarioGoods = [] }) {
     const type = PRODUCER_FOR[good];
     if (type && PRODUCERS[type].resource) placeDeposit(d, r, PRODUCERS[type].resource, 2, 2, 5);
   }
-  // これから建てられる資源（シナリオの品で、まだこの町にないもの）を、外側に
-  const extra = scenarioGoods.map((g) => PRODUCER_FOR[g]).filter((t) => t && PRODUCERS[t].resource && !(city.produces || {})[PRODUCERS[t].good]);
-  for (const t of extra) if (r() < 0.4) placeDeposit(d, r, PRODUCERS[t].resource, 2, 3, 6);
+  // 食べ物・甘味以外の資源（塩、鉱脈、茶、桑、陶土、香草）だけ、まれに外側に。
+  // 食べ物を町の中でそろえられると、交易で食卓を豊かにする意味が消えるため（柱2）
+  const extra = scenarioGoods.map((g) => PRODUCER_FOR[g]).filter((t) => t && PRODUCERS[t].resource && !(city.produces || {})[PRODUCERS[t].good] && GOODS[PRODUCERS[t].good].kind === 'goods');
+  for (const t of extra) if (r() < 0.15) placeDeposit(d, r, PRODUCERS[t].resource, 2, 4, 6);
 
   return { size: N, terrain: d.terrain.join(''), res: d.res.join(''), buildings, nextId, radiusBonus: 0 };
 }
@@ -137,6 +139,7 @@ export function districtProduction(city) {
   const out = {};
   for (const b of city.district.buildings) {
     if (b.owner !== 'town' || !PRODUCERS[b.type]) continue;
+    if (b.readyDay !== undefined && (city.today ?? 0) < b.readyDay) continue; // 建設中
     const g = PRODUCERS[b.type].good;
     out[g] = (out[g] || 0) + (b.rate ?? PRODUCERS[b.type].rate);
   }

@@ -130,6 +130,8 @@ test('区画: 生産施設を置くと町の生産が増え、条件に合わな
   const [x, y] = G.placeableTiles(c, G.cityTier(c), 'wheat_farm')[0];
   assert.ok(G.placeProducer(w, 'mugi', 'wheat_farm', x, y).ok);
   G.advance(w, 1, silent);
+  assert.equal(c.produces.wheat, before, '建設中は生産しない');
+  G.advance(w, G.BALANCE.producerBuildDays, silent);
   assert.ok(c.produces.wheat > before);
   assert.equal(G.placeProducer(w, 'mugi', 'wheat_farm', x, y).ok, false, '同じマスには置けない');
   assert.equal(G.placeProducer(w, 'mugi', 'wheat_farm', 0, 0).ok, false, '市場の圏の外には置けない');

@@ -109,7 +109,7 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
         world.stats.hits += 1;
         gainRep(world, 15);
         fx.push({ type: 'hit', good: hit.good, diff: hit.diff });
-        emit(world, { type: 'hit', merchant: m.id, city: city.id, big: true, text: `読み的中！${GOODS[hit.good].name}が予想より高く売れた（+${Math.round(hit.diff)} 銀）` });
+        emit(world, { type: 'hit', merchant: m.id, city: city.id, big: true, text: `読み的中！${GOODS[hit.good].name}が、出発時に知っていた相場より高く売れた（相場の差 +${Math.round(hit.diff)} 銀ぶん）` });
       }
       emit(world, { type: 'profit', merchant: m.id, city: city.id, amount: profit, streak: pl.streak, auto, big: profit > 300, text: `${m.name}: ${city.name}で売却、利益 +${Math.round(profit)} 銀${pl.streak > 1 ? `（${pl.streak}連続黒字！）` : ''}` });
     } else if (profit < 0) {

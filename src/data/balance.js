@@ -63,6 +63,9 @@ export const BALANCE = {
   // 人と組織
   merchantHireCost: 150,
   autoBuyReserve: 100,
+  // 区画: 生産施設を置いたとき
+  producerBuildDays: 10,      // 置いてから動き出すまでの日数
+  producerUpkeep: 1,          // 自分が置いた生産施設の1日の維持費
   // 区画: 住居と労働力
   houseCapBase: 40,           // 家1軒に住める人数 = base + perTier × 町の段階
   houseCapPerTier: 25,

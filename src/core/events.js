@@ -165,7 +165,8 @@ function rollContract(world) {
   const ids = world.scenario.goods.filter((id) => dailyDemand(city, id, false) > 0 && !(city.produces?.[id] > 0) && obtainable(id));
   if (!ids.length) return;
   const id = pick(world, ids);
-  const where = Object.values(world.cities).filter((c) => c.produces?.[id] > 0).map((c) => c.name);
+  // 産地として挙げるのは、地元の消費より多く作っている町だけ（仕入れられる見込みのある町）
+  const where = Object.values(world.cities).filter((c) => (c.produces?.[id] || 0) > dailyDemand(c, id, false) * 1.1).map((c) => c.name);
   const capTotal = world.player.merchants.reduce((s, m) => s + TRANSPORTS[m.transport].cap, 0);
   const qty = Math.max(5, Math.min(Math.round(capTotal * 0.8), Math.round((randInt(world, 15, 40) * 10) / Math.max(4, GOODS[id].base))));
   // 一番近い商人から往復できる日数 + 余裕
@@ -178,7 +179,7 @@ function rollContract(world) {
   const reward = Math.round(qty * GOODS[id].base * 0.8 + 40);
   const c = { id: world.nextId++, city: city.id, good: id, qty, delivered: 0, deadline: world.day + days, reward };
   world.contracts.push(c);
-  emit(world, { type: 'contract', city: city.id, contract: c.id, rare: true, text: `大口注文: ${city.name}が${GOODS[id].name}を${qty}個求めている（${days}日以内、報酬 ${reward} 銀）。${city.name}でこの品を売れば数に入る。${where.length ? `産地: ${where.join('、')}` : '工房でつくれる'}` });
+  emit(world, { type: 'contract', city: city.id, contract: c.id, rare: true, text: `大口注文: ${city.name}が${GOODS[id].name}を${qty}個求めている（${days}日以内、報酬 ${reward} 銀）。${city.name}でこの品を売れば数に入る。${where.length ? `仕入れられそうな町: ${where.join('、')}` : '余って売られている町は少ない（工房でつくるか、産地の在庫を待つ）'}` });
 }
 
 function expireContracts(world) {

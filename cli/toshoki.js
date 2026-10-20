@@ -273,7 +273,7 @@ function buildableText(world, id) {
     if (!world.scenario.goods.includes(p.good)) continue;
     const tiles = G.placeableTiles(c, tier, k);
     const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
-    out.push(`  ${k}（${p.name}）: ${cost}銀  ${GOODS[p.good].name} +${p.rate}/日  働き手${p.workers}人  ${tiles.length ? `置けるマス ${tiles.length}か所: ${tiles.slice(0, 6).map(([x, y]) => G.coordName(x, y)).join(' ')}` : '置けるマスがない'}`);
+    out.push(`  ${k}（${p.name}）: ${cost}銀＋維持費${G.BALANCE.producerUpkeep}/日  ${GOODS[p.good].name} +${p.rate}/日（${G.BALANCE.producerBuildDays}日後から）  働き手${p.workers}人  ${tiles.length ? `置けるマス ${tiles.length}か所: ${tiles.slice(0, 6).map(([x, y]) => G.coordName(x, y)).join(' ')}` : '置けるマスがない'}`);
   }
   out.push('需要施設（その町に新しい需要を生み、求める品が届くと町が育つ）:');
   for (const [k, cv] of Object.entries(G.CIVICS)) {
@@ -661,7 +661,7 @@ function run(world, cmd, pos, opts) {
         break;
       }
       after(G.placeProducer(world, at, type, xy[0], xy[1]));
-      out.push(`建てた（${cost}銀）`);
+      out.push(`建設を始めた（${cost}銀）。${G.BALANCE.producerBuildDays}日後から動き出す。維持費 ${G.BALANCE.producerUpkeep}銀/日`);
       break;
     }
     case 'civic': {

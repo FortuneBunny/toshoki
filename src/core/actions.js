@@ -125,9 +125,9 @@ export function placeProducer(world, cityId, type, x, y) {
   const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
   if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
   world.player.silver -= cost;
-  addBuilding(city, { type, x, y, owner: 'town', rate: p.rate, placed: true });
+  addBuilding(city, { type, x, y, owner: 'town', rate: p.rate, placed: true, readyDay: world.day + B.producerBuildDays });
   world.stats.placed = (world.stats.placed || 0) + 1;
-  emit(world, { type: 'place', city: cityId, big: true, text: `${city.name}に${p.name}を建てた！${GOODS[p.good].name}が毎日 ${p.rate} 増える（${coordName(x, y)}）` });
+  emit(world, { type: 'place', city: cityId, big: true, text: `${city.name}で${p.name}の建設が始まった（${coordName(x, y)}）。${B.producerBuildDays}日後から${GOODS[p.good].name}が毎日 ${p.rate} 増える。維持費 ${B.producerUpkeep}銀/日` });
   return { ok: true, cost };
 }
 
