@@ -5,7 +5,7 @@ import { emit } from './events.js';
 import { observe } from './knowledge.js';
 import { executeTrade, moveWarehouse } from './trade.js';
 import { quote, cityWants } from './market.js';
-import { cargoUsed, cargoCap, startTravel, findPath, edgeDays } from './caravan.js';
+import { cargoUsed, cargoCap, startTravel, findPath, edgeDays, foodNeeded } from './caravan.js';
 import { PROVISIONS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
 
@@ -111,7 +111,7 @@ function foodNeed(world, m, to) {
   if (!route) return 0;
   const desertDays = route.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + edgeDays(world, e, m.transport, e.a), 0);
   if (!desertDays) return 0;
-  const need = Math.ceil(desertDays * cargoCap(m) * B.provisionPerCap * (world.player.mods?.provision ?? 1) * (m.talent === 'desert' ? 0.5 : 1)) + 1;
+  const need = foodNeeded(world, m, desertDays);
   const have = PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
   return Math.max(0, need - have);
 }
@@ -120,7 +120,7 @@ function autoProvision(world, m, to) {
   if (!foodNeed(world, m, to)) return;
   const route = findPath(world, m.city, to, m.transport);
   const desertDays = route.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + edgeDays(world, e, m.transport, e.a), 0);
-  const need = Math.ceil(desertDays * cargoCap(m) * B.provisionPerCap * (world.player.mods?.provision ?? 1) * (m.talent === 'desert' ? 0.5 : 1)) + 1;
+  const need = foodNeeded(world, m, desertDays);
   let have = PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
   const city = world.cities[m.city];
   for (const g of PROVISIONS) {

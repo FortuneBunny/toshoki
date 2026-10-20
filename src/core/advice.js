@@ -3,7 +3,7 @@ import { GOODS, PROVISIONS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
 import { quote, cityWants } from './market.js';
 import { routeInfo } from './actions.js';
-import { cargoCap, cargoUsed } from './caravan.js';
+import { cargoCap, cargoUsed, foodNeeded } from './caravan.js';
 
 export function suggestTrades(world, mid, limit = 3) {
   const m = world.player.merchants.find((x) => x.id === Number(mid));
@@ -17,7 +17,7 @@ export function suggestTrades(world, mid, limit = 3) {
     if (!r) continue;
     const days = Math.max(1, r.days);
     // 砂漠を渡るなら、食料の分だけ積める量が減る
-    const food = Math.ceil((r.desertDays || 0) * cargoCap(m) * B.provisionPerCap);
+    const food = foodNeeded(world, m, r.desertDays || 0);
     for (const good of world.scenario.goods) {
       const there = k.prices[good];
       const stock = Math.floor(here.stock[good] || 0);
@@ -72,7 +72,7 @@ export function adviceText(world, mid) {
     const target = world.cities[u.to];
     // 行き先がその品を作っていても、ここより作る量が少なければ足りていないことが多い
     const local = Object.entries(here.produces || {}).filter(([g, r]) => ((target.produces || {})[g] || 0) < r * 0.5 && world.scenario.goods.includes(g)).sort((a, b) => b[1] - a[1])[0]?.[0];
-    const food = Math.ceil(u.desert * cargoCap(m) * B.provisionPerCap);
+    const food = foodNeeded(world, m, u.desert);
     const qty = local ? Math.max(0, Math.min(Math.floor(here.stock[local] || 0), Math.floor((cargoCap(m) - cargoUsed(m) - food) / GOODS[local].weight))) : 0;
     // 確かめに行くだけなので、手持ちの半分まで
     let qty2 = qty;

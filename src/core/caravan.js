@@ -153,6 +153,12 @@ export function travelTile(m) {
   return t.tiles[Math.min(t.i, t.tiles.length - 1)];
 }
 
+// 砂漠を days 日渡るのに要る食料の数（才能・技術の補正込み、1個の余裕つき）
+export function foodNeeded(world, m, days) {
+  if (!days) return 0;
+  return Math.ceil(days * cargoCap(m) * B.provisionPerCap * (world.player.mods?.provision ?? 1) * (m.talent === 'desert' ? 0.5 : 1)) + 1;
+}
+
 export const needsFood = (grid, k) => grid.terrain[k] === T.SAND && grid.path[k] < P.ROAD && !grid.cityAt.has(k);
 
 function eatProvisions(world, m) {

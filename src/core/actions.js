@@ -72,7 +72,7 @@ export function routeInfo(world, mid, to) {
   // 才能: 健脚・船乗りは日数が縮む
   const ship = TRANSPORTS[m.transport].modes.includes('sea');
   if ((m.talent === 'swift' && !ship) || (m.talent === 'sailor' && ship)) r = { ...r, days: Math.max(1, Math.round(r.total / 1.15)) };
-  return { ...r, danger: r.edges.reduce((s, e) => Math.max(s, e.danger), 0), desertDays: r.edges.filter((e) => e.kind === 'desert').length };
+  return { ...r, danger: r.edges.reduce((s, e) => Math.max(s, e.danger), 0), desertDays: r.desertDays || 0 };
 }
 
 export function canBuyTransportAt(world, city, type) {

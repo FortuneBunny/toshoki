@@ -237,7 +237,7 @@ export function departDialog(app, mid, to) {
   let guards = maxDanger && world.scenario.bandits ? maxDanger * 2 + 1 : 0;
   const desertDays = route.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + G.edgeDays(world, e, m.transport, e.a), 0);
   const food = G.PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
-  const need = Math.ceil(desertDays * G.cargoCap(m) * G.BALANCE.provisionPerCap);
+  const need = G.foodNeeded(world, m, desertDays);
   const k = world.player.knowledge[to];
   const body = h('div', {});
   const draw = () => {

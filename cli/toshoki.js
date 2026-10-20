@@ -163,6 +163,9 @@ function statusText(world) {
     }
   });
   out.push('商人:');
+  // 工房の自動仕入れが止まりそうなら、先に知らせる
+  const ab = pl.buildings.filter((b) => b.active && b.autoBuy);
+  if (ab.length && pl.silver < G.BALANCE.autoBuyReserve * 2) out.push(`⚠ 手元の銀 ${Math.floor(pl.silver)}。${G.BALANCE.autoBuyReserve}銀を切ると工房の自動仕入れが止まる（倉庫の製品を売って銀に戻そう）`);
   for (const m of pl.merchants) out.push('  ' + merchantLine(world, m));
   // 町にいて定期便のない商人には、次の一手の例を1つ（詳しくは advice）
   for (const m of pl.merchants) if (!m.travel && !m.order && world.day < 120) out.push(`  💡 #${m.id} 次の一手の例: ${G.adviceText(world, m.id)[0]}（ほかの案は advice）`);
@@ -613,7 +616,13 @@ function run(world, cmd, pos, opts) {
     case 'route': {
       const m = pickMerchant(world, opts);
       const r = G.routeInfo(world, m.id, pos[0]);
-      out.push(r ? `${r.path.map((id) => world.cities[id].name).join(' → ')}  約${r.days}日${r.desertDays ? `（砂漠${r.desertDays}区間）` : ''}${r.danger ? `  最大危険度${r.danger}` : ''}` : `${TRANSPORTS[m.transport].name}では行けない`);
+      if (!r) { out.push(`${TRANSPORTS[m.transport].name}では行けない`); break; }
+      out.push(`${r.path.map((id) => world.cities[id].name).join(' → ')}  約${r.days}日${r.danger ? `  最大危険度${r.danger}（護衛 ${r.danger * 2 + 1}人でたいてい撃退）` : ''}`);
+      if (r.desertDays) {
+        const need = G.foodNeeded(world, m, r.desertDays);
+        const food = G.PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
+        out.push(`  砂漠を約${r.desertDays}日渡る → 食料が${need}個いる（今 ${food}個${food < need ? `、あと${need - food}個積む` : '、足りている'}）。食料は ${G.PROVISIONS.map((g) => GOODS[g].name).join('・')}`);
+      }
       break;
     }
     case 'log': {
@@ -663,7 +672,7 @@ function run(world, cmd, pos, opts) {
       if (plan) {
         const desertDays = plan.edges.filter((e) => e.kind === 'desert').reduce((s, e) => s + G.edgeDays(world, e, m.transport, e.a), 0);
         const food = G.PROVISIONS.reduce((s, g) => s + (m.cargo[g] || 0), 0);
-        const need = Math.ceil(desertDays * G.cargoCap(m) * G.BALANCE.provisionPerCap);
+        const need = G.foodNeeded(world, m, desertDays);
         if (desertDays && food < need) {
           if (!('force' in opts)) throw new Error(`砂漠を約${desertDays}日渡るのに、隊商の食料が ${food}/${need} しかない。なつめやし・干しぶどう・キビ・麦・米を積んでから出発しよう（それでも行くなら --force）`);
           out.push(`⚠ 食料が足りないまま砂漠へ（${food}/${need}）`);
