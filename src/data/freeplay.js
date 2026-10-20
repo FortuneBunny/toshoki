@@ -82,7 +82,7 @@ export function generateFreeplay(seed) {
     decor: ['dunes', 'mountain', 'palm', 'field', 'forest', 'cane-field'],
     decorCount: 30,
     edges,
-    goals: [{ type: 'cityPop', city: capital.id, pop: 6000 }, { type: 'networth', amount: 15000 }, { type: 'postTier', tier: 2 }],
+    goals: [{ type: 'cityPop', city: capital.id, pop: 6000 }, { type: 'networth', amount: 15000 }, { type: 'postTier', tier: 2, pop: 600 }],
     deadline: 1080, rankS: 0.5,
     transports: ['donkey', 'camel', 'cart'],
     buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],

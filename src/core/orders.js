@@ -43,11 +43,14 @@ export function runOrder(world, m, { depart = true } = {}) {
     for (const good of stop.unload || []) {
       if (m.cargo[good]) moveWarehouse(world, m, good, -m.cargo[good]);
     }
-    for (const good of stop.load || []) {
+    for (const item of stop.load || []) {
+      // load:品*上限 で、積む数に上限をつけられる（仕入れの分の荷台を空けておく）
+      const [good, cap] = String(item).split('*');
       const wh = world.player.warehouses[m.city];
       const have = Math.floor(wh?.stock[good] || 0);
       const room = Math.floor((cargoCap(m) - cargoUsed(m)) / GOODS[good].weight);
-      const n = Math.min(have, room);
+      const limit = cap ? Math.max(0, Number(cap) - (m.cargo[good] || 0)) : Infinity;
+      const n = Math.min(have, room, limit);
       if (n > 0) moveWarehouse(world, m, good, n);
     }
     // 売り: 最低価格を下回るなら売らずに持ち越す（赤字売りを防ぐ）

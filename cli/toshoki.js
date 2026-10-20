@@ -273,6 +273,8 @@ function cityText(world, id) {
     out.push(`糖度 ${Math.round(c.glucose)}（目標値 ${Math.round(c.glucoseTarget)}）  1日の人口増加率 ${(G.growthPerDay(c) * 100).toFixed(2)}%${nextPop ? `  次の段階まで 人口 ${nextPop}` : ''}`);
     out.push(`糖度の目安: 40未満=飢え（人口減） 40〜110=安定（成長） 110〜140=活況（急成長） 140以上で甘味を大量に食べるとシュガーラッシュ → その後クラッシュ`);
     const diet = Object.entries(c.diet || {}).sort((a, b) => b[1] - a[1]);
+    const refuse = world.scenario.goods.filter((g) => !G.cityWants(c, g));
+    if (refuse.length) out.push(`この町が買い取らない品: ${refuse.map((g) => GOODS[g].name).join('・')}（町が育つと買い取るものもある）`);
     if (diet.length) out.push(`食卓（糖度への寄与）: ${diet.map(([g, v]) => `${GOODS[g].name} +${Math.round(v * 100)}`).join(' / ')}`);
     const missingFood = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && G.dailyDemand(c, g, false) > 0 && !(c.diet?.[g] > 0.02));
     out.push(`シュガーラッシュまで: ${rushGap(c.glucose, c.sweetLevel || 0)}`);
@@ -513,7 +515,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
                                          keep:品*数       売るときに、この数だけ手元に残す（砂漠の食料など）
                                          buy:品*数@上限値 その数になるまで買う。上限値より高ければ買わない
                                          unload:品        積んでいる分を全部、自分の倉庫へ下ろす（工房の材料）
-                                         load:品          倉庫にある分を、積めるだけ積む（工房の製品）
+                                         load:品[*数]     倉庫にある分を、積めるだけ（数を書けばその数まで）積む（工房の製品）
                                        処理の順番は 下ろす → 積む → 売る → 買う
   order list                           定期便ごとの損益
   order pause [町]                     次に町に着いたら（町を書けばその町で）定期便を止める

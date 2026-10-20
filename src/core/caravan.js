@@ -217,7 +217,8 @@ function banditCheck(world, m, danger) {
     if (!m.cargo[id]) delete m.cargo[id];
   }
   world.stats.banditLoss = (world.stats.banditLoss || 0) + lostValue;
-  emit(world, { type: 'robbed', merchant: m.id, bad: true, text: `${m.name}が盗賊（強さ${power}、護衛${m.guards}人）に襲われ、積荷${lost}個（約${Math.round(lostValue)}銀分）を奪われた` });
+  // 何も奪われなかったときは、時間を止めるほどの出来事ではない
+  emit(world, { type: lost ? 'robbed' : 'robbedNothing', merchant: m.id, bad: true, text: `${m.name}が盗賊（強さ${power}、護衛${m.guards}人）に襲われ、積荷${lost}個（約${Math.round(lostValue)}銀分）を奪われた` });
 }
 
 export function stepTravel(world, m) {

@@ -73,10 +73,12 @@ export function goalProgress(world, g) {
       // 自分で開いた交易所を育てる
       const posts = Object.values(world.cities).filter((c) => c.founded);
       const best = posts.reduce((b, c) => (!b || c.pop > b.pop ? c : b), null);
-      const hi = B.tierPops[g.tier];
-      if (!best) return { p: 0, text: `交易所を開いて「${tierName(g.tier)}」に育てる（まだ開いていない。上の「交易所」/ CLI: sites）` };
-      const t = cityTier(best);
-      return { p: t >= g.tier ? 1 : Math.min(0.99, best.pop / hi), text: `交易所を開いて「${tierName(g.tier)}」に育てる（${best.name} 人口 ${Math.floor(best.pop)}/${hi}）` };
+      // pop があれば人口で（一度届けば達成のまま。交易所は小さく始まるので、段階より手前の人口を目標にできる）
+      const hi = g.pop || B.tierPops[g.tier];
+      const goal = g.pop ? `人口${g.pop}` : `「${tierName(g.tier)}」`;
+      if (!best) return { p: 0, text: `交易所を開いて${goal}に育てる（まだ開いていない。上の「交易所」/ CLI: sites）` };
+      const reached = g.pop ? best.pop >= g.pop : cityTier(best) >= g.tier;
+      return { p: reached ? 1 : Math.min(0.99, best.pop / hi), text: `交易所を開いて${goal}に育てる（${best.name} 人口 ${Math.floor(best.pop)}/${hi}）` };
     }
     case 'cityPop': {
       const c = world.cities[g.city];

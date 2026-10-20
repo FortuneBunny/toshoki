@@ -228,7 +228,7 @@ const s7 = {
 
 const s8 = {
   id: 's8', no: 8, title: 'グルコース・ロード',
-  intro: '西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げよ。さらに、地図の空き地に交易所を開き「町」に育てて、一族の新しい拠点とせよ（上の「交易所」/ CLI: sites）。駅伝制や大型帆船は技術として買える。一族の名を歴史に刻め。',
+  intro: '西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げよ。さらに、地図の空き地に交易所を開き人口600まで育てて、一族の新しい拠点とせよ（上の「交易所」/ CLI: sites）。駅伝制や大型帆船は技術として買える。一族の名を歴史に刻め。',
   goods: ['wheat', 'rice', 'millet', 'dates', 'grapes', 'raisins', 'cane', 'honey', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'sugarart', 'wine', 'silk', 'spice', 'tea', 'pottery', 'salt'],
   start: { silver: 1200, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'kohaku' }, { name: 'ライラ', portrait: 'merchant-2', city: 'kohaku' }] },
   cities: [
@@ -268,7 +268,7 @@ const s8 = {
     name: 'サルマン商会', silver: 1500, skill: 0.8, goods: ['wheat', 'rice', 'dates', 'rawsugar', 'whitesugar', 'silk', 'spice', 'tea', 'salt'],
     merchants: [{ city: 'hari', transport: 'camel', wait: 5 }, { city: 'seikai', transport: 'donkey', wait: 10 }],
   }],
-  goals: [{ type: 'cityTier', city: 'kohaku', tier: 4 }, { type: 'networth', amount: 25000 }, { type: 'postTier', tier: 2 }],
+  goals: [{ type: 'cityTier', city: 'kohaku', tier: 4 }, { type: 'networth', amount: 25000 }, { type: 'postTier', tier: 2, pop: 600 }],
   deadline: 900, rankS: 0.45,
   transports: ['donkey', 'camel', 'cart', 'dhow'],
   buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],
