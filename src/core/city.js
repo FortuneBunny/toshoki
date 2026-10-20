@@ -209,6 +209,17 @@ export function updateCity(world, city) {
 }
 
 // 食卓の診断。届けると糖度が伸びる品と、その量の目安
+// ラッシュに要る甘味の目安: 甘味2種類で、それぞれ1日何個（必要量の割合を半分ずつ）
+export function rushSweetPlan(world, city) {
+  const need = glucoseNeed(city);
+  const each = (B.rushSweetLine / 2) * need / B.sweetGain;
+  return world.scenario.goods
+    .filter((id) => GOODS[id].kind === 'sweet' && GOODS[id].glu && dailyDemand(city, id, false) > 0)
+    .sort((a, b) => GOODS[b].glu - GOODS[a].glu)
+    .slice(0, 3)
+    .map((id) => ({ good: id, perDay: each / GOODS[id].glu }));
+}
+
 export function dietAdvice(world, city) {
   const need = glucoseNeed(city);
   const out = [];
