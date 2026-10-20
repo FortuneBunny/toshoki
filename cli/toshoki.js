@@ -124,7 +124,7 @@ function lookText(world, cx, cy, r = 12) {
 }
 function overviewText(world) {
   const g = world.grid;
-  const rows = ['■ 世界の地図（4×4マスを1文字。英字は町、~ 水、^ 山、: 砂、= 道）'];
+  const rows = ['■ 世界の地図（縦4×横2マスを1文字。英字は町、. 平地、" 肥えた土地、: 砂、n 丘、^ 山、~ 水、= 道）'];
   const letters = {};
   Object.keys(world.cities).forEach((id, i) => { letters[id] = String.fromCharCode(65 + i); });
   for (let y = 0; y < G.GRID_H; y += 4) {
@@ -168,7 +168,7 @@ function statusText(world) {
   const out = [];
   out.push(`■ ${world.scenario.no}. ${world.scenario.title}   ${G.dateString(world.day)}（${world.day}日目 / 期限 ${world.scenario.deadline}日）`);
   if (pl.heirloom) out.push(`家訓: ${G.heirloomText(pl.heirloom)}`);
-  out.push(`銀 ${Math.floor(pl.silver)}   資産 ${Math.floor(G.netWorth(world))}（銀＋品物×基準の8割＋輸送手段・工房×半額）   評判 Lv${pl.repLevel}（${pl.rep}）   連続黒字 ${pl.streak}`);
+  out.push(`銀 ${Math.floor(pl.silver)}   資産 ${Math.floor(G.netWorth(world))}（銀＋品物×基準の8割＋輸送手段・工房×半額。区画の施設・道・交易所・技術・寄進は入らない）   評判 Lv${pl.repLevel}（${pl.rep}）   連続黒字 ${pl.streak}`);
   if (world.scenario.goods.some((id) => ['sea', 'river'].length) && world.edges.some((e) => e.monsoon)) out.push(`季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（切り替わるまで あと${180 - (world.day % 180)}日。夏は東へ、冬は西へ追い風）`);
   const sc = world.scenario;
   out.push(`ランクの基準: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`);
@@ -943,7 +943,7 @@ function run(world, cmd, pos, opts) {
         const def = BUILDINGS[b.type];
         const wh = world.player.warehouses[b.city];
         out.push(`#${b.id} ${def.name}（${world.cities[b.city].name}）${b.active ? '稼働中' : '停止中'}  自動仕入れ${b.autoBuy ? 'あり（手元の銀が100を切ると止まる）' : 'なし'}  昨日 ${b.lastMade || 0}回  累計 ${Object.entries(b.made || {}).map(([g, n]) => `${GOODS[g].name}${n}`).join(' ') || 'なし'}`);
-        out.push(`   レシピ（${b.recipe ? `「${b.recipe}」だけ` : '上から順に試す'}。1日${def.batches + (world.player.mods?.batchBonus || 0)}回）: ${def.recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
+        out.push(`   レシピ（${b.recipe ? `「${b.recipe}」だけ` : '上から順に試す'}。1日${def.batches + (world.player.mods?.batchBonus || 0)}回。固定するには workshop ${b.id} recipe <名前>）: ${def.recipes.map((r) => `「${r.name}」${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
         out.push(`   材料は倉庫から使い、足りなければ町の市場で買う（基準価格の1.5倍まで）。できた品は倉庫に入る（load で積む）。${b.why ? `\n   ⚠ 止まっている理由: ${b.why}` : ''}`);
         out.push(`   倉庫: ${Object.entries(wh?.stock || {}).filter(([, q]) => q >= 1).map(([g, q]) => `${GOODS[g].name}${Math.floor(q)}`).join(' ') || '空'}`);
       }
@@ -986,7 +986,9 @@ function main(argv) {
     if (cmd === 'scenarios') return print([...SCENARIO_ORDER.map((id) => `${id}: ${SCENARIOS[id].no}. ${SCENARIOS[id].title}（期限 ${SCENARIOS[id].deadline}日）`), 'free: フリープレイ（--seed ごとに地図が変わる）'].join('\n'), opts);
     if (cmd === 'new') {
       const sc = opts.scenario || 's1';
-      const hk = opts.heirloom || (opts.heirlooms || '').split(',').filter(Boolean)[0] || null;
+      let hk = opts.heirloom || (opts.heirlooms || '').split(',').filter(Boolean)[0] || null;
+      // 家訓は日本語の名前でもよい
+      if (hk && !HEIRLOOMS[hk]) { const found = Object.entries(HEIRLOOMS).find(([, v]) => v.name === hk); if (found) hk = found[0]; }
       if (hk && !HEIRLOOMS[hk]) throw new Error(`不明な家訓: ${hk}\n${heirloomList()}`);
       const world = G.createWorld(sc, { seed: opts.seed || 1, heirloom: hk });
       const ev = G.drainEvents(world);

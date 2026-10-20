@@ -21,11 +21,16 @@ export function arriveAt(world, m) {
   }
   if (m.order && !m.order.paused) {
     m.order.runs = (m.order.runs || 0) + 1;
-    // 定期便が2つの町の間を走った回数（目標「結ぶ」用）
-    if (m.lastFrom && m.lastFrom !== m.city) {
-      const k = [m.lastFrom, m.city].sort().join('|');
-      world.stats.legs = world.stats.legs || {};
-      world.stats.legs[k] = (world.stats.legs[k] || 0) + 1;
+    // 定期便が2つの町の間を走った回数（目標「結ぶ」用）。途中で別の町に寄っても、a と b を行き来すれば1回。
+    // 商人ごとに覚えるので、定期便を設定し直しても数は消えない
+    world.stats.legs = world.stats.legs || {};
+    for (const g of world.scenario.goals || []) {
+      if (g.type !== 'link' || (m.city !== g.a && m.city !== g.b)) continue;
+      const k = [g.a, g.b].sort().join('|');
+      m.linkSeen = m.linkSeen || {};
+      const other = m.city === g.a ? g.b : g.a;
+      if (m.linkSeen[k] === other) world.stats.legs[k] = (world.stats.legs[k] || 0) + 1;
+      m.linkSeen[k] = m.city;
     }
     emit(world, { type: 'orderArrive', merchant: m.id, city: m.city, quiet: true, text: `${m.name}（定期便）が${world.cities[m.city].name}に着いた` });
     runOrder(world, m);

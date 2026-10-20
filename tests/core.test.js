@@ -295,10 +295,11 @@ test('目標「網」: 街道を敷くと町がつながる。目標「結ぶ」
   assert.ok(before < 1);
   assert.ok(G.buildPath(w, 'toumitsu', 'hachi', 'road').ok);
   assert.equal(G.goalProgress(w, g).p, 1);
-  const r = G.setOrder(w, 1, { stops: [{ city: 'kibi', buy: [], sell: [] }, { city: 'toumitsu', buy: [], sell: [] }] });
+  // 途中で糖蜜町に寄っても、甘蔗の里と翠糖京の行き来は数える（s3 の目標）
+  const r = G.setOrder(w, 1, { stops: [{ city: 'kibi', buy: [], sell: [] }, { city: 'toumitsu', buy: [], sell: [] }, { city: 'suitou', buy: [], sell: [] }] });
   assert.ok(r.ok, r.error);
-  G.advance(w, 60);
-  assert.ok(G.goalProgress(w, { type: 'link', a: 'kibi', b: 'toumitsu', count: 2 }).p > 0, '往復が数えられる');
+  for (let i = 0; i < 120; i++) G.advance(w, 1);
+  assert.ok(G.goalProgress(w, { type: 'link', a: 'kibi', b: 'suitou', count: 2 }).p > 0, '寄り道しても往復が数えられる');
 });
 
 test('住居の求める品: そろっていないと家が建たず、届けると建つ', () => {

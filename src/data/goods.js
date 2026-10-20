@@ -23,7 +23,7 @@ export const GOODS = {
   honey:      { name: '蜂蜜',     cat: 'sweetRaw',  kind: 'sweet', base: 15,  glu: 3.0, rate: 0.8,  tier: 1, weight: 1 },
   molasses:   { name: '糖蜜',     cat: 'processed', kind: 'sweet', base: 11,  glu: 2.5, rate: 0.7,  tier: 1, weight: 1 },
   rawsugar:   { name: '粗糖',     cat: 'processed', kind: 'sweet', base: 18,  glu: 4.0, rate: 0.8,  tier: 1, weight: 1 },
-  whitesugar: { name: '白糖',     cat: 'processed', kind: 'sweet', base: 34,  glu: 6.0, rate: 0.6,  tier: 2, weight: 1 },
+  whitesugar: { name: '白糖',     cat: 'processed', kind: 'sweet', base: 42,  glu: 6.0, rate: 0.6,  tier: 2, weight: 1 },
   malt:       { name: '麦芽',     cat: 'processed', kind: 'input', base: 8,   glu: 1.0, rate: 0,    tier: 9, weight: 1 },
   mizuame:    { name: '水飴',     cat: 'processed', kind: 'sweet', base: 20,  glu: 4.0, rate: 0.5,  tier: 2, weight: 1 },
   sweets:     { name: '菓子',     cat: 'luxury',    kind: 'sweet', base: 46,  glu: 8.0, rate: 0.5,  tier: 2, weight: 1 },
