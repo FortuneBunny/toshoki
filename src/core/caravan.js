@@ -136,7 +136,7 @@ export function cargoUsed(m) {
   return used;
 }
 export function cargoCap(m) {
-  return Math.floor(TRANSPORTS[m.transport].cap * (m.capMult ?? 1));
+  return Math.floor(TRANSPORTS[m.transport].cap * (m.capMult ?? 1) * (m.transport === 'cart' ? (m.cartCap ?? 1) : 1));
 }
 
 export function startTravel(world, m, to) {
@@ -157,7 +157,7 @@ export const needsFood = (grid, k) => grid.terrain[k] === T.SAND && grid.path[k]
 
 function eatProvisions(world, m) {
   // 端数は持ち越して、まとまったら1個食べる
-  m.hunger = (m.hunger || 0) + cargoCap(m) * B.provisionPerCap * (m.talent === 'desert' ? 0.5 : 1);
+  m.hunger = (m.hunger || 0) + cargoCap(m) * B.provisionPerCap * (m.talent === 'desert' ? 0.5 : 1) * (world.player.mods?.provision ?? 1);
   let left = Math.floor(m.hunger);
   if (left <= 0) return false;
   m.hunger -= left;

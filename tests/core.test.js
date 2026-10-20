@@ -269,3 +269,20 @@ test('商人の才能: 候補3人から選ぶと才能がつき、値切り上�
   const cheap = G.previewTrade(w, m, [{ good: 'wheat', qty: 10 }]).silverDelta;
   assert.ok(Math.abs(cheap) < Math.abs(plain));
 });
+
+test('技術: 先に買えば独占し、ライバルの使用料が入る。ライバルに独占されたら使用料を払う', () => {
+  const w = G.createWorld('s7', { seed: 1 });
+  w.player.silver = 9999;
+  assert.ok(G.buyTech(w, 'refinery').ok);
+  const before = w.player.silver;
+  G.advance(w, 50);
+  assert.ok(w.log.some((e) => /使用料/.test(e.text)), 'ライバルが使用料を払う');
+  const w2 = G.createWorld('s7', { seed: 1 });
+  G.advance(w2, 70);
+  assert.equal(w2.techs.wheel, 'rival', 'ライバルが車輪を独占');
+  w2.player.silver = 9999;
+  const r = G.buyTech(w2, 'wheel');
+  assert.ok(r.ok);
+  assert.equal(r.cost, Math.round(G.TECHS.wheel.cost * G.LICENSE_RATE));
+  assert.equal(w2.techs.wheel, 'licensed');
+});

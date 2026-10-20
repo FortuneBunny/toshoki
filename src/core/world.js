@@ -16,6 +16,7 @@ import { updateRivals } from './rival.js';
 import { checkGoals } from './scoring.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
 import { buildGrid, GRID_W, GRID_H, gridKey } from './grid.js';
+import { rivalTechs } from './techs.js';
 import { PRODUCERS } from '../data/district.js';
 
 export const SAVE_VERSION = 2;
@@ -170,6 +171,7 @@ export function districtLand(world, c) {
 export function addMerchant(world, { name, portrait, city, transport = 'donkey' }) {
   const m = {
     capMult: world.player.mods?.cap ?? 1,
+    cartCap: world.player.mods?.cartCap ?? 1,
     id: world.player.merchants.length + 1, name, portrait: portrait || 'merchant-1', city, transport,
     cargo: {}, cost: {}, guards: 0, travel: null, order: null, lifetime: 0, expected: null,
   };
@@ -235,6 +237,7 @@ export function tick(world) {
   world.day += 1;
   applyModifiers(world);
   scriptedUnlocks(world);
+  rivalTechs(world);
   updateEvents(world);
   for (const c of Object.values(world.cities)) updateCity(world, c);
   diffuse(world);

@@ -95,6 +95,15 @@ async function selftestWorkshop(app, { step, click, wait, log, errors }) {
     const m = w().player.merchants[w().player.merchants.length - 1];
     if (!m.talent || w().player.merchants.length < 2) throw new Error('才能つきの商人が増えない');
   });
+  await step('技術: ダイアログから買う', () => {
+    w().player.silver += 3000;
+    click('.top .btn, header .btn, .btn', '技術');
+    const b = [...document.querySelectorAll('.tech-row .btn')].find((x) => x.textContent === '買う');
+    if (!b) throw new Error('買うボタンがない');
+    b.click();
+    if (!Object.values(w().techs || {}).includes('player')) throw new Error('技術が増えない');
+    click('footer .btn', '閉じる');
+  });
   await step('交易所を開く: 候補地を選んで確定', () => {
     w().player.silver += 3000;
     app.startFound();

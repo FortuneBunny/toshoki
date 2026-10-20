@@ -2,7 +2,7 @@
 import { h, add, clear, icon, goodIcon, fmt, safeStorage } from './dom.js';
 import { createWorldView } from './world.js';
 import { openTrade } from './tradeDialog.js';
-import { renderSide, departDialog, orderDialog, ledgerDialog, helpDialog, settingsDialog, resultDialog, titleScreen, modal } from './panels.js';
+import { renderSide, departDialog, orderDialog, ledgerDialog, helpDialog, settingsDialog, resultDialog, titleScreen, modal, techDialog, hireDialog } from './panels.js';
 import { sfx, setSound } from './audio.js';
 import { openDistrict } from './district.js';
 import * as fx from './juice.js';
@@ -398,6 +398,7 @@ function renderTop(force = false) {
       h('div', { class: 'brand', onclick: () => app.confirm('タイトルへ戻る', '今の状態は自動で保存されています。', () => app.showTitle()) }, h('img', { src: 'assets/svg/ui/sugar-crystal.svg', class: 'icon', alt: '' }), '糖商記', h('small', {}, 'GREAT GLUCOSE EMPIRE')),
       app.els.silver, app.els.rep, app.els.streak, app.els.date, app.els.speed,
       G.postsAllowed(app.world) ? (app.els.posts = h('button', { class: 'btn ghost small', title: '地図のどこかに新しい町を開く', onclick: () => app.startFound() }, '')) : null,
+      G.techList(app.world).length ? h('button', { class: 'btn ghost small', title: '技術を買う', onclick: () => { setSpeed(0); techDialog(app); } }, '技術') : null,
       h('button', { class: 'btn ghost small', onclick: () => { app.state.modals++; setSpeed(0); ledgerDialog(app); } }, '帳簿'),
       h('button', { class: 'btn ghost small', onclick: () => { app.state.modals++; setSpeed(0); helpDialog(app); } }, '遊び方'),
       h('button', { class: 'btn ghost small', onclick: () => { app.state.modals++; setSpeed(0); settingsDialog(app); } }, '設定'));

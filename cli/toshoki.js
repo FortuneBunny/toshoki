@@ -479,6 +479,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   path <町> <町> trail|road|canal [confirm]  2つの町を結ぶ道を敷く（小道・街道・運河。経路は自動で一番安い所を通る）
   port [confirm]                       水辺の町に港を開く（船が着ける）
   sites                                交易所を開ける場所の候補（座標と、採れそうな品）
+  techs                                買える技術の一覧（ライバルが先に買うと独占され、使用料がかかる）
+  tech <id> [confirm]                  技術を買う
   found <x,y> [confirm]                その場所に交易所（新しい町）を開く
   place <種類> <座標> [confirm]        区画に生産施設を置く（例: place wheat_farm C5 confirm）。町の供給が増える
   demolish <座標> [confirm]            自分が置いた施設を取り壊す
@@ -551,6 +553,24 @@ function run(world, cmd, pos, opts) {
       const r = after(G.buildPath(world, a, b, kind));
       out.push(`敷いた（${r.tiles}マス、${r.cost}銀）`);
       for (const t of world.allowedTransports) { const rr = G.findPath(world, a, b, t); if (rr) out.push(`  ${TRANSPORTS[t].name}: 約${rr.days}日`); }
+      break;
+    }
+    case 'techs': {
+      const list = G.techList(world);
+      if (!list.length) { out.push('このシナリオで買える技術はない'); break; }
+      out.push('■ 技術');
+      for (const t of list) {
+        const st = t.owner === 'player' ? '持っている（独占）' : t.owner === 'licensed' ? '使用料を払って使っている' : !t.available ? `${t.from}日目から` : t.owner === 'rival' ? `ライバルが独占中。使用料 ${t.price}銀` : `${t.price}銀`;
+        out.push(`  ${t.id}（${t.name}）: ${t.text}  — ${st}`);
+      }
+      if (world.rivals.length) out.push('ライバルも技術を狙っている。先に買えば独占でき、ライバルが使うと使用料が入る');
+      break;
+    }
+    case 'tech': {
+      const t = G.techList(world).find((x) => x.id === pos[0]);
+      if (!t) throw new Error('tech <id> [confirm]（一覧は techs）');
+      if (pos[1] !== 'confirm') { out.push(`${t.name}: ${t.price}銀。${t.text}。確定するには: tech ${t.id} confirm`); break; }
+      out.push(`買った（${after(G.buyTech(world, t.id)).cost}銀）`);
       break;
     }
     case 'sites': {

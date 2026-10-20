@@ -439,3 +439,24 @@ export function hireDialog(app, cityId, cost, max) {
     h('button', { class: 'btn primary small', onclick: () => { md.close(); app.run(() => G.hireMerchant(world, cityId, i), 'hire'); } }, 'この人を雇う')));
   const md = modal(app, `商人を雇う（${cost}銀・給金 1日${G.BALANCE.merchantWage}銀・最大${max}人）`, h('div', { class: 'hire-cards' }, cards), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, 'やめる')]);
 }
+
+// 技術: 買う・使用料を払う
+export function techDialog(app) {
+  const world = app.world;
+  app.state.modals++;
+  const body = h('div', { class: 'tech-list' });
+  const draw = () => {
+    clear(body);
+    for (const t of G.techList(world)) {
+      const st = t.owner === 'player' ? '持っている（独占）' : t.owner === 'licensed' ? '使用料を払って使っている' : !t.available ? `${t.from}日目から買える` : t.owner === 'rival' ? `ライバルが独占中 — 使用料 ${t.price}銀` : `${t.price}銀`;
+      const can = t.available && !['player', 'licensed'].includes(t.owner);
+      add(body, h('div', { class: 'tech-row' },
+        h('div', {}, h('b', {}, t.name), h('div', { class: 'muted' }, t.text)),
+        h('div', { class: 'dim' }, st),
+        can ? h('button', { class: 'btn primary small', onclick: () => { const r = app.run(() => G.buyTech(world, t.id), 'build'); if (r.ok) draw(); } }, t.owner === 'rival' ? '使用料を払う' : '買う') : h('span')));
+    }
+    if (world.rivals.length) add(body, h('p', { class: 'muted' }, 'ライバルも技術を狙っている。先に買えば独占でき、ライバルが使うと使用料が入る。'));
+  };
+  draw();
+  modal(app, '技術', body, (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, '閉じる')]);
+}
