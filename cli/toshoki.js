@@ -524,14 +524,14 @@ function main(argv) {
   const log = (entry) => { if (opts.save) appendFileSync(`${opts.save}.log.jsonl`, JSON.stringify(entry) + '\n'); };
   try {
     if (cmd === 'help') return print(rest[0] === 'rules' ? RULES : HELP, opts);
-    if (cmd === 'scenarios') return print(SCENARIO_ORDER.map((id) => `${id}: ${SCENARIOS[id].no}. ${SCENARIOS[id].title}（期限 ${SCENARIOS[id].deadline}日）`).join('\n'), opts);
+    if (cmd === 'scenarios') return print([...SCENARIO_ORDER.map((id) => `${id}: ${SCENARIOS[id].no}. ${SCENARIOS[id].title}（期限 ${SCENARIOS[id].deadline}日）`), 'free: フリープレイ（--seed ごとに地図が変わる）'].join('\n'), opts);
     if (cmd === 'new') {
       const sc = opts.scenario || 's1';
       const world = G.createWorld(sc, { seed: opts.seed || 1, heirlooms: (opts.heirlooms || '').split(',').filter(Boolean) });
       const ev = G.drainEvents(world);
       writeFileSync(opts.save, G.serialize(world));
       log({ t: Date.now(), cmd: 'new', args: rest, scenario: sc, seed: opts.seed || 1 });
-      return print([`■ ${SCENARIOS[sc].no}. ${SCENARIOS[sc].title}`, ...ev.map((e) => e.text), '', statusText(world), '', 'help でコマンド一覧、help rules でルール。'].join('\n'), opts);
+      return print([`■ ${world.scenario.no}. ${world.scenario.title}`, ...ev.map((e) => e.text), '', statusText(world), '', 'help でコマンド一覧、help rules でルール。'].join('\n'), opts);
     }
     const world = load(opts.save);
     const before = { day: world.day, silver: world.player.silver };

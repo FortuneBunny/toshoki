@@ -196,7 +196,7 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'repelled': fx.toast(e.text, { icon: 'transport/guard' }); sfx.levelUp(); break;
       case 'starve': fx.toast(e.text, { kind: 'bad', icon: 'ui/famine' }); sfx.bad(); break;
       case 'famine': case 'plague': case 'sandstorm': fx.toast(e.text, { kind: 'bad', icon: e.type === 'sandstorm' ? 'ui/storm' : 'ui/famine' }); break;
-      case 'festival': fx.toast(e.text, { kind: 'rare', icon: 'ui/festival' }); sfx.rare(); break;
+      case 'festival': case 'fashion': fx.toast(e.text, { kind: 'rare', icon: 'ui/festival' }); sfx.rare(); break;
       case 'harvest': case 'windfall': fx.toast(e.text, { kind: 'rare', icon: e.type === 'windfall' ? 'ui/sugar-crystal' : 'terrain/field' }); sfx.rare(); break;
       case 'rumor': break;
       case 'arrive': sfx.arrive(); break;
@@ -467,7 +467,7 @@ window.addEventListener('beforeunload', () => app.save());
 
 // 開発用: #play=s2 で直接シナリオを始める
 const direct = location.hash.match(/play=(\w+)/);
-if (direct && G.SCENARIOS[direct[1]]) {
+if (direct && (G.SCENARIOS[direct[1]] || direct[1] === 'free')) {
   app.startScenario(direct[1]);
   if (/open=trade/.test(location.hash)) { app.state.modals++; openTrade(app, 1); }
   if (/open=order/.test(location.hash)) { app.state.modals++; orderDialog(app, 1); }

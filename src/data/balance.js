@@ -66,6 +66,6 @@ export const BALANCE = {
 
   // 事件
   eventChancePerDay: 0.05,
-  contractChancePerDay: 0.02,
+  contractChancePerDay: 0.03,
   rumorChancePerDay: 0.05,
 };

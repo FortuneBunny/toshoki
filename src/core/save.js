@@ -1,9 +1,10 @@
 // セーブとロード（JSON）。シナリオの定義は保存せず、ID から引き直す。
 import { SCENARIOS } from '../data/scenarios.js';
-import { SAVE_VERSION } from './world.js';
+import { SAVE_VERSION, resolveScenario } from './world.js';
 
 export function serialize(world) {
-  return JSON.stringify({ ...world, scenarioOverrides: world.scenario.infoNetwork !== SCENARIOS[world.scenarioId].infoNetwork ? { infoNetwork: world.scenario.infoNetwork } : null });
+  const base = resolveScenario(world.scenarioId, world.seed);
+  return JSON.stringify({ ...world, scenarioOverrides: world.scenario.infoNetwork !== base.infoNetwork ? { infoNetwork: world.scenario.infoNetwork } : null });
 }
 
 function hopTable(world) {
@@ -26,7 +27,7 @@ function hopTable(world) {
 export function deserialize(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (data.version !== SAVE_VERSION) throw new Error(`セーブデータの版が違う（${data.version}）`);
-  const sc = SCENARIOS[data.scenarioId];
+  const sc = resolveScenario(data.scenarioId, data.seed);
   if (!sc) throw new Error(`不明なシナリオ: ${data.scenarioId}`);
   const overrides = data.scenarioOverrides;
   delete data.scenarioOverrides;

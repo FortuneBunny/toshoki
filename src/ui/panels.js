@@ -376,6 +376,7 @@ export function titleScreen(app) {
     h('div', { class: 'menu' },
       hasSave ? h('button', { class: 'btn primary', onclick: () => { el.remove(); app.loadSave(); } }, '続きから') : null,
       h('button', { class: `btn ${hasSave ? '' : 'primary'}`, onclick: () => list.classList.toggle('hidden') }, 'シナリオを選ぶ'),
+      h('button', { class: 'btn', title: '毎回ちがう地図で遊ぶ', onclick: () => { el.remove(); app.startScenario('free'); } }, 'フリープレイ（ランダムな地図）'),
       h('button', { class: 'btn ghost', onclick: () => helpDialog(app) }, '遊び方')),
     list,
     camp.heirlooms.length ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `受け継いだ家訓: ${camp.heirlooms.map((k) => HEIRLOOMS[k].name).join('・')}`) : null);

@@ -68,6 +68,18 @@ const EVENT_TYPES = [
     },
   },
   {
+    // 流行: しばらくの間、ある町である品がよく売れる。定期便を組み替える理由になる
+    id: 'fashion', weight: 3,
+    fire(world, city) {
+      const ids = world.scenario.goods.filter((id) => dailyDemand(city, id, false) > 0 && !(city.produces?.[id] > 0));
+      if (!ids.length) return null;
+      const id = pick(world, ids);
+      world.modifiers.push({ city: city.id, kind: 'demand', goods: [id], mult: 2.5, until: world.day + 60 });
+      world.modifiers.push({ city: city.id, kind: 'price', goods: [id], mult: 1.35, until: world.day + 60 });
+      return { type: 'fashion', rare: true, text: `${city.name}で${GOODS[id].name}が大流行！60日ほど高く、たくさん売れる`, goods: [id] };
+    },
+  },
+  {
     id: 'plague', weight: 1,
     fire(world, city) {
       if (city.pop < 600) return null;

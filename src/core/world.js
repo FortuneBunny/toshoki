@@ -4,6 +4,7 @@ import { TRANSPORTS } from '../data/transports.js';
 import { BALANCE as B } from '../data/balance.js';
 import { SCENARIOS } from '../data/scenarios.js';
 import { HEIRLOOMS } from '../data/heirlooms.js';
+import { generateFreeplay } from '../data/freeplay.js';
 import { hashSeed } from './rng.js';
 import { updateCity, dailyDemand } from './city.js';
 import { targetStock, midPrice } from './market.js';
@@ -36,8 +37,14 @@ function hopTable(cities, edges) {
   return table;
 }
 
+// シナリオの定義を引く。フリープレイはシードから生成する
+export function resolveScenario(id, seed) {
+  if (id === 'free') return generateFreeplay(seed);
+  return SCENARIOS[id];
+}
+
 export function createWorld(scenarioId, { seed = 1, heirlooms = [] } = {}) {
-  const sc = SCENARIOS[scenarioId];
+  const sc = resolveScenario(scenarioId, seed);
   if (!sc) throw new Error(`不明なシナリオ: ${scenarioId}`);
   const world = {
     version: SAVE_VERSION,

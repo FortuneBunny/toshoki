@@ -311,7 +311,7 @@ function summarize(results) {
 if (process.argv[1]?.endsWith('sim-bots.js')) {
   const opts = parse();
   for (const sc of opts.scenarios) {
-    const def = G.SCENARIOS[sc];
+    const def = G.resolveScenario(sc, 1);
     console.log(`\n=== ${sc} ${def.title}（期限 ${def.deadline}日） ===`);
     const rows = [];
     for (const bot of opts.bots) {
