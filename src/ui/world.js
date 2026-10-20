@@ -5,7 +5,7 @@ import * as G from '../core/index.js';
 
 const TW = 32; // 拡大率1のときのマスの幅
 const TH = 16;
-const TERRAIN_COLOR = ['#e2cf9a', '#b7c97a', '#f0d9a2', '#c9a46a', '#9a7b52', '#5bb4d6'];
+const TERRAIN_COLOR = ['#d3cf94', '#a9c46e', '#f1dba6', '#c3a067', '#9a7b52', '#5bb4d6'];
 const IMG = new Map();
 function img(path) {
   if (!IMG.has(path)) {

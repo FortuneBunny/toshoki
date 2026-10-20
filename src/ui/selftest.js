@@ -22,7 +22,7 @@ export async function selftest(app) {
   await step('取引を確定', () => click('footer .btn', '取引を確定'));
   await step('積荷に麦がある', () => { if (!(w().player.merchants[0].cargo.wheat > 0)) throw new Error('麦がない'); });
   await step('出発 → 行き先を選ぶ', () => click('.mcard .btn', '出発'));
-  await step('ナツメ泉をクリック', () => { document.querySelector('.city-node:nth-child(2)').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await step('ナツメ泉をクリック', () => { app.clickCity('natsume'); });
   await step('出発ダイアログで出発', () => click('footer .btn', '出発'));
   await step('移動中になる', () => { if (!w().player.merchants[0].travel) throw new Error('移動していない'); });
   log.push(`  state: modals=${app.state.modals} speed=${app.state.speed} day=${w().day}`);
@@ -36,7 +36,8 @@ export async function selftest(app) {
   await step('定期便ダイアログ', () => { click('.mcard .btn', '定期便'); click('footer .btn', '定期便を開始'); });
   await step('定期便が設定された', () => { if (!w().player.merchants[0].order) throw new Error('なし'); });
   await step('帳簿', () => { click('.topbar .btn', '帳簿'); click('.modal header .btn'); });
-  await step('町パネル', () => { document.querySelector('.city-node').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await step('町パネル', () => { app.clickCity('mugi'); if (!document.body.textContent.includes('糖度')) throw new Error('町パネルが出ない'); });
+  await step('地図の canvas がある', () => { if (!document.querySelector('canvas.worldview')) throw new Error('canvas なし'); });
   await step('区画を開く', () => { app.openDistrict('mugi'); if (!document.querySelector('.district-map')) throw new Error('区画の画面がない'); });
   await step('麦畑を選んで置く', () => {
     w().player.silver = Math.max(w().player.silver, 1000);

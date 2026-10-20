@@ -1,6 +1,6 @@
 // ブラウザ版の入口: 状態、時間の進行、画面の組み立て、演出のつなぎ込み
 import { h, add, clear, icon, goodIcon, fmt, safeStorage } from './dom.js';
-import { createMap } from './map.js';
+import { createWorldView } from './world.js';
 import { openTrade } from './tradeDialog.js';
 import { renderSide, departDialog, orderDialog, ledgerDialog, helpDialog, settingsDialog, resultDialog, titleScreen, modal } from './panels.js';
 import { sfx, setSound } from './audio.js';
@@ -280,13 +280,10 @@ function mount(world) {
   app.els.tutorial = h('div', { class: 'tutorial hidden' });
   add(mapWrap, app.els.tutorial);
   add(root, app.els.top, app.els.goals, h('div', { class: 'main' }, mapWrap, h('div', { class: 'side' }, app.els.side, app.els.feed)), app.els.merchants);
-  app.map = createMap(mapWrap, world, {
+  app.map = createWorldView(mapWrap, world, {
     onCity: (id) => onCityClick(id),
     onCityDouble: (id) => app.openDistrict(id),
-    onEdge: (id) => {
-      const e = world.edges.find((x) => x.id === id);
-      fx.toast(`${world.cities[e.a].name}〜${world.cities[e.b].name}: ${G.ROUTE_KINDS[e.kind].name}、距離${e.len}${e.danger ? `、危険度${e.danger}` : ''}`);
-    },
+    onHoverCity: (id) => hoverRouteTo(id),
   });
   G.drainEvents(world);
   for (const e of world.log.slice(-40)) addFeed(e);
@@ -295,6 +292,7 @@ function mount(world) {
   // 最初は一時停止で始める。手引きのあるシナリオでは手引きを出す
 }
 
+app.clickCity = (id) => onCityClick(id);
 function onCityClick(id) {
   const st = app.state;
   if (st.pick) {
@@ -493,18 +491,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 // 行き先を選んでいる間は、カーソルの町までの経路を光らせる
-document.addEventListener('mousemove', (e) => {
+function hoverRouteTo(id) {
   const st = app.state;
   if (!st.pick || !app.world) return;
-  const node = e.target.closest?.('.city-node');
-  if (!node) { if (st.hoverRoute) { st.hoverRoute = null; app.map.update(app.world, st); } return; }
-  const id = Object.values(app.world.cities).find((c) => node.getAttribute('transform') === `translate(${c.x},${c.y})`)?.id;
   const m = G.getMerchant(app.world, st.pick.mid);
-  if (!id || !m || id === m.city) return;
-  const r = G.findPath(app.world, m.city, id, m.transport);
-  st.hoverRoute = r;
+  st.hoverRoute = id && m && id !== m.city ? G.findPath(app.world, m.city, id, m.transport) : null;
   app.map.update(app.world, st);
-});
+}
 
 window.addEventListener('beforeunload', () => app.save());
 
