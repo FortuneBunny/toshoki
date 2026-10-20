@@ -52,9 +52,9 @@ const s2 = {
 
 const s3 = {
   id: 's3', no: 3, title: '糖蜜の煙',
-  intro: 'サトウキビは安いが、そのままでは価値が低い。製糖所を建てて粗糖を白糖に精製し、白糖を大都市へ運べ。うまくいった往復は「定期便」にして自動化しよう。白糖を250個つくり、資産を6000銀にせよ。',
+  intro: 'サトウキビは安いが、そのままでは価値が低い。糖蜜町に製糖所を建て、甘蔗の里のサトウキビを運び込んで白糖に精製し、翠糖京で売れ。うまくいった往復は「定期便」にして自動化しよう。白糖を200個つくり、資産を5000銀にせよ。',
   goods: ['wheat', 'dates', 'honey', 'cane', 'rawsugar', 'molasses', 'whitesugar', 'sweets'],
-  start: { silver: 450, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'toumitsu' }] },
+  start: { silver: 750, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'toumitsu' }] },
   cities: [
     { id: 'kibi', name: '甘蔗の里', x: 150, y: 430, pop: 520, produces: { cane: 9, wheat: 3 } },
     { id: 'toumitsu', name: '糖蜜町', x: 430, y: 300, pop: 1300, produces: { wheat: 7, honey: 0.8 } },
@@ -72,8 +72,16 @@ const s3 = {
     { a: 'suitou', b: 'natsu', kind: 'trail' },
     { a: 'kibi', b: 'natsu', kind: 'trail', lenMul: 1.1 },
   ],
-  goals: [{ type: 'produce', good: 'whitesugar', amount: 250 }, { type: 'networth', amount: 6000 }],
+  goals: [{ type: 'produce', good: 'whitesugar', amount: 200 }, { type: 'networth', amount: 5000 }],
   deadline: 420, rankS: 0.45,
+  tutorial: [
+    { text: '糖蜜町で製糖所を建てる（町の画面 /  CLI: build mill confirm）', done: (w) => w.player.buildings.some((b) => b.type === 'mill') },
+    { text: '甘蔗の里へ行き、サトウキビを買えるだけ買う', done: (w) => (w.stats.bought.cane || 0) > 0 },
+    { text: '糖蜜町の倉庫にサトウキビを下ろす（交易画面の倉庫 / CLI: unload cane <数>）', done: (w) => Object.values(w.player.warehouses).some((x) => (x.stock.cane || 0) > 0) || (w.stats.produced.rawsugar || 0) > 0 },
+    { text: '数日待つと、製糖所が粗糖 → 白糖とつくる。白糖を倉庫から積む（CLI: load whitesugar <数>）', done: (w) => w.player.merchants.some((m) => m.cargo.whitesugar > 0) || (w.stats.soldTotal.whitesugar || 0) > 0 },
+    { text: '翠糖京で白糖を売る（大都市ほど高く売れる）', done: (w) => (w.stats.soldTotal.whitesugar || 0) > 0 },
+    { text: 'この往復を定期便にする（倉庫で「下ろす」「積む」も設定できる）', done: (w) => w.player.merchants.some((m) => m.order) },
+  ],
   transports: ['donkey', 'cart'],
   buildings: ['mill', 'confectionery', 'road'],
   events: true, contracts: true, bandits: false, newsDaysPerHop: 4,
@@ -116,7 +124,7 @@ const s4 = {
 
 const s5 = {
   id: 's5', no: 5, title: '甘い熱狂',
-  intro: '祭都は甘味に飢えている。糖度が150を超えるとシュガーラッシュ──甘味が飛ぶように売れる。だが熱狂のあとにはクラッシュが来て、町の成長が止まる。ラッシュを2回起こしつつ、祭都を「都市」に育てよ。',
+  intro: '祭都は甘味に飢えている。よく食べている町（糖度140以上）に甘味を2種類以上まとめて届けるとシュガーラッシュ──甘味が飛ぶように売れる。だが熱狂のあとにはクラッシュが来て、町の成長が止まる。甘味は甘蔗浜（粗糖・白糖）とぶどう谷（蜂蜜）で手に入る。ラッシュを2回起こしつつ、祭都を「都市」に育てよ。',
   goods: ['wheat', 'rice', 'dates', 'grapes', 'honey', 'rawsugar', 'malt', 'mizuame', 'wine', 'sweets', 'whitesugar'],
   start: { silver: 700, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'saito' }, { name: 'ライラ', portrait: 'merchant-2', city: 'saito' }] },
   cities: [

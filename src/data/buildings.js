@@ -3,7 +3,7 @@
 
 export const BUILDINGS = {
   mill: {
-    name: '製糖所', cost: 600, upkeep: 2, batches: 3,
+    name: '製糖所', cost: 450, upkeep: 2, batches: 3,
     recipes: [
       { in: { rawsugar: 2 }, out: { whitesugar: 1 }, name: '白糖の精製' },
       { in: { cane: 4 }, out: { rawsugar: 2, molasses: 1 }, name: '粗糖づくり' },
