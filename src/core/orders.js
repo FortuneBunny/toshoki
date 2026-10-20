@@ -12,7 +12,7 @@ import { BALANCE as B } from '../data/balance.js';
 export function arriveAt(world, m) {
   observe(world, m.city);
   world.stats.trips += 1;
-  if (m.order?.pauseNext) {
+  if (m.order?.pauseNext && (m.order.pauseNext === true || m.order.pauseNext === m.city)) {
     m.order.pauseNext = false;
     runOrder(world, m, { depart: false });
     m.order.paused = true;

@@ -334,11 +334,12 @@ export function resumeOrder(world, mid) {
   return { ok: true };
 }
 
-export function pauseOrderAtNext(world, mid) {
+export function pauseOrderAtNext(world, mid, cityId = null) {
   const m = getMerchant(world, mid);
   if (!m?.order) return fail('定期便がない');
-  if (!m.travel) { m.order.paused = true; return { ok: true, now: true }; }
-  m.order.pauseNext = true;
+  if (cityId && !m.order.stops.some((s) => s.city === cityId)) return fail('その町は定期便の停泊地にない');
+  if (!m.travel && (!cityId || m.city === cityId)) { m.order.paused = true; return { ok: true, now: true }; }
+  m.order.pauseNext = cityId || true;
   return { ok: true, now: false };
 }
 

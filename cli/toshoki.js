@@ -516,7 +516,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
                                          load:品          倉庫にある分を、積めるだけ積む（工房の製品）
                                        処理の順番は 下ろす → 積む → 売る → 買う
   order list                           定期便ごとの損益
-  order pause                          次に町に着いたら定期便を止める（その町で操作できる）
+  order pause [町]                     次に町に着いたら（町を書けばその町で）定期便を止める
   order clear | order resume
   heirlooms                            家訓の一覧（利点と代償、解放の条件）。new --heirloom <家訓> で1つだけ持っていける
 
@@ -806,7 +806,7 @@ function run(world, cmd, pos, opts) {
       const m = pickMerchant(world, opts);
       if (pos[0] === 'clear') { after(G.clearOrder(world, m.id)); out.push('定期便を解除した'); break; }
       if (pos[0] === 'resume') { after(G.resumeOrder(world, m.id)); out.push('定期便を再開した'); break; }
-      if (pos[0] === 'pause') { const r = after(G.pauseOrderAtNext(world, m.id)); out.push(r.now ? '定期便を止めた（今いる町で待機）' : '次に町に着いたら止まる'); break; }
+      if (pos[0] === 'pause') { const r = after(G.pauseOrderAtNext(world, m.id, pos[1] || null)); out.push(r.now ? '定期便を止めた（今いる町で待機）' : pos[1] ? `${world.cities[pos[1]].name}に着いたら止まる（売買は済ませる）` : '次に町に着いたら止まる'); break; }
       if (pos[0] !== 'add') throw new Error('order add|list|pause|resume|clear');
       const stops = pos.slice(1).map((p) => parseStop(p, world));
       const replaced = !!m.order;
@@ -904,7 +904,7 @@ function run(world, cmd, pos, opts) {
         const def = BUILDINGS[b.type];
         const wh = world.player.warehouses[b.city];
         out.push(`#${b.id} ${def.name}（${world.cities[b.city].name}）${b.active ? '稼働中' : '停止中'}  自動仕入れ${b.autoBuy ? 'あり（手元の銀が100を切ると止まる）' : 'なし'}  昨日 ${b.lastMade || 0}回  累計 ${Object.entries(b.made || {}).map(([g, n]) => `${GOODS[g].name}${n}`).join(' ') || 'なし'}`);
-        out.push(`   レシピ（上から順に試す。1日${def.batches}回）: ${def.recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
+        out.push(`   レシピ（${b.recipe ? `「${b.recipe}」だけ` : '上から順に試す'}。1日${def.batches + (world.player.mods?.batchBonus || 0)}回）: ${def.recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
         out.push(`   材料は倉庫から使い、足りなければ町の市場で買う（基準価格の1.5倍まで）。できた品は倉庫に入る（load で積む）。${b.why ? `\n   ⚠ 止まっている理由: ${b.why}` : ''}`);
         out.push(`   倉庫: ${Object.entries(wh?.stock || {}).filter(([, q]) => q >= 1).map(([g, q]) => `${GOODS[g].name}${Math.floor(q)}`).join(' ') || '空'}`);
       }
