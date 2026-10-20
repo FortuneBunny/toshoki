@@ -3,6 +3,7 @@
 import { DISTRICT_SIZE as N, DISTRICT_CENTER as C, MARKET_RADIUS, TERRAIN, RESOURCES, PRODUCERS, PRODUCER_FOR } from '../data/district.js';
 const RESOURCE_NAMES = Object.fromEntries(Object.entries(RESOURCES).map(([k, v]) => [k, v.name]));
 import { hashSeed } from './rng.js';
+import { BALANCE as B } from '../data/balance.js';
 
 function localRng(seed) {
   let t = hashSeed(seed);
@@ -146,6 +147,76 @@ export function tileAt(district, x, y) {
   if (!inside(x, y)) return null;
   const i = idx(x, y);
   return { x, y, terrain: district.terrain[i], res: district.res[i], building: district.buildings.find((b) => b.x === x && b.y === y && !b.virtual) || null };
+}
+
+// ---------- 住居と労働力（D2） ----------
+export function houseCap(tier) {
+  return B.houseCapBase + B.houseCapPerTier * tier;
+}
+
+export function houseCount(city) {
+  return city.district.buildings.filter((b) => b.type === 'house').length;
+}
+
+// 住める人数の上限
+export function housingCap(city, tier) {
+  return houseCount(city) * houseCap(tier);
+}
+
+// 働き手の必要数（町の生産施設と自分の工房）
+export function workersNeeded(city) {
+  let n = 0;
+  for (const b of city.district.buildings) {
+    if (b.owner === 'town' && PRODUCERS[b.type]) n += PRODUCERS[b.type].workers;
+    else if (b.owner === 'player') n += B.workshopWorkers;
+  }
+  return n;
+}
+
+export function workersAvailable(city) {
+  return Math.floor(city.pop * B.workerShare);
+}
+
+// 働き手の充足率（1 なら全部の施設が満額で動く）
+export function staffing(city) {
+  const need = workersNeeded(city);
+  return need <= 0 ? 1 : Math.min(1, workersAvailable(city) / need);
+}
+
+// 家を建てる場所: 市場の圏の中の空きマス。資源のマスはなるべく残す。近い順
+function houseSpots(city, tier) {
+  const d = city.district;
+  const rad = cityRadius(city, tier);
+  const occupied = new Set(d.buildings.filter((b) => !b.virtual).map((b) => `${b.x},${b.y}`));
+  const out = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = idx(x, y);
+    if (dist(x, y) > rad || TERRAIN[d.terrain[i]].blocked || occupied.has(`${x},${y}`)) continue;
+    // 家どうしが寄り添うように、中心からの距離に少しだけ決まったゆらぎを足す
+    const jitter = ((x * 7 + y * 13) % 5) / 10;
+    out.push({ x, y, key: (d.res[i] !== '-' ? 50 : 0) + dist(x, y) + jitter });
+  }
+  return out.sort((a, b) => a.key - b.key);
+}
+
+// 人口に合わせて家を建てる（1日に最大 max 軒）か、空き家を壊す。乱数は使わない
+export function updateHousing(city, tier, max = 1) {
+  const cap = houseCap(tier);
+  const want = Math.ceil((city.pop * B.houseHeadroom) / cap);
+  const have = houseCount(city);
+  const d = city.district;
+  if (have < want) {
+    const spots = houseSpots(city, tier).slice(0, Math.min(max, want - have));
+    for (const s of spots) d.buildings.push({ id: d.nextId++, type: 'house', x: s.x, y: s.y, owner: 'town' });
+    return { built: spots.length, full: spots.length < Math.min(max, want - have) };
+  }
+  if (have > Math.ceil((city.pop * B.houseAbandon) / cap)) {
+    // いちばん外側の家から空き家になる
+    const houses = d.buildings.filter((b) => b.type === 'house').sort((a, b) => dist(b.x, b.y) - dist(a.x, a.y));
+    d.buildings = d.buildings.filter((b) => b !== houses[0]);
+    return { built: -1, full: false };
+  }
+  return { built: 0, full: false };
 }
 
 // その町の今の市場の圏

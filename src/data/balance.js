@@ -63,6 +63,13 @@ export const BALANCE = {
   // 人と組織
   merchantHireCost: 150,
   autoBuyReserve: 100,
+  // 区画: 住居と労働力
+  houseCapBase: 40,           // 家1軒に住める人数 = base + perTier × 町の段階
+  houseCapPerTier: 25,
+  houseHeadroom: 1.15,        // 人口の1.15倍まで住めるように家を建てていく
+  houseAbandon: 1.7,          // 人口に対して家が1.7倍以上あれば、空き家を取り壊す
+  workerShare: 0.6,           // 人口のうち働き手の割合
+  workshopWorkers: 30,        // 自分の工房1つが使う働き手
   donateCostPerPop: 1.5,      // 寄進の費用 = 人口 × これ
   donateGrowth: 1.25,         // 寄進すると、成長がプラスのときの成長率が1.25倍
   donateDays: 90,        // 工房の自動仕入れは、手元の銀がこれを下回るなら止める

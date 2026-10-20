@@ -4,7 +4,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { midPrice, targetStock } from './market.js';
 import { jitter } from './rng.js';
 import { emit } from './events.js';
-import { districtProduction } from './district.js';
+import { districtProduction, staffing, housingCap, updateHousing } from './district.js';
 
 export function cityTier(city) {
   let t = 0;
@@ -40,12 +40,15 @@ export function glucoseNeed(city) {
 
 function produce(world, city) {
   if (city.district) city.produces = districtProduction(city);
+  // 働き手が足りなければ、生産施設は比例して動きが落ちる
+  const staff = city.district ? staffing(city) : 1;
+  city.staffing = staff;
   const labor = Math.min(2, Math.max(0.5, Math.sqrt(city.pop / city.basePop)));
   for (const [id, rate] of Object.entries(city.produces || {})) {
     const cap = Math.max(20, dailyDemand(city, id, false) * B.stockCapDays, rate * 15);
     if ((city.stock[id] || 0) >= cap) continue;
     const mod = city.prodMods?.[id] ?? 1;
-    const amount = rate * labor * mod * jitter(world, B.productionNoise);
+    const amount = rate * labor * mod * staff * jitter(world, B.productionNoise);
     city.stock[id] = (city.stock[id] || 0) + amount;
   }
 }
@@ -122,6 +125,8 @@ function growthRate(city) {
   }
   if (r > 0) r *= B.luxuryBase + B.luxurySpan * city.luxury;
   if (r > 0 && city.donatedUntil > (city.today ?? 0)) r *= B.donateGrowth;
+  // 住める人数の上限: 家が建つ場所がなければ、それ以上は増えない
+  if (r > 0 && city.district && city.pop >= housingCap(city, cityTier(city))) r = 0;
   if (city.rush > 0) r += B.rushGrowthBonus;
   return r * (city.growthMod ?? 1);
 }
@@ -155,6 +160,13 @@ export function updateCity(world, city) {
   consume(world, city);
   rushCycle(world, city);
   city.pop = Math.max(20, city.pop * (1 + growthRate(city)));
+  if (city.district) {
+    const h = updateHousing(city, cityTier(city));
+    if (h.full && !city.housingWarned) {
+      city.housingWarned = true;
+      emit(world, { type: 'housingFull', city: city.id, bad: true, text: `${city.name}の市場の圏に、家を建てる空き地がない。人口が頭打ちになる（圏を広げるか、施設を減らす）` });
+    } else if (!h.full && h.built > 0) city.housingWarned = false;
+  }
   city.peakPop = Math.max(city.peakPop || 0, city.pop);
   for (const id of Object.keys(city.stock)) if (city.stock[id] < 0.001) city.stock[id] = 0;
   const after = cityTier(city);

@@ -148,3 +148,25 @@ test('区画: シナリオ1では建物を置けない（見るだけ）', () =>
   const [x, y] = G.placeableTiles(c, G.cityTier(c), 'wheat_farm')[0];
   assert.equal(G.placeProducer(w, 'mugi', 'wheat_farm', x, y).ok, false);
 });
+
+test('住居: 人口に合わせて家が建ち、空き地がなければ人口は頭打ちになる', () => {
+  const w = G.createWorld('s2', { seed: 5 });
+  const c = w.cities.mugi;
+  assert.ok(G.housingCap(c, G.cityTier(c)) >= c.pop, '開始時は住める');
+  // 区画を全部埋めてしまう（家以外で）
+  const d = c.district;
+  d.buildings = d.buildings.filter((b) => b.type !== 'house');
+  for (let y = 0; y < 12; y++) for (let x = 0; x < 12; x++) if (!d.buildings.some((b) => b.x === x && b.y === y)) d.buildings.push({ id: d.nextId++, type: 'wheat_farm', x, y, owner: 'town', rate: 0 });
+  const pop0 = c.pop;
+  c.glucose = 120;
+  G.advance(w, 30, silent);
+  assert.ok(c.pop <= pop0 + 1, `家が建たないのに人口が増えた ${pop0} → ${c.pop}`);
+});
+
+test('労働力: 働き手が足りないと生産が落ちる', () => {
+  const w = G.createWorld('s2', { seed: 6 });
+  const c = w.cities.natsume;
+  assert.equal(G.staffing(c), 1);
+  for (let i = 0; i < 20; i++) c.district.buildings.push({ id: c.district.nextId++, type: 'date_grove', x: 0, y: 0, owner: 'town', rate: 0, virtual: true });
+  assert.ok(G.staffing(c) < 1);
+});

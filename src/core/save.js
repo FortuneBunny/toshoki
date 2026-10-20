@@ -1,7 +1,9 @@
 // セーブとロード（JSON）。シナリオの定義は保存せず、ID から引き直す。
 import { SCENARIOS } from '../data/scenarios.js';
 import { SAVE_VERSION, resolveScenario } from './world.js';
-import { generateDistrict, districtProduction } from './district.js';
+import { generateDistrict, districtProduction, updateHousing } from './district.js';
+import { BALANCE } from '../data/balance.js';
+const tierOf = (pop) => BALANCE.tierPops.reduce((t, p, i) => (pop >= p ? i : t), 0);
 
 export function serialize(world) {
   const base = resolveScenario(world.scenarioId, world.seed);
@@ -32,6 +34,7 @@ function migrateV1(data) {
     if (!c.district) {
       c.district = generateDistrict(c, { seed: data.seed, scenarioGoods: sc?.goods || [] });
       c.produces = districtProduction(c);
+      updateHousing(c, tierOf(c.pop), 999);
     }
   }
   data.version = 2;

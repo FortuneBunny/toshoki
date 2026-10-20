@@ -237,6 +237,7 @@ function districtText(world, id) {
   const rad = G.cityRadius(c, tier);
   const n = d.size;
   const out = [`■ ${c.name}(${id})の区画  ${G.tierName(tier)}  市場の圏 ${rad}マス${d.radiusBonus ? `（広げた分 +${d.radiusBonus}）` : ''}`];
+  out.push(`人口 ${Math.floor(c.pop)} / 住める人数 ${G.housingCap(c, tier)}（家 ${G.houseCount(c)}軒、1軒 ${G.houseCap(tier)}人）  働き手 ${G.workersAvailable(c)}人 / 必要 ${G.workersNeeded(c)}人${G.staffing(c) < 1 ? `  ⚠ 生産は ${Math.round(G.staffing(c) * 100)}%` : ''}`);
   out.push('   ' + Array.from({ length: n }, (_, x) => String.fromCharCode(65 + x) + ' ').join(''));
   const used = new Map();
   for (let y = 0; y < n; y++) {
@@ -247,9 +248,9 @@ function districtText(world, id) {
       const inR = G.tileDist(x, y) <= rad;
       let ch;
       if (b) {
-        const name = b.type === 'market' ? '市場' : G.PRODUCERS[b.type]?.name || BUILDINGS[b.type]?.name || b.type;
-        ch = b.type === 'market' ? '市' : b.owner === 'player' ? '工' : name[0];
-        used.set(ch, b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の工房（${name}）` : name);
+        const name = b.type === 'house' ? '家' : b.type === 'market' ? '市場' : G.PRODUCERS[b.type]?.name || BUILDINGS[b.type]?.name || b.type;
+        ch = b.type === 'house' ? '家' : b.type === 'market' ? '市' : b.owner === 'player' ? '工' : name[0];
+        used.set(ch, b.type === 'house' ? '家（住居。人口に合わせて自動で建つ）' : b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の工房（${name}）` : name);
       } else if (d.res[i] !== '-') ch = inR ? `${d.res[i]} ` : `${d.res[i]}.`;
       else ch = inR ? TERRAIN_CH[d.terrain[i]] : d.terrain[i] === 'w' ? '~~' : '  ';
       row += ch;
@@ -271,7 +272,7 @@ function buildableText(world, id) {
     if (!world.scenario.goods.includes(p.good)) continue;
     const tiles = G.placeableTiles(c, tier, k);
     const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
-    out.push(`  ${k}（${p.name}）: ${cost}銀  ${GOODS[p.good].name} +${p.rate}/日  ${tiles.length ? `置けるマス ${tiles.length}か所: ${tiles.slice(0, 6).map(([x, y]) => G.coordName(x, y)).join(' ')}` : '置けるマスがない'}`);
+    out.push(`  ${k}（${p.name}）: ${cost}銀  ${GOODS[p.good].name} +${p.rate}/日  働き手${p.workers}人  ${tiles.length ? `置けるマス ${tiles.length}か所: ${tiles.slice(0, 6).map(([x, y]) => G.coordName(x, y)).join(' ')}` : '置けるマスがない'}`);
   }
   out.push(`市場の圏を広げる: expand（${G.expandCost(world, id)}銀）`);
   out.push('置く: place <種類> <座標> confirm（例: place wheat_farm C5 confirm）');

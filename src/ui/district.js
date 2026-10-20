@@ -39,7 +39,7 @@ export function openDistrict(app, cityId) {
       const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
       add(palette, h('button', {
         class: `btn small district-item ${selected === k ? 'primary' : ''}`, disabled: !canBuild || !n || undefined,
-        title: n ? `${p.name}: ${G.GOODS[p.good].name}が毎日 +${p.rate}（町の市場に出る）` : `${p.name}を置けるマスがない`,
+        title: n ? `${p.name}: ${G.GOODS[p.good].name}が毎日 +${p.rate}（町の市場に出る）。働き手 ${p.workers}人` : `${p.name}を置けるマスがない`,
         onclick: () => { selected = selected === k ? null : k; demolishMode = false; render(); },
       }, goodIcon(p.good, 'icon-sm'), h('span', {}, p.name), h('small', { class: 'num' }, `${cost}銀`), h('small', { class: 'faint' }, n ? `${n}か所` : 'なし')));
     }
@@ -90,6 +90,17 @@ export function openDistrict(app, cityId) {
 
   function buildingSprite(b, cx, cy, tier) {
     const g = s('g', { 'pointer-events': 'none' });
+    if (b.type === 'house') {
+      const v = ((b.x * 7 + b.y * 11) % 10) / 10;
+      const w = 16 + v * 6;
+      const hh = 10 + v * 4;
+      const roof = ['#c8553d', '#d9822b', '#8e3b2e', '#a65a1b'][Math.floor(v * 4)];
+      add(g, s('rect', { x: cx - w / 2, y: cy - hh + 2, width: w, height: hh, fill: ['#f3dfb3', '#e2c08a', '#f0d6a0'][Math.floor(v * 3)], stroke: '#3b2618', 'stroke-width': 1.2 }));
+      if (tier >= 3 && v > 0.75) add(g, s('path', { d: `M${cx - w / 2 + 1},${cy - hh + 2} Q${cx},${cy - hh - w * 0.7} ${cx + w / 2 - 1},${cy - hh + 2} Z`, fill: v > 0.9 ? '#ffd166' : '#5bb4d6', stroke: '#3b2618', 'stroke-width': 1.2 }));
+      else add(g, s('path', { d: `M${cx - w / 2 - 2},${cy - hh + 2} L${cx},${cy - hh - 6} L${cx + w / 2 + 2},${cy - hh + 2} Z`, fill: roof, stroke: '#3b2618', 'stroke-width': 1.2 }));
+      add(g, s('rect', { x: cx - 2, y: cy - 4, width: 4, height: 6, fill: '#3b2618', opacity: 0.6 }));
+      return g;
+    }
     if (b.type === 'market') {
       add(g, s('image', { href: `assets/svg/cities/tier${tier}.svg`, x: cx - 34, y: cy - 58, width: 68, height: 68 }));
     } else if (b.owner === 'player') {
@@ -108,14 +119,15 @@ export function openDistrict(app, cityId) {
     if (t.res !== '-') parts.push(G.RESOURCES[t.res].name);
     if (t.building) {
       const b = t.building;
-      parts.push(b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の${G.BUILDINGS[b.type].name}` : `${G.PRODUCERS[b.type].name}（${G.GOODS[G.PRODUCERS[b.type].good].name} ${fmt(b.rate ?? G.PRODUCERS[b.type].rate, 1)}/日${b.placed ? '、自分が建てた' : ''}）`);
+      parts.push(b.type === 'house' ? `家（${G.houseCap(G.cityTier(city))}人まで住める）` : b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の${G.BUILDINGS[b.type].name}` : `${G.PRODUCERS[b.type].name}（${G.GOODS[G.PRODUCERS[b.type].good].name} ${fmt(b.rate ?? G.PRODUCERS[b.type].rate, 1)}/日${b.placed ? '、自分が建てた' : ''}）`);
     }
     return parts.join('・');
   }
 
   function showInfo() {
     const tier = G.cityTier(city);
-    const head = `${city.name}  ${G.tierName(tier)}・人口 ${fmt(city.pop)}・市場の圏 ${G.cityRadius(city, tier)}マス`;
+    const cap = G.housingCap(city, tier);
+    const head = `${city.name}  ${G.tierName(tier)}・人口 ${fmt(city.pop)} / 住める人数 ${fmt(cap)}（家 ${G.houseCount(city)}軒）・働き手 ${fmt(Math.min(G.workersNeeded(city), G.workersAvailable(city)))} / ${fmt(G.workersAvailable(city))}（必要 ${fmt(G.workersNeeded(city))}）・市場の圏 ${G.cityRadius(city, tier)}マス${G.staffing(city) < 1 ? `\n⚠ 働き手が足りず、生産施設が ${Math.round(G.staffing(city) * 100)}% しか動いていない` : ''}${city.pop >= cap * 0.98 ? '\n⚠ 家を建てる空き地がなく、人口が頭打ち' : ''}`;
     let line = hover ? describe(hover.x, hover.y) : 'マスにカーソルを合わせると詳細';
     if (hover && selected) {
       const why = G.placeCheck(city, tier, selected, hover.x, hover.y);

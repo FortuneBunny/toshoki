@@ -6,7 +6,7 @@ import { SCENARIOS } from '../data/scenarios.js';
 import { HEIRLOOMS } from '../data/heirlooms.js';
 import { generateFreeplay } from '../data/freeplay.js';
 import { hashSeed } from './rng.js';
-import { updateCity, dailyDemand } from './city.js';
+import { updateCity, dailyDemand, cityTier } from './city.js';
 import { targetStock, midPrice } from './market.js';
 import { applyModifiers, updateEvents, emit } from './events.js';
 import { observe, observePresent } from './knowledge.js';
@@ -14,7 +14,7 @@ import { stepTravel } from './caravan.js';
 import { updateProduction } from './production.js';
 import { updateRivals } from './rival.js';
 import { checkGoals } from './scoring.js';
-import { generateDistrict, districtProduction } from './district.js';
+import { generateDistrict, districtProduction, updateHousing } from './district.js';
 
 export const SAVE_VERSION = 2;
 // 地図の1ピクセルが表す距離（ロバは1日に10進む）
@@ -101,6 +101,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   for (const c of Object.values(world.cities)) {
     c.district = generateDistrict(c, { seed: world.seed, scenarioGoods: sc.goods });
     c.produces = districtProduction(c);
+    updateHousing(c, cityTier(c), 999);
   }
 
   // 初期在庫: 産地は多め、需要だけある品は少なめ
