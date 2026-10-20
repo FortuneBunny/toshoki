@@ -637,7 +637,7 @@ function run(world, cmd, pos, opts) {
       if (!list.length) { out.push('このシナリオで買える技術はない'); break; }
       out.push('■ 技術');
       for (const t of list) {
-        const st = t.owner === 'player' ? '持っている（独占）' : t.owner === 'licensed' ? '使用料を払って使っている' : !t.available ? `${t.from}日目から` : t.owner === 'rival' ? `ライバルが独占中。使用料 ${t.price}銀` : `${t.price}銀`;
+        const st = t.owner === 'player' ? '持っている（独占）' : t.owner === 'licensed' ? '使用料を払って使っている' : !t.available ? `${t.from}日目から（${t.price}銀）` : t.owner === 'rival' ? `ライバルが独占中。使用料 ${t.price}銀` : `${t.price}銀`;
         out.push(`  ${t.id}（${t.name}）: ${t.text}  — ${st}`);
       }
       if (world.rivals.length) out.push('ライバルも技術を狙っている。先に買えば独占でき、ライバルが使うと使用料が入る');
@@ -795,6 +795,8 @@ function run(world, cmd, pos, opts) {
       const cost = G.hireCost(world);
       const cands = G.hireCandidates(world);
       if (!pos.includes('confirm')) {
+        const hereAt = opts.at || (opts.merchant ? pickMerchant(world, opts).city : world.player.merchants.find((x) => !x.travel)?.city);
+        if (hereAt && !G.hasPresence(world, hereAt)) out.push(`⚠ ${world.cities[hereAt].name}では今は雇えない（商人がいるか、定期便が回っている町で雇える）`);
         out.push(`商人を雇うと ${cost} 銀（銀 ${Math.floor(world.player.silver)} → ${Math.floor(world.player.silver - cost)}）。上限 ${world.scenario.maxMerchants ?? 4} 人。候補:`);
         cands.forEach((c, i) => out.push(`  ${i + 1}. ${c.name}【${G.TALENTS[c.talent].name}】${G.TALENTS[c.talent].text}`));
         out.push('確定するには: hire <候補の番号> confirm（例: hire 2 confirm。番号を省くと1番）');

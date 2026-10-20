@@ -189,8 +189,10 @@ export function updateCity(world, city) {
   city.pop = Math.max(20, city.pop * (1 + growthRate(city)));
   // 住居の求める品が「1つ欠けまで」そろっていないと、新しい家は建たない（空き家は出る）
   const dw = dwellingStatus(city, cityTier(city));
-  if (!dw.ok && !city.dwellWarned) {
+  // 知らせるのは60日に1回まで（行ったり来たりで何度も出ないように）
+  if (!dw.ok && !city.dwellWarned && world.day - (city.dwellWarnDay ?? -99) >= 60) {
     city.dwellWarned = true;
+    city.dwellWarnDay = world.day;
     emit(world, { type: 'dwelling', city: city.id, text: `${city.name}では家が建ちにくくなった。今足りない住居の品: ${dw.missing.map((g) => GOODS[g].name).join('・')}（家は5日に1軒しか建たない。求める品は ${dw.wants.map((g) => GOODS[g].name).join('・')}。1つ欠けまでそろえば建つ）` });
   } else if (dw.ok) city.dwellWarned = false;
   if (city.district) {
