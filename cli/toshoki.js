@@ -528,7 +528,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   wait <日数> [-m 番号]                日を進める（最大120日。手動の商人の到着や重要な出来事で止まる。-m を付けるとその商人が町に着いたら止まる）
   shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
   hire [番号] [confirm] [--at 町]      商人を雇う（confirm なしなら費用と候補3人の才能を表示。定期便が回っている町でも雇える）
-  transport <種類> [confirm]           輸送手段を買い替える（camel, cart, dhow, carrack）
+  transport <種類> [confirm]           輸送手段を買い替える（camel, cart, dhow, carrack）。定期便で移動中なら予約になり、買える町に着いたら買い替える
   guards <人数> [-m 番号]              その商人が手動で出発するとき、いつも雇う護衛の人数
   dismiss [-m 番号] [confirm]          商人に暇を出す（輸送手段を半額で下取り、積荷は売る。銀が尽きたときの立て直しに）
   build <種類> [confirm]               今いる町に工房を建てる（mill, confectionery, winery, malthouse）
@@ -823,9 +823,17 @@ function run(world, cmd, pos, opts) {
       break;
     }
     case 'transport': {
-      const m = needIdle(world, opts);
       const t = TRANSPORTS[pos[0]];
       if (!t) throw new Error(`種類を指定: ${Object.keys(TRANSPORTS).join(', ')}（費用と買える町は shop）`);
+      // 移動中の定期便の商人なら、予約しておいて、買える町に着いたときに買い替える
+      const pm = pickMerchant(world, opts);
+      if (pm.travel && pm.order) {
+        if (pos[1] !== 'confirm') { out.push(`${pm.name}は定期便で移動中。予約すると、${t.name}を買える町に着いたときに買い替える（${t.cost}銀）。予約するには: transport ${pos[0]} confirm -m ${pm.id}`); break; }
+        pm.pendingTransport = pos[0];
+        out.push(`予約した: ${pm.name}は${t.name}を買える町に着いたら買い替える`);
+        break;
+      }
+      const m = needIdle(world, opts);
       if (pos[1] !== 'confirm') { out.push(`${t.name}: ${t.cost}銀（今の${TRANSPORTS[m.transport].name}を${TRANSPORTS[m.transport].cost * 0.5}銀で下取り）。確定するには: transport ${pos[0]} confirm`); break; }
       out.push(`購入した（差額 ${Math.round(after(G.buyTransport(world, m.id, pos[0])).price)}銀）`);
       break;

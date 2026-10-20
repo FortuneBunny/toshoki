@@ -1,3 +1,4 @@
+import { canBuyTransportAt, buyTransport } from './actions.js';
 // 到着時の処理と定期便（自動化）
 // order = { stops: [{ city, sell: [{ good, min }], buy: [{ good, qty, max }], unload: [good], load: [good] }], next: 0, paused: false }
 import { GOODS } from '../data/goods.js';
@@ -18,6 +19,13 @@ export function arriveAt(world, m) {
     m.order.paused = true;
     emit(world, { type: 'arrive', merchant: m.id, city: m.city, text: `${m.name}が${world.cities[m.city].name}に到着し、定期便を止めた（売買は済ませた）` });
     return;
+  }
+  // 予約した輸送手段の買い替え（買える町に着いたら）
+  if (m.pendingTransport && canBuyTransportAt(world, world.cities[m.city], m.pendingTransport)) {
+    const t = m.pendingTransport;
+    const r = buyTransport(world, m.id, t);
+    m.pendingTransport = null;
+    emit(world, { type: 'transportBought', merchant: m.id, text: r.ok ? `${m.name}が予約どおり輸送手段を買い替えた` : `${m.name}の輸送手段の買い替えは見送った: ${r.error}` });
   }
   if (m.order && !m.order.paused) {
     m.order.runs = (m.order.runs || 0) + 1;
