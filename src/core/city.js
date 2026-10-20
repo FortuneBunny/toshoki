@@ -189,7 +189,7 @@ export function updateCity(world, city) {
   const dw = dwellingStatus(city, cityTier(city));
   if (!dw.ok && !city.dwellWarned) {
     city.dwellWarned = true;
-    emit(world, { type: 'dwelling', city: city.id, text: `${city.name}では新しい家が建たなくなった。住居が${dw.missing.map((g) => GOODS[g].name).join('・')}を求めている（1つ欠けまでそろえば建つ）` });
+    emit(world, { type: 'dwelling', city: city.id, text: `${city.name}では新しい家が建たなくなった。今足りない住居の品: ${dw.missing.map((g) => GOODS[g].name).join('・')}（求める品は ${dw.wants.map((g) => GOODS[g].name).join('・')}。1つ欠けまでそろえば建つ）` });
   } else if (dw.ok) city.dwellWarned = false;
   if (city.district) {
     const h = updateHousing(city, cityTier(city), dw.ok ? 1 : 0);

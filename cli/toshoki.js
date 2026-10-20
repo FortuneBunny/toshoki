@@ -73,7 +73,7 @@ function dwellingLine(world, c) {
   if (!(c.dwellWants || []).length) return '住居の求める品: なし（このシナリオで手に入る品の中に、この町の住居が求めるものはない）';
   if (!st.wants.length) return `住居の求める品: まだない（育つと ${all} を求める）`;
   // 1日に使う量と、今の在庫で何日もつか
-  const list = st.wants.map((g) => { const d = G.dailyDemand(c, g, false); const days = d > 0 ? Math.floor((c.stock[g] || 0) / d) : 0; return `${GOODS[g].name}${st.met.includes(g) ? '○' : '×'}（1日約${fmt(d, 1)}個、在庫${days}日分）`; }).join(' ');
+  const list = st.wants.map((g) => { const d = G.dailyDemand(c, g, false); const days = d > 0 ? Math.floor((c.stock[g] || 0) / d) : 0; const src = Object.values(world.cities).filter((x) => x.id !== c.id && (x.produces?.[g] || 0) > 0.3).map((x) => x.name); return `${GOODS[g].name}${st.met.includes(g) ? '○' : '×'}（1日約${fmt(d, 1)}個、在庫${days}日分${src.length ? `、産地: ${src.join('・')}` : '、工房で作る品'}）`; }).join(' ');
   const rule = st.wants.length === 1 ? '今求めるのは1つだけ。届かなくても家は建つ' : `今求めるのは${st.wants.length}つ。そのうち${st.wants.length - 1}つ以上そろえば新しい家が建つ`;
   return `住居の求める品（${rule}。住民が毎日使うので、在庫が切れると×に戻る）: ${list}  → ${st.ok ? '家は建つ' : '⚠ 家が建たない＝人口が伸びない'}${(c.dwellWants || []).length > st.wants.length ? `（育つと ${all} を求める）` : ''}`;
 }
@@ -296,7 +296,7 @@ function cityText(world, id) {
   if (here) {
     const tierIdx = G.cityTier(c);
     const nextPop = G.BALANCE.tierPops[tierIdx + 1];
-    out.push(`糖度 ${Math.round(c.glucose)}（目標値 ${Math.round(c.glucoseTarget)}）  1日の人口増加率 ${(G.growthPerDay(c) * 100).toFixed(2)}%${nextPop ? `  次の段階まで 人口 ${nextPop}${G.growthPerDay(c) > 0 ? `（このペースなら あと約${Math.ceil(Math.log(nextPop / c.pop) / Math.log(1 + G.growthPerDay(c)))}日）` : ''}` : ''}`);
+    out.push(`糖度 ${Math.round(c.glucose)}（目標値 ${Math.round(c.glucoseTarget)}）  1日の人口増加率 ${(G.growthPerDay(c) * 100).toFixed(2)}%${nextPop ? `  次の段階まで 人口 ${nextPop}${G.growthPerDay(c) > 0 && !(G.growthBlocker(world, c) || '').startsWith('家') ? `（このペースなら あと約${Math.ceil(Math.log(nextPop / c.pop) / Math.log(1 + G.growthPerDay(c)))}日）` : G.growthBlocker(world, c) ? '（今は止まっている。下の「伸びを止めているもの」を見る）' : ''}` : ''}`);
     const why = G.growthBlocker(world, c);
     if (why) out.push(`伸びを止めているもの: ${why}`);
     out.push(`糖度の目安: 40未満=飢え（人口減） 40〜110=安定（成長） 110〜140=活況（急成長） 140以上で甘味を大量に食べるとシュガーラッシュ → その後クラッシュ`);
@@ -582,7 +582,13 @@ function run(world, cmd, pos, opts) {
   };
   switch (cmd) {
     case 'status': out.push(statusText(world)); break;
-    case 'market': out.push(marketText(world, needIdle(world, opts))); break;
+    case 'market': {
+      // 同じ町に商人が何人いても、その町の市場は同じなので自動で選ぶ
+      const idleMs = world.player.merchants.filter((x) => !x.travel);
+      const one = !opts.merchant && idleMs.length && new Set(idleMs.map((x) => x.city)).size === 1 ? idleMs[0] : needIdle(world, opts);
+      out.push(marketText(world, one));
+      break;
+    }
     case 'prices': out.push(pricesText(world)); break;
     case 'city': out.push(cityText(world, pos[0] || pickMerchant(world, opts).city)); break;
     case 'map': out.push(mapText(world)); break;

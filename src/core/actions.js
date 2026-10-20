@@ -326,6 +326,19 @@ export function warehouse(world, mid, good, qty) {
 export function setOrder(world, mid, order) {
   const m = getMerchant(world, mid);
   if (!m) return fail('その商人はいない');
+  // 続く停泊地が同じ町（最後と最初が同じも）なら1つにまとめる。同じ町が続くと便が先へ進まないため
+  const merged = [];
+  for (const s of order.stops) {
+    const prev = merged[merged.length - 1];
+    if (prev && prev.city === s.city) { for (const k of ['sell', 'buy', 'unload', 'load']) prev[k] = [...(prev[k] || []), ...(s[k] || [])]; if (s.waitFor) prev.waitFor = s.waitFor; continue; }
+    merged.push({ ...s });
+  }
+  if (merged.length > 1 && merged[0].city === merged[merged.length - 1].city) {
+    const last = merged.pop();
+    for (const k of ['sell', 'buy', 'unload', 'load']) merged[0][k] = [...(last[k] || []), ...(merged[0][k] || [])];
+  }
+  const mergedNote = merged.length < order.stops.length;
+  order = { ...order, stops: merged };
   const problem = validateOrder(world, order);
   if (problem) return fail(problem);
   for (const s of order.stops) {
@@ -333,7 +346,7 @@ export function setOrder(world, mid, order) {
     if (!r) return fail(`${world.cities[s.city].name}へは今の輸送手段で行けない`);
   }
   m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0, guards: Math.max(0, Math.min(12, Math.floor(order.guards || 0))), reserve: Math.max(0, Math.floor(order.reserve ?? 50)) };
-  emit(world, { type: 'order', merchant: m.id, big: true, text: `${m.name}の定期便を設定した。あとは自動で回る` });
+  emit(world, { type: 'order', merchant: m.id, big: true, text: `${m.name}の定期便を設定した。あとは自動で回る${mergedNote ? '（同じ町が続く停泊地は1つにまとめた。最後に出発地を書かなくても、最初の町へ戻って繰り返す）' : ''}` });
   // 始める停泊地: 今いる町（移動中なら行き先）が停泊地ならそこ。違えば、積荷を売る停泊地、なければ一番近い停泊地
   const here = m.travel ? m.travel.to : m.city;
   let idx = order.stops.findIndex((s) => s.city === here);
@@ -352,6 +365,7 @@ export function resumeOrder(world, mid) {
   const m = getMerchant(world, mid);
   if (!m?.order) return fail('定期便がない');
   m.order.paused = false;
+  m.order.pauseNext = false; // 止める予約も消す
   if (!m.travel) runOrder(world, m);
   return { ok: true };
 }
