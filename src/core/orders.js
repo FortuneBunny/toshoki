@@ -1,3 +1,4 @@
+import { dailyDemand } from './city.js';
 import { canBuyTransportAt, buyTransport } from './actions.js';
 // 到着時の処理と定期便（自動化）
 // order = { stops: [{ city, sell: [{ good, min }], buy: [{ good, qty, max }], unload: [good], load: [good] }], next: 0, paused: false }
@@ -90,7 +91,9 @@ export function runOrder(world, m, { depart = true } = {}) {
       const reserve = PROVISIONS.includes(b.good) ? 0 : food;
       const room = Math.floor((cargoCap(m) - cargoUsed(m) - reserve) / GOODS[b.good].weight);
       const want = Math.max(0, b.qty - (m.cargo[b.good] || 0));
-      let n = Math.min(room, want, Math.floor(city.stock[b.good] || 0));
+      // 食べ物は、その町が2日に食べる分を残して買う（定期便の買い占めで町が飢えないように）
+      const keepForTown = GOODS[b.good].kind === 'food' ? Math.ceil(dailyDemand(city, b.good, false) * 2) : 0;
+      let n = Math.min(room, want, Math.max(0, Math.floor((city.stock[b.good] || 0) - keepForTown)));
       // 手元に残す銀（定期便ごと。最初は50）。砂漠の食料だけは残す銀を割っても買う
       const budget = world.player.silver - (PROVISIONS.includes(b.good) ? 0 : (o.reserve ?? 0));
       while (n > 0 && (quote(world, city, b.good, n) / n > (b.max || Infinity) || quote(world, city, b.good, n) > budget)) n = Math.floor(n * 0.7);
