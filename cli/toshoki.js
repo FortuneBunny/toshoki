@@ -185,6 +185,9 @@ function statusText(world) {
     }
   });
   out.push('商人:');
+  // 毎日の出費と、今の銀で何日もつか
+  const daily = G.dailyCost(world);
+  if (daily > 0) out.push(`毎日の出費 ${fmt(daily, 1)}銀（給金・維持費）${pl.silver < daily * 20 ? `  ⚠ 売らずにいると約${Math.max(0, Math.floor(pl.silver / daily))}日で銀が尽きる` : ''}`);
   // 工房の自動仕入れが止まりそうなら、先に知らせる
   const ab = pl.buildings.filter((b) => b.active && b.autoBuy);
   if (ab.length && pl.silver < G.BALANCE.autoBuyReserve * 2) out.push(`⚠ 手元の銀 ${Math.floor(pl.silver)}。${G.BALANCE.autoBuyReserve}銀を切ると工房の自動仕入れが止まる（倉庫の製品を売って銀に戻そう）`);
@@ -497,7 +500,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
 
 【動く】（商人が複数いるときは -m <番号> を付ける）
   quote buy wheat 20 sell dates 10    取引の見積もり（確定しない）
-  trade buy wheat 20 sell dates 10    取引を確定（数量に all も使える）
+  trade buy wheat 20 sell dates 10    取引を確定（数量に all も使える。買いの all は積載の空き・在庫・銀の一番少ない所まで、売りの all は積荷すべて）
   travel <町id> [--guards n] [--nowait]  出発して、到着か事件まで日を進める（--nowait なら時間を進めない）
   wait <日数> [-m 番号]                日を進める（最大120日。手動の商人の到着や重要な出来事で止まる。-m を付けるとその商人が町に着いたら止まる）
   shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
@@ -672,6 +675,7 @@ function run(world, cmd, pos, opts) {
       const lines = resolveAll(world, m, parseTradeLines(pos));
       const pv = G.preview(world, m.id, lines);
       const city = world.cities[m.city];
+      if (!pv.rows.length) out.push('取引する数量が0（all は「積載の空き・在庫・手持ちの銀」の一番少ない所で止まる。どれかが足りない）');
       for (const r of pv.rows) {
         // 1個目と最後の1個の値段（まとめて買うほど値上がり、売るほど値下がりする）
         const first = Math.abs(G.quote(world, city, r.good, r.qty > 0 ? 1 : -1));
@@ -819,7 +823,9 @@ function run(world, cmd, pos, opts) {
         }
         break;
       }
-      const m = pickMerchant(world, opts);
+      // 定期便のある商人が複数いるときは、どの商人か必ず指定してもらう（取り違えを防ぐ）
+      if (['clear', 'pause', 'resume'].includes(pos[0]) && !opts.merchant && world.player.merchants.filter((x) => x.order).length > 1) throw new Error(`定期便のある商人が複数いるので -m <番号> で指定する（order list で一覧）`);
+      const m = pos[0] === 'clear' && !opts.merchant && world.player.merchants.filter((x) => x.order).length === 1 ? world.player.merchants.find((x) => x.order) : pickMerchant(world, opts);
       if (pos[0] === 'clear') { after(G.clearOrder(world, m.id)); out.push('定期便を解除した'); break; }
       if (pos[0] === 'resume') { after(G.resumeOrder(world, m.id)); out.push('定期便を再開した'); break; }
       if (pos[0] === 'pause') { const r = after(G.pauseOrderAtNext(world, m.id, pos[1] || null)); out.push(r.now ? '定期便を止めた（今いる町で待機）' : pos[1] ? `${world.cities[pos[1]].name}に着いたら止まる（売買は済ませる）` : '次に町に着いたら止まる'); break; }

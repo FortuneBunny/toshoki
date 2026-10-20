@@ -202,13 +202,19 @@ function diffuse(world) {
   }
 }
 
-function upkeep(world) {
+// 毎日かかる出費（給金・輸送手段の維持費・自分の施設の維持費。護衛代は移動中だけ）
+export function dailyCost(world) {
   const pl = world.player;
   let cost = 0;
   for (const m of pl.merchants) cost += B.merchantWage + TRANSPORTS[m.transport].upkeep;
   // 自分が置いた生産施設の維持費
   for (const c of Object.values(world.cities)) for (const b of c.district?.buildings || []) if (b.placed && PRODUCERS[b.type]) cost += B.producerUpkeep;
-  cost = cost * (pl.mods?.upkeep ?? 1) + (pl.mods?.dailyFee || 0);
+  return cost * (pl.mods?.upkeep ?? 1) + (pl.mods?.dailyFee || 0);
+}
+
+function upkeep(world) {
+  const pl = world.player;
+  const cost = dailyCost(world);
   pl.silver -= cost;
   const noCargo = pl.merchants.every((m) => !Object.keys(m.cargo).length);
   if (pl.silver < 0 && noCargo && !pl.aidUsed) {

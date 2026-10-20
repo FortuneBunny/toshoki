@@ -12,7 +12,8 @@ export function suggestTrades(world, mid, limit = 3) {
   const room = cargoCap(m) - cargoUsed(m);
   const out = [];
   for (const [cid, k] of Object.entries(world.player.knowledge)) {
-    if (cid === m.city || !k?.prices) continue;
+    // 古すぎる相場（120日より前）は当てにならないので使わない
+    if (cid === m.city || !k?.prices || !Number.isFinite(k.day) || world.day - k.day > 120) continue;
     const r = routeInfo(world, m.id, cid);
     if (!r) continue;
     const days = Math.max(1, r.days);
