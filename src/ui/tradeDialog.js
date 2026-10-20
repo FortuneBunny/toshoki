@@ -1,7 +1,7 @@
 // RimWorld 風の交易画面
 // 左が商人の積荷、右が町の在庫。矢印は「品物が動く方向」。< で買う（町→積荷）、> で売る（積荷→町）。
 // 動かせない方向のボタンは隠し、数量が0でなければ外側のボタンが「0」（リセット）になる。
-import { h, clear, goodIcon, icon, fmt } from './dom.js';
+import { h, add, clear, goodIcon, icon, fmt } from './dom.js';
 import { sparkline } from './sparkline.js';
 import * as G from '../core/index.js';
 
@@ -19,10 +19,10 @@ export function openTrade(app, merchantId) {
 
   const back = h('div', { class: 'modal-back', onclick: (e) => { if (e.target === back) close(); } });
   const modal = h('div', { class: 'modal', role: 'dialog', 'aria-label': '交易' });
-  back.append(modal);
+  add(back, modal);
 
   const tip = h('div', { class: 'tip hidden' });
-  document.body.append(tip);
+  add(document.body, tip);
   function showTip(e, html) {
     tip.innerHTML = html;
     tip.classList.remove('hidden');
@@ -120,12 +120,12 @@ export function openTrade(app, merchantId) {
       h('span', { style: { marginLeft: 'auto' }, class: 'dim' }, '価格にカーソルを合わせると内訳'));
 
     const table = h('div', {});
-    table.append(h('div', { class: 'trow head' },
+    add(table, h('div', { class: 'trow head' },
       h('span'), h('span', {}, '品物'), h('span', { class: 'r' }, '積荷'), h('span', { class: 'r' }, '売値'), h('span', { class: 'r' }, ''),
       h('span', { style: { textAlign: 'center' } }, '数量'), h('span'), h('span', { class: 'r' }, '買値'), h('span', { class: 'r' }, '在庫'), h('span', { class: 'r' }, '推移')));
     // 銀の行（固定、差額が自動で入る）
     const delta = pv.silverDelta;
-    table.append(h('div', { class: 'trow silver' },
+    add(table, h('div', { class: 'trow silver' },
       icon('ui/silver', 'icon'), h('span', { class: 'nm' }, '銀'), h('span', { class: 'r num' }, fmt(world.player.silver)), h('span'), h('span'),
       h('div', { class: `qty ${delta > 0.5 ? 'buy' : delta < -0.5 ? 'sell' : ''}`, style: { display: 'flex', alignItems: 'center', justifyContent: 'center' } }, delta ? `${delta > 0 ? '+' : ''}${fmt(delta)}` : '0'),
       h('span'), h('span'), h('span', { class: 'r faint' }, '自動'), h('span')));
@@ -142,15 +142,15 @@ export function openTrade(app, merchantId) {
       // 左側（買う方向: <<, <）
       const left = h('div', { class: 'arrows l' });
       if (q > 0 || maxBuy > 0) {
-        if (q < 0) left.append(h('button', { class: 'btn tiny', title: '0に戻す', onclick: () => setQty(id, 0) }, '0'));
-        else if (q < maxBuy) left.append(h('button', { class: 'btn tiny', title: '買えるだけ買う', onclick: () => setQty(id, maxAffordable(id)) }, '«'));
-        if (q < maxBuy) left.append(h('button', { class: 'btn tiny', title: '1個買う（Shift: 10 / Ctrl: 100）', onclick: (e) => setQty(id, q + step(e)) }, '‹'));
+        if (q < 0) add(left, h('button', { class: 'btn tiny', title: '0に戻す', onclick: () => setQty(id, 0) }, '0'));
+        else if (q < maxBuy) add(left, h('button', { class: 'btn tiny', title: '買えるだけ買う', onclick: () => setQty(id, maxAffordable(id)) }, '«'));
+        if (q < maxBuy) add(left, h('button', { class: 'btn tiny', title: '1個買う（Shift: 10 / Ctrl: 100）', onclick: (e) => setQty(id, q + step(e)) }, '‹'));
       }
       const right = h('div', { class: 'arrows r' });
       if (q < 0 || maxSell > 0) {
-        if (q > -maxSell) right.append(h('button', { class: 'btn tiny', title: '1個売る（Shift: 10 / Ctrl: 100）', onclick: (e) => setQty(id, q - step(e)) }, '›'));
-        if (q > 0) right.append(h('button', { class: 'btn tiny', title: '0に戻す', onclick: () => setQty(id, 0) }, '0'));
-        else if (q > -maxSell) right.append(h('button', { class: 'btn tiny', title: '全部売る', onclick: () => setQty(id, -maxSell) }, '»'));
+        if (q > -maxSell) add(right, h('button', { class: 'btn tiny', title: '1個売る（Shift: 10 / Ctrl: 100）', onclick: (e) => setQty(id, q - step(e)) }, '›'));
+        if (q > 0) add(right, h('button', { class: 'btn tiny', title: '0に戻す', onclick: () => setQty(id, 0) }, '0'));
+        else if (q > -maxSell) add(right, h('button', { class: 'btn tiny', title: '全部売る', onclick: () => setQty(id, -maxSell) }, '»'));
       }
       const input = h('input', {
         class: `qty ${q > 0 ? 'buy' : q < 0 ? 'sell' : ''}`, value: q ? (q > 0 ? `+${q}` : q) : '0', inputmode: 'numeric',
@@ -170,10 +170,10 @@ export function openTrade(app, merchantId) {
         sp);
       return r;
     };
-    for (const id of shown) table.append(row(id, false));
+    for (const id of shown) add(table, row(id, false));
     if (unwanted.length) {
-      table.append(h('div', { class: 'faint', style: { margin: '6px 4px 2px', fontSize: '12px' } }, `── ${city.name}では買い取らない品 ──`));
-      for (const id of unwanted) table.append(row(id, true));
+      add(table, h('div', { class: 'faint', style: { margin: '6px 4px 2px', fontSize: '12px' } }, `── ${city.name}では買い取らない品 ──`));
+      for (const id of unwanted) add(table, row(id, true));
     }
 
     // 倉庫（工房のある町だけ）
@@ -181,10 +181,10 @@ export function openTrade(app, merchantId) {
     if (wh) {
       whBox = h('div', { style: { marginTop: '10px' } }, h('div', { class: 'section' }, `自分の倉庫（${city.name}）`));
       const ids = world.scenario.goods.filter((id) => (wh.stock[id] || 0) >= 1 || (m.cargo[id] || 0) > 0);
-      if (!ids.length) whBox.append(h('div', { class: 'faint' }, '倉庫は空'));
+      if (!ids.length) add(whBox, h('div', { class: 'faint' }, '倉庫は空'));
       for (const id of ids) {
         const n = Math.floor(wh.stock[id] || 0);
-        whBox.append(h('div', { class: 'trow' }, goodIcon(id), h('span', { class: 'nm' }, GOODS[id].name), h('span', { class: 'r num' }, m.cargo[id] || ''),
+        add(whBox, h('div', { class: 'trow' }, goodIcon(id), h('span', { class: 'nm' }, GOODS[id].name), h('span', { class: 'r num' }, m.cargo[id] || ''),
           h('span'), h('span'),
           h('div', { class: 'arrows', style: { justifyContent: 'center', gridColumn: 'span 3' } },
             h('button', { class: 'btn tiny', disabled: !n || undefined, onclick: () => act(() => G.warehouse(world, m.id, id, Math.min(n, Math.floor((cap - G.cargoUsed(m)) / GOODS[id].weight))), '積んだ') }, '« 積む'),
@@ -222,7 +222,7 @@ export function openTrade(app, merchantId) {
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, true) }, '確定して出発…'),
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, false) }, '取引を確定'));
 
-    modal.append(header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, table, whBox), summary)), footer);
+    add(modal, header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, table, whBox), summary)), footer);
   }
 
   function contractsHere() {
@@ -261,6 +261,6 @@ export function openTrade(app, merchantId) {
   }
 
   render();
-  document.body.append(back);
+  add(document.body, back);
   return { close };
 }

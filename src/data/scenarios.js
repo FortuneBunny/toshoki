@@ -32,8 +32,8 @@ const s2 = {
   cities: [
     { id: 'mugi', name: '麦の里', x: 170, y: 390, pop: 640, produces: { wheat: 10 } },
     { id: 'natsume', name: 'ナツメ泉', x: 470, y: 170, pop: 380, produces: { dates: 7 }, tags: ['desert'] },
-    { id: 'kanbi', name: '甘蔗の浜', x: 520, y: 470, pop: 470, produces: { rawsugar: 2.6, honey: 1.2, wheat: 2 } },
-    { id: 'kohaku', name: '琥珀京', x: 830, y: 300, pop: 3300, produces: { wheat: 9, dates: 2 } },
+    { id: 'kanbi', name: '甘蔗の浜', x: 520, y: 470, pop: 470, produces: { rawsugar: 2.6, wheat: 2 } },
+    { id: 'kohaku', name: '琥珀京', x: 830, y: 300, pop: 3300, produces: { wheat: 9, dates: 2, honey: 1.4 } },
   ],
   shapes: [{ kind: 'desert', points: [[420, 60], [920, 80], [900, 220], [600, 250], [430, 260]] }],
   edges: [
@@ -59,7 +59,7 @@ const s3 = {
     { id: 'kibi', name: '甘蔗の里', x: 150, y: 430, pop: 520, produces: { cane: 9, wheat: 3 } },
     { id: 'toumitsu', name: '糖蜜町', x: 430, y: 300, pop: 1300, produces: { wheat: 7, honey: 0.8 } },
     { id: 'hachi', name: '蜜蜂の丘', x: 420, y: 100, pop: 420, produces: { honey: 2.6, dates: 2.5 } },
-    { id: 'suitou', name: '翠糖京', x: 810, y: 320, pop: 3600, produces: { wheat: 9, dates: 2 } },
+    { id: 'suitou', name: '翠糖京', x: 810, y: 320, pop: 3600, produces: { wheat: 9, dates: 2, honey: 1.4 } },
     { id: 'natsu', name: 'なつめ村', x: 690, y: 525, pop: 460, produces: { dates: 6.5 } },
   ],
   shapes: [{ kind: 'green', points: [[60, 340], [260, 330], [300, 520], [80, 560]] }],

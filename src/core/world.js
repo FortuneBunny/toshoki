@@ -120,6 +120,9 @@ export function createWorld(scenarioId, { seed = 1, heirlooms = [] } = {}) {
     applyModifiers(world);
     for (const c of Object.values(world.cities)) updateCity(world, c);
   }
+  // 準備期間の出来事は数えない
+  for (const c of Object.values(world.cities)) { c.rush = 0; c.crash = 0; c.rushCount = 0; c.peakPop = c.pop; }
+  world.stats.rushes = 0;
   world.events = [];
   world.log = [];
   for (const m of world.player.merchants) observe(world, m.city);

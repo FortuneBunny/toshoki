@@ -12,7 +12,10 @@ export function arriveAt(world, m) {
   world.stats.trips += 1;
   if (m.order?.pauseNext) {
     m.order.pauseNext = false;
+    runOrder(world, m, { depart: false });
     m.order.paused = true;
+    emit(world, { type: 'arrive', merchant: m.id, city: m.city, text: `${m.name}が${world.cities[m.city].name}に到着し、定期便を止めた（売買は済ませた）` });
+    return;
   }
   if (m.order && !m.order.paused) {
     m.order.runs = (m.order.runs || 0) + 1;
@@ -22,7 +25,7 @@ export function arriveAt(world, m) {
   emit(world, { type: 'arrive', merchant: m.id, city: m.city, text: `${m.name}が${world.cities[m.city].name}に到着した` });
 }
 
-export function runOrder(world, m) {
+export function runOrder(world, m, { depart = true } = {}) {
   const o = m.order;
   const stop = o.stops[o.next];
   const city = world.cities[m.city];
@@ -37,7 +40,7 @@ export function runOrder(world, m) {
       if (!have || !cityWants(city, s.good)) continue;
       let n = have;
       while (n > 0 && quote(world, city, s.good, -n) / n < (s.min || 0)) n = Math.floor(n * 0.7);
-      if (n <= 0) { notes.push(`${GOODS[s.good].name}は安いので見送り`); continue; }
+      if (n <= 0) { notes.push(`${GOODS[s.good].name}は売値 ${(quote(world, city, s.good, -1)).toFixed(1)} が最低売値 ${s.min} を下回るので売らずに持ち越し`); continue; }
       executeTrade(world, m, [{ good: s.good, qty: -n }], { auto: true });
     }
     for (const good of stop.load || []) {
@@ -53,12 +56,19 @@ export function runOrder(world, m) {
       const want = Math.max(0, b.qty - (m.cargo[b.good] || 0));
       let n = Math.min(room, want, Math.floor(city.stock[b.good] || 0));
       while (n > 0 && (quote(world, city, b.good, n) / n > (b.max || Infinity) || quote(world, city, b.good, n) > world.player.silver)) n = Math.floor(n * 0.7);
-      if (n <= 0) { if (want > 0) notes.push(`${GOODS[b.good].name}は高いので見送り`); continue; }
+      if (n <= 0) {
+        if (want > 0) {
+          const unit = quote(world, city, b.good, 1);
+          notes.push(!(city.stock[b.good] >= 1) ? `${GOODS[b.good].name}は${city.name}に在庫がない` : unit > (b.max || Infinity) ? `${GOODS[b.good].name}は買値 ${unit.toFixed(1)} が上限 ${b.max} を超えるので買わない` : room <= 0 ? `${GOODS[b.good].name}は積載がいっぱい` : `${GOODS[b.good].name}は銀が足りず買えない`);
+        }
+        continue;
+      }
       executeTrade(world, m, [{ good: b.good, qty: n }], { auto: true });
     }
     o.next = (o.next + 1) % o.stops.length;
   }
   if (notes.length) emit(world, { type: 'orderNote', merchant: m.id, city: m.city, text: `${m.name}（定期便）: ${notes.join('、')}` });
+  if (!depart) return;
   const target = o.stops[o.next].city;
   if (target === m.city) return;
   const res = departWithExpectation(world, m, target);

@@ -92,6 +92,7 @@ function consume(world, city) {
     luxGot += eat * GOODS[id].base;
   }
   city.luxury = luxWant > 0 ? luxGot / luxWant : 1;
+  city.sweetLevel = need > 0 ? (B.sweetGain * sweetGlu) / need : 0;
   const target = need > 0 ? 100 * (baseGlu / need) + 100 * B.sweetGain * (sweetGlu / need) : 0;
   city.glucoseTarget = Math.min(220, target);
   city.glucose += (city.glucoseTarget - city.glucose) * B.glucoseFollow;
@@ -130,7 +131,7 @@ function rushCycle(world, city) {
     if (city.crash === 0) emit(world, { type: 'crashEnd', city: city.id, text: `${city.name}の糖の反動が収まった` });
     return;
   }
-  if (city.glucose >= B.rushLine) {
+  if (city.glucose >= B.rushLine && (city.sweetLevel || 0) >= B.rushSweetLine) {
     city.rush = B.rushDays;
     city.rushCount = (city.rushCount || 0) + 1;
     world.stats.rushes = (world.stats.rushes || 0) + 1;
@@ -152,6 +153,23 @@ export function updateCity(world, city) {
   } else if (after < before) {
     emit(world, { type: 'tierDown', city: city.id, tier: after, text: `${city.name}が「${tierName(after)}」に衰えた` });
   }
+}
+
+// 食卓の診断。届けると糖度が伸びる品と、その量の目安
+export function dietAdvice(world, city) {
+  const need = glucoseNeed(city);
+  const out = [];
+  for (const id of world.scenario.goods) {
+    const g = GOODS[id];
+    if (!['food', 'sweet'].includes(g.kind) || !g.glu || dailyDemand(city, id, false) <= 0) continue;
+    const cap = g.kind === 'food' ? B.singleFoodCap : B.singleSweetCap * B.sweetGain;
+    const now = city.diet?.[id] || 0;
+    const room = cap - now;
+    if (room < 0.05) continue;
+    const factor = g.kind === 'sweet' ? B.sweetGain * (city.crash > 0 ? B.crashSweetGlu : 1) : 1;
+    out.push({ good: id, gain: Math.round(room * 100), perDay: (room * need) / (g.glu * factor), kind: g.kind });
+  }
+  return out.sort((a, b) => b.gain - a.gain);
 }
 
 export function growthPerDay(city) {

@@ -3,6 +3,7 @@ import { GOODS } from '../data/goods.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { TRANSPORTS } from '../data/transports.js';
 import { cityTier, tierName } from './city.js';
+import { cityWants } from './market.js';
 import { emit } from './events.js';
 import { BALANCE as B } from '../data/balance.js';
 
@@ -48,7 +49,8 @@ export function goalProgress(world, g) {
     case 'deliver': {
       const v = g.city ? s.sold[g.city]?.[g.good] || 0 : s.soldTotal[g.good] || 0;
       const where = g.city ? `${world.cities[g.city].name}で` : '';
-      return { p: v / g.amount, text: `${where}${GOODS[g.good].name}を ${g.amount} 個売る（今 ${v}）` };
+      const notYet = g.city && !cityWants(world.cities[g.city], g.good) ? `。${world.cities[g.city].name}はまだ${GOODS[g.good].name}を買い取らない──町が育つと買い取る` : '';
+      return { p: v / g.amount, text: `${where}${GOODS[g.good].name}を ${g.amount} 個売る（今 ${v}${notYet}）` };
     }
     case 'rushes': {
       const v = g.city ? world.cities[g.city].rushCount || 0 : s.rushes || 0;

@@ -4,6 +4,7 @@ import { GOODS } from '../data/goods.js';
 import { quote } from './market.js';
 import { cityTier } from './city.js';
 import { emit } from './events.js';
+import { BALANCE as B } from '../data/balance.js';
 
 export function buildingInputs(type) {
   const ids = new Set();
@@ -27,7 +28,7 @@ function tryBatch(world, b, recipe, wh, city) {
       if (cost / n > GOODS[id].base * 1.5) return false;
       total += cost;
     }
-    if (world.player.silver < total) return false;
+    if (world.player.silver - total < B.autoBuyReserve) return false;
     for (const [id, n] of Object.entries(missing)) {
       const cost = quote(world, city, id, n);
       city.stock[id] -= n;
@@ -48,6 +49,8 @@ function tryBatch(world, b, recipe, wh, city) {
     wh.basis[id] = ((wh.basis[id] || 0) * cur + (inCost / outCount) * n) / (cur + n);
     wh.stock[id] = cur + n;
     world.stats.produced[id] = (world.stats.produced[id] || 0) + n;
+    b.made = b.made || {};
+    b.made[id] = (b.made[id] || 0) + n;
   }
   return true;
 }
@@ -66,6 +69,7 @@ export function updateProduction(world) {
       for (const r of recipes) if (tryBatch(world, b, r, wh, city)) { ok = true; made++; break; }
       if (!ok) break;
     }
+    b.lastMade = made;
     if (made === 0 && !b.idleWarned) {
       b.idleWarned = true;
       emit(world, { type: 'idle', city: b.city, text: `${city.name}の${def.name}は材料がなく止まっている（材料: ${buildingInputs(b.type).map((id) => GOODS[id].name).join('、')}）` });

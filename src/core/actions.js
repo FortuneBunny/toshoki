@@ -115,7 +115,7 @@ export function build(world, cityId, type) {
   if (world.player.buildings.some((b) => b.city === cityId && b.type === type)) return fail('すでにある');
   if (world.player.silver < def.cost) return fail(`銀が足りない（${def.cost}必要）`);
   world.player.silver -= def.cost;
-  const b = { id: world.nextId++, type, city: cityId, active: true, autoBuy: true, recipe: null, inputs: buildingInputs(type) };
+  const b = { id: world.player.buildings.length + 1, type, city: cityId, active: true, autoBuy: true, recipe: null, inputs: buildingInputs(type), made: {}, lastMade: 0 };
   world.player.buildings.push(b);
   city.buildings = world.player.buildings.filter((x) => x.city === cityId);
   world.player.warehouses[cityId] = world.player.warehouses[cityId] || { stock: {}, basis: {} };

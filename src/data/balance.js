@@ -15,12 +15,12 @@ export const BALANCE = {
   needPer1000: 10,            // 人口1000人が1日に必要とする糖量
   baseFoodCap: 1.1,           // 主食・果実で満たせる糖度の上限（110）
   singleFoodCap: 0.5,         // 1種類の食べ物で満たせるのは必要量の50%まで
-  singleSweetCap: 0.4,        // 1種類の甘味が糖度に効くのは必要量の40%まで
-  sweetGain: 0.85,            // 甘味の糖量が糖度に効く倍率
-  glucoseFollow: 0.12,        // 糖度が目標に近づく速さ（1日あたり）
+  singleSweetCap: 0.45,       // 1種類の甘味が糖度に効くのは必要量の45%まで
+  sweetGain: 1.0,             // 甘味の糖量が糖度に効く倍率
+  glucoseFollow: 0.2,         // 糖度が目標に近づく速さ（1日あたり）
   consumeElasticity: 0.7,     // 安いと多く消費する度合い
   consumeMin: 0.4, consumeMax: 2.4,
-  starveLine: 40, stableTop: 110, rushLine: 150,
+  starveLine: 40, stableTop: 110, rushLine: 140,
   growthStarve: -0.006,       // 糖度0のときの1日の人口変化率
   growthStable: [0, 0.003],
   growthBoom: [0.0032, 0.0055],
@@ -30,6 +30,7 @@ export const BALANCE = {
   tierNames: ['集落', '村', '町', '都市', '大都市'],
 
   // シュガーラッシュとクラッシュ
+  rushSweetLine: 0.85,        // ラッシュには、その日の甘味の摂取が必要量の85%以上（甘味2種類以上が目安）
   rushDays: 8,
   rushSweetDemand: 1.8,
   rushGrowthBonus: 0.004,
@@ -58,6 +59,7 @@ export const BALANCE = {
 
   // 人と組織
   merchantHireCost: 150,
+  autoBuyReserve: 300,        // 工房の自動仕入れは、手元の銀がこれを下回るなら止める
   merchantWage: 1,
   repLevels: [0, 60, 180, 400, 800, 1500],  // 評判レベルの閾値
   repSpreadCut: 0.12,         // 評判1レベルごとに手数料を何割減らすか

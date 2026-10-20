@@ -18,6 +18,12 @@ export function h(tag, attrs = {}, ...children) {
 
 export const s = (tag, attrs = {}, ...children) => h(tag, { ...attrs, svg: true }, ...children);
 
+// null や false を無視して子要素を足す
+export function add(el, ...children) {
+  el.append(...children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false));
+  return el;
+}
+
 export function clear(el) {
   while (el.firstChild) el.firstChild.remove();
   return el;

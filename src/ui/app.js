@@ -1,5 +1,5 @@
 // ブラウザ版の入口: 状態、時間の進行、画面の組み立て、演出のつなぎ込み
-import { h, clear, icon, goodIcon, fmt, safeStorage } from './dom.js';
+import { h, add, clear, icon, goodIcon, fmt, safeStorage } from './dom.js';
 import { createMap } from './map.js';
 import { openTrade } from './tradeDialog.js';
 import { renderSide, departDialog, orderDialog, ledgerDialog, helpDialog, settingsDialog, resultDialog, titleScreen, modal } from './panels.js';
@@ -238,8 +238,8 @@ function mount(world) {
   app.els.feed = h('div', { class: 'feed', 'aria-label': '出来事' });
   app.els.merchants = h('div', { class: 'merchants' });
   app.els.tutorial = h('div', { class: 'tutorial hidden' });
-  mapWrap.append(app.els.tutorial);
-  root.append(app.els.top, app.els.goals, h('div', { class: 'main' }, mapWrap, h('div', { class: 'side' }, app.els.side, app.els.feed)), app.els.merchants);
+  add(mapWrap, app.els.tutorial);
+  add(root, app.els.top, app.els.goals, h('div', { class: 'main' }, mapWrap, h('div', { class: 'side' }, app.els.side, app.els.feed)), app.els.merchants);
   app.map = createMap(mapWrap, world, {
     onCity: (id) => onCityClick(id),
     onEdge: (id) => {
@@ -284,7 +284,7 @@ function renderTop(force = false) {
     app.els.streak = h('div', { class: 'stat streak', title: '連続黒字' }, '🔥', h('span'));
     app.els.date = h('div', { class: 'date' });
     app.els.speed = h('div', { class: 'speed' });
-    top.append(
+    add(top, 
       h('div', { class: 'brand', onclick: () => app.confirm('タイトルへ戻る', '今の状態は自動で保存されています。', () => app.showTitle()) }, h('img', { src: 'assets/svg/ui/sugar-crystal.svg', class: 'icon', alt: '' }), '糖商記', h('small', {}, 'GREAT GLUCOSE EMPIRE')),
       app.els.silver, app.els.rep, app.els.streak, app.els.date, app.els.speed,
       h('button', { class: 'btn ghost small', onclick: () => { app.state.modals++; setSpeed(0); ledgerDialog(app); } }, '帳簿'),
@@ -305,17 +305,17 @@ function renderTop(force = false) {
   app.els.streak.classList.toggle('hot', pl.streak >= 3);
   app.els.date.textContent = G.dateString(w.day);
   clear(app.els.speed);
-  ['⏸', '▶', '▶▶', '▶▶▶'].forEach((label, i) => app.els.speed.append(h('button', { class: `btn small ${app.state.speed === i ? 'on' : ''}`, title: i ? `${i}倍速（${i}キー）` : '一時停止（スペース）', onclick: () => { sfx.click(); setSpeed(i); } }, label)));
+  ['⏸', '▶', '▶▶', '▶▶▶'].forEach((label, i) => add(app.els.speed, h('button', { class: `btn small ${app.state.speed === i ? 'on' : ''}`, title: i ? `${i}倍速（${i}キー）` : '一時停止（スペース）', onclick: () => { sfx.click(); setSpeed(i); } }, label)));
 }
 
 function renderGoals() {
   const w = app.world;
   const el = clear(app.els.goals);
   for (const g of G.goalsStatus(w)) {
-    el.append(h('div', { class: `goal ${g.done ? 'done' : ''} ${g.p > 0.85 && !g.done ? 'near' : ''}` }, g.done ? '✔' : '◇', h('span', {}, g.text.split('（')[0]), h('div', { class: 'bar' }, h('i', { style: { width: `${Math.round(g.p * 100)}%` } })), h('span', { class: 'num dim' }, `${Math.round(g.p * 100)}%`)));
+    add(el, h('div', { class: `goal ${g.done ? 'done' : ''} ${g.p > 0.85 && !g.done ? 'near' : ''}` }, g.done ? '✔' : '◇', h('span', {}, g.text.split('（')[0]), h('div', { class: 'bar' }, h('i', { style: { width: `${Math.round(g.p * 100)}%` } })), h('span', { class: 'num dim' }, `${Math.round(g.p * 100)}%`)));
   }
   const left = w.scenario.deadline - w.day;
-  el.append(h('div', { class: `deadline ${left < 30 ? 'warn' : ''}` }, w.finished ? (w.finished.win ? `達成 ランク${w.finished.rank}` : '期限切れ') : `期限まで ${left} 日（S: ${Math.max(0, Math.floor(w.scenario.deadline * (w.scenario.rankS ?? 0.55)) - w.day)}日）`));
+  add(el, h('div', { class: `deadline ${left < 30 ? 'warn' : ''}` }, w.finished ? (w.finished.win ? `達成 ランク${w.finished.rank}` : '期限切れ') : `期限まで ${left} 日（S: ${Math.max(0, Math.floor(w.scenario.deadline * (w.scenario.rankS ?? 0.55)) - w.day)}日）`));
 }
 
 function renderMerchants() {
@@ -339,10 +339,10 @@ function renderMerchants() {
           h('button', { class: 'btn small', disabled: !!m.travel || undefined, onclick: (e) => { e.stopPropagation(); app.pickDestination(m.id); } }, '出発'),
           h('button', { class: 'btn small', onclick: (e) => { e.stopPropagation(); app.state.modals++; setSpeed(0); orderDialog(app, m.id); } }, '定期便'),
           !m.travel ? transportButton(m) : null)));
-    el.append(card);
+    add(el, card);
   }
   const max = w.scenario.maxMerchants ?? 4;
-  if (w.player.merchants.length < max) el.append(h('div', { class: 'mcard add', title: '商人がいる町の画面から雇える' }, `＋ 商人 ${w.player.merchants.length}/${max}`));
+  if (w.player.merchants.length < max) add(el, h('div', { class: 'mcard add', title: '商人がいる町の画面から雇える' }, `＋ 商人 ${w.player.merchants.length}/${max}`));
 }
 
 function transportButton(m) {
@@ -378,7 +378,7 @@ function renderTutorial() {
   if (idx < 0) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
   clear(el);
-  el.append(h('span', { class: 'tog' }, el.classList.contains('mini') ? '全部見る' : '小さくする'), h('b', {}, '手引き'), h('ol', { class: 'steps' }, steps.map((s, i) => h('li', { class: i < idx ? 'done' : i === idx ? 'now' : '' }, s.text))));
+  add(el, h('span', { class: 'tog' }, el.classList.contains('mini') ? '全部見る' : '小さくする'), h('b', {}, '手引き'), h('ol', { class: 'steps' }, steps.map((s, i) => h('li', { class: i < idx ? 'done' : i === idx ? 'now' : '' }, s.text))));
   if (!el.dataset.bound) { el.dataset.bound = '1'; el.addEventListener('click', () => { el.classList.toggle('mini'); renderTutorial(); }); }
 }
 

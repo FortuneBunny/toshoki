@@ -165,7 +165,7 @@ img { user-select: none; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 13px; margin: 6px 0; }
 .kv dt { color: var(--text-dim); }
 .kv dd { margin: 0; }
-.gauge { position: relative; height: 16px; border-radius: 8px; background: linear-gradient(90deg, #6d2a22 0 18%, #6b5a2a 18% 50%, #4d6b2a 50% 68%, #6b4a8a 68% 100%); overflow: hidden; margin: 4px 0 2px; }
+.gauge { position: relative; height: 16px; border-radius: 8px; background: linear-gradient(90deg, #6d2a22 0 20%, #6b5a2a 20% 55%, #4d6b2a 55% 70%, #6b4a8a 70% 100%); overflow: hidden; margin: 4px 0 2px; }
 .gauge .fill { position: absolute; top: 0; bottom: 0; left: 0; background: linear-gradient(90deg, rgba(255, 209, 102, 0.85), rgba(255, 240, 200, 0.95)); border-right: 2px solid #fff; transition: width 0.4s; mix-blend-mode: screen; }
 .gauge .target { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #c8f4ff; box-shadow: 0 0 4px #c8f4ff; }
 .gauge-legend { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-faint); }

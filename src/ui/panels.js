@@ -1,5 +1,5 @@
 // 右側のパネル、モーダル（出発、定期便、帳簿、設定、ヘルプ、結果、タイトル）
-import { h, clear, icon, goodIcon, fmt } from './dom.js';
+import { h, add, clear, icon, goodIcon, fmt } from './dom.js';
 import { sparkline } from './sparkline.js';
 import * as G from '../core/index.js';
 import { RULES } from '../data/help.js';
@@ -17,10 +17,10 @@ export function modal(app, title, body, footer, { wide = false, onClose } = {}) 
   };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
-  box.append(h('header', {}, h('h2', {}, title), h('button', { class: 'btn ghost small', onclick: close, 'aria-label': '閉じる' }, '✕')), h('div', { class: 'body' }, body));
-  if (footer) box.append(h('footer', {}, typeof footer === 'function' ? footer(close) : footer));
-  back.append(box);
-  document.body.append(back);
+  add(box, h('header', {}, h('h2', {}, title), h('button', { class: 'btn ghost small', onclick: close, 'aria-label': '閉じる' }, '✕')), h('div', { class: 'body' }, body));
+  if (footer) add(box, h('footer', {}, typeof footer === 'function' ? footer(close) : footer));
+  add(back, box);
+  add(document.body, back);
   return { close, box };
 }
 
@@ -29,14 +29,14 @@ export function renderSide(app, el) {
   const world = app.world;
   clear(el);
   const cityId = app.state.selCity;
-  if (cityId) el.append(cityPanel(app, cityId));
-  else el.append(overview(app));
+  if (cityId) add(el, cityPanel(app, cityId));
+  else add(el, overview(app));
 }
 
 function gaugeBlock(g, target) {
   return h('div', {},
     h('div', { class: 'gauge' }, h('div', { class: 'fill', style: { width: `${Math.min(100, (g / 200) * 100)}%` } }), target !== undefined ? h('div', { class: 'target', style: { left: `${Math.min(100, (target / 200) * 100)}%` } }) : null),
-    h('div', { class: 'gauge-legend' }, h('span', {}, '飢え'), h('span', {}, '40'), h('span', {}, '安定'), h('span', {}, '110 活況'), h('span', {}, '150 ラッシュ')));
+    h('div', { class: 'gauge-legend' }, h('span', {}, '飢え'), h('span', {}, '40'), h('span', {}, '安定'), h('span', {}, '110 活況'), h('span', {}, '140 ラッシュ')));
 }
 
 function cityPanel(app, id) {
@@ -46,12 +46,12 @@ function cityPanel(app, id) {
   const k = world.player.knowledge[id];
   const age = G.knowledgeAge(world, id);
   const box = h('div', {});
-  box.append(h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}`)),
+  add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}`)),
     h('button', { class: 'btn ghost small', style: { marginLeft: 'auto' }, onclick: () => { app.state.selCity = null; app.render(); } }, '✕')));
   if (here.length) {
     const tier = G.cityTier(c);
     const next = G.BALANCE.tierPops[tier + 1];
-    box.append(
+    add(box, 
       h('div', { class: 'section' }, '糖度（町の血糖値）'),
       gaugeBlock(c.glucose, c.glucoseTarget),
       h('dl', { class: 'kv' },
@@ -60,61 +60,62 @@ function cityPanel(app, id) {
         h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`)),
       h('div', { class: 'section' }, '食卓（糖度への寄与）'),
       dietChips(world, c),
-      h('div', { class: 'faint', style: { fontSize: '11px' } }, '1種類の食べ物で上げられるのは50まで。種類を増やすほど糖度が伸びる。甘味は大きく押し上げる。'));
+      h('div', { class: 'faint', style: { fontSize: '11px' } }, `甘味の摂取 ${Math.round((c.sweetLevel || 0) * 100)}（85以上かつ糖度140以上でシュガーラッシュ）。1種類の食べ物で上げられるのは50まで、甘味は45まで。`),
+      adviceBlock(world, c));
   } else {
-    box.append(h('div', { class: 'faint' }, age === null ? 'まだ訪れていない町。商人を送ると相場が分かる。' : `最後に見たのは ${age} 日前。今どうなっているかは分からない。`));
-    if (k?.glucose !== undefined) box.append(h('div', { class: 'section' }, `糖度（${age}日前）`), gaugeBlock(k.glucose));
+    add(box, h('div', { class: 'faint' }, age === null ? 'まだ訪れていない町。商人を送ると相場が分かる。' : `最後に見たのは ${age} 日前。今どうなっているかは分からない。`));
+    if (k?.glucose !== undefined) add(box, h('div', { class: 'section' }, `糖度（${age}日前）`), gaugeBlock(k.glucose));
   }
   // 相場
   if (k) {
-    box.append(h('div', { class: 'section' }, `相場 ${age === 0 ? '（今）' : `（${age}日前の情報）`}`));
+    add(box, h('div', { class: 'section' }, `相場 ${age === 0 ? '（今）' : `（${age}日前の情報）`}`));
     const t = h('table', { class: 'prices-table' }, h('tr', {}, h('th', {}, '品物'), h('th', {}, '中値'), h('th', {}, '在庫'), h('th', {}, '推移')));
     for (const gid of world.scenario.goods) {
       const p = k.prices?.[gid];
       if (p === undefined) continue;
       const hist = k.history?.[gid] || [];
       const want = k.wants?.[gid] !== false;
-      t.append(h('tr', {}, h('td', {}, goodIcon(gid, 'icon-sm'), ' ', GOODS[gid].name, want ? '' : h('span', { class: 'faint' }, ' 買取なし')), h('td', { class: `num ${p < GOODS[gid].base * 0.75 ? 'good' : p > GOODS[gid].base * 1.35 ? 'bad' : ''}` }, fmt(p, 1)), h('td', { class: 'num' }, k.stock?.[gid] ?? '?'), h('td', {}, hist.length > 1 ? sparkline(hist.map((x) => x[1]), 50, 16) : '')));
+      add(t, h('tr', {}, h('td', {}, goodIcon(gid, 'icon-sm'), ' ', GOODS[gid].name, want ? '' : h('span', { class: 'faint' }, ' 買取なし')), h('td', { class: `num ${p < GOODS[gid].base * 0.75 ? 'good' : p > GOODS[gid].base * 1.35 ? 'bad' : ''}` }, fmt(p, 1)), h('td', { class: 'num' }, k.stock?.[gid] ?? '?'), h('td', {}, hist.length > 1 ? sparkline(hist.map((x) => x[1]), 50, 16) : '')));
     }
-    box.append(t);
+    add(box, t);
   }
   const prod = Object.entries(c.produces);
-  if (prod.length) box.append(h('div', { class: 'section' }, '特産'), h('div', { class: 'chips' }, prod.map(([g, r]) => h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${fmt(r, 1)}/日`))));
+  if (prod.length) add(box, h('div', { class: 'section' }, '特産'), h('div', { class: 'chips' }, prod.map(([g, r]) => h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${fmt(r, 1)}/日`))));
   // この町でできること
   const acts = h('div', { class: 'chips', style: { gap: '6px' } });
   if (here.length) {
     const max = world.scenario.maxMerchants ?? 4;
     if (world.player.merchants.length < max) {
       const cost = G.BALANCE.merchantHireCost * world.player.merchants.length;
-      acts.append(h('button', { class: 'btn small', onclick: () => app.confirm(`商人を雇う（${cost}銀）`, `${c.name}で新しい商人を雇います。給金は1日${G.BALANCE.merchantWage}銀。最大${max}人。`, () => app.run(() => G.hireMerchant(world, id), 'hire')) }, `商人を雇う ${cost}銀`));
+      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`商人を雇う（${cost}銀）`, `${c.name}で新しい商人を雇います。給金は1日${G.BALANCE.merchantWage}銀。最大${max}人。`, () => app.run(() => G.hireMerchant(world, id), 'hire')) }, `商人を雇う ${cost}銀`));
     }
     for (const b of (world.scenario.buildings || []).filter((x) => BUILDINGS[x]?.recipes)) {
       if (world.player.buildings.some((x) => x.city === id && x.type === b)) continue;
       const def = BUILDINGS[b];
-      acts.append(h('button', { class: 'btn small', onclick: () => app.confirm(`${def.name}を建てる（${def.cost}銀）`, recipeText(def), () => app.run(() => G.build(world, id, b), 'build')) }, `${def.name} ${def.cost}銀`));
+      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`${def.name}を建てる（${def.cost}銀）`, recipeText(def), () => app.run(() => G.build(world, id, b), 'build')) }, `${def.name} ${def.cost}銀`));
     }
   }
-  if (acts.children.length) box.append(h('div', { class: 'section' }, 'この町でできること'), acts);
+  if (acts.children.length) add(box, h('div', { class: 'section' }, 'この町でできること'), acts);
   const bs = world.player.buildings.filter((b) => b.city === id);
   if (bs.length) {
-    box.append(h('div', { class: 'section' }, '自分の工房と倉庫'));
+    add(box, h('div', { class: 'section' }, '自分の工房と倉庫'));
     for (const b of bs) {
-      box.append(h('div', { class: 'contract' }, icon(`cities/${b.type}`, 'icon'), h('div', { style: { flex: 1 } }, h('b', {}, BUILDINGS[b.type].name), h('div', { class: 'faint' }, recipeText(BUILDINGS[b.type]))),
+      add(box, h('div', { class: 'contract' }, icon(`cities/${b.type}`, 'icon'), h('div', { style: { flex: 1 } }, h('b', {}, BUILDINGS[b.type].name), h('div', { class: 'faint' }, recipeText(BUILDINGS[b.type]))),
         h('button', { class: 'btn tiny', onclick: () => app.run(() => G.setBuilding(world, b.id, { active: !b.active })) }, b.active ? '稼働中' : '停止中'),
         h('button', { class: 'btn tiny', title: '足りない材料を市場から買う', onclick: () => app.run(() => G.setBuilding(world, b.id, { autoBuy: !b.autoBuy })) }, b.autoBuy ? '自動購入あり' : '自動購入なし')));
     }
     const wh = world.player.warehouses[id];
     const items = Object.entries(wh?.stock || {}).filter(([, q]) => q >= 1);
-    box.append(h('div', { class: 'chips' }, items.length ? items.map(([g, q]) => h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${Math.floor(q)}`)) : h('span', { class: 'faint' }, '倉庫は空')));
+    add(box, h('div', { class: 'chips' }, items.length ? items.map(([g, q]) => h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${Math.floor(q)}`)) : h('span', { class: 'faint' }, '倉庫は空')));
   }
   const cs = world.contracts.filter((x) => x.city === id && !x.done && !x.failed);
-  if (cs.length) box.append(h('div', { class: 'section' }, '大口注文'), cs.map((x) => contractEl(world, x)));
+  if (cs.length) add(box, h('div', { class: 'section' }, '大口注文'), cs.map((x) => contractEl(world, x)));
   // 道
-  box.append(h('div', { class: 'section' }, '道'));
+  add(box, h('div', { class: 'section' }, '道'));
   for (const e of world.edges.filter((x) => x.a === id || x.b === id)) {
     const other = world.cities[e.a === id ? e.b : e.a];
     const canRoad = (world.scenario.buildings || []).includes('road') && e.kind === 'trail';
-    box.append(h('div', { class: 'dim', style: { fontSize: '12px', display: 'flex', gap: '6px', alignItems: 'center' } },
+    add(box, h('div', { class: 'dim', style: { fontSize: '12px', display: 'flex', gap: '6px', alignItems: 'center' } },
       `→ ${other.name}  ${G.ROUTE_KINDS[e.kind].name}  距離${e.len}${e.danger ? `  ⚔危険度${e.danger}` : ''}${e.monsoon ? '  季節風' : ''}`,
       canRoad ? h('button', { class: 'btn tiny', onclick: () => app.confirm(`街道に整備（${Math.round(e.len * BUILDINGS.road.costPerLength)}銀）`, '小道を街道にすると荷車が通れる。', () => app.run(() => G.upgradeRoad(world, e.id), 'road')) }, '整備') : null));
   }
@@ -125,13 +126,20 @@ function recipeText(def) {
   return def.recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')} → ${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ') + `（1日${def.batches}回、維持費${def.upkeep}/日）`;
 }
 
+function adviceBlock(world, c) {
+  const adv = G.dietAdvice(world, c).slice(0, 5);
+  if (!adv.length) return null;
+  return h('div', {}, h('div', { class: 'section' }, '伸びしろ（1日あたりの目安量）'),
+    h('div', { class: 'chips' }, adv.map((a) => h('span', { class: 'chip', title: `${GOODS[a.good].name}を1日に約${fmt(a.perDay, 1)}個届け続けると、糖度が最大+${a.gain}` }, goodIcon(a.good, 'icon-sm'), `約${fmt(a.perDay, 1)}個/日 → +${a.gain}`))));
+}
+
 function dietChips(world, c) {
   const diet = Object.entries(c.diet || {}).sort((a, b) => b[1] - a[1]);
   const box = h('div', { class: 'chips' });
-  for (const [g, v] of diet) box.append(h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} +${Math.round(v * 100)}`));
+  for (const [g, v] of diet) add(box, h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} +${Math.round(v * 100)}`));
   const missing = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && G.dailyDemand(c, g, false) > 0 && !(c.diet?.[g] > 0.02));
-  for (const g of missing) box.append(h('span', { class: 'chip', style: { opacity: 0.55, outline: '1px dashed #8c7b63' } }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} 不足`));
-  if (!box.children.length) box.append(h('span', { class: 'faint' }, '何も食べていない'));
+  for (const g of missing) add(box, h('span', { class: 'chip', style: { opacity: 0.55, outline: '1px dashed #8c7b63' } }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} 不足`));
+  if (!box.children.length) add(box, h('span', { class: 'faint' }, '何も食べていない'));
   return box;
 }
 
@@ -145,20 +153,20 @@ function overview(app) {
   const world = app.world;
   const box = h('div', {});
   const sc = world.scenario;
-  box.append(h('div', { class: 'panel-title' }, `${sc.no}. ${sc.title}`));
-  box.append(h('div', { class: 'dim', style: { fontSize: '12px' } }, sc.intro));
-  box.append(h('div', { class: 'faint', style: { fontSize: '11px', marginTop: '4px' } }, `ランク: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`));
+  add(box, h('div', { class: 'panel-title' }, `${sc.no}. ${sc.title}`));
+  add(box, h('div', { class: 'dim', style: { fontSize: '12px' } }, sc.intro));
+  add(box, h('div', { class: 'faint', style: { fontSize: '11px', marginTop: '4px' } }, `ランク: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`));
   const active = world.contracts.filter((c) => !c.done && !c.failed);
-  if (active.length) box.append(h('div', { class: 'section' }, '大口注文'), active.map((c) => contractEl(world, c)));
+  if (active.length) add(box, h('div', { class: 'section' }, '大口注文'), active.map((c) => contractEl(world, c)));
   // 全部の町の相場（知っている範囲）
-  box.append(h('div', { class: 'section' }, '知っている相場'));
+  add(box, h('div', { class: 'section' }, '知っている相場'));
   const t = h('table', { class: 'prices-table' });
-  t.append(h('tr', {}, h('th', {}, '町'), ...sc.goods.map((g) => h('th', { title: GOODS[g].name }, goodIcon(g, 'icon-sm')))));
+  add(t, h('tr', {}, h('th', {}, '町'), ...sc.goods.map((g) => h('th', { title: GOODS[g].name }, goodIcon(g, 'icon-sm')))));
   for (const c of Object.values(world.cities)) {
     const k = world.player.knowledge[c.id];
     const age = G.knowledgeAge(world, c.id);
     const cls = age === null ? 'faint' : age <= 3 ? 'age-fresh' : age <= 15 ? 'age-old' : 'age-stale';
-    t.append(h('tr', { style: { cursor: 'pointer' }, onclick: () => { app.state.selCity = c.id; app.render(); } },
+    add(t, h('tr', { style: { cursor: 'pointer' }, onclick: () => { app.state.selCity = c.id; app.render(); } },
       h('td', {}, c.name, h('div', { class: cls, style: { fontSize: '10px' } }, age === null ? '未訪問' : age === 0 ? '今' : `${age}日前`)),
       ...sc.goods.map((g) => {
         const p = k?.prices?.[g];
@@ -167,14 +175,14 @@ function overview(app) {
         return h('td', { class: `num ${p < GOODS[g].base * 0.75 ? 'good' : p > GOODS[g].base * 1.35 ? 'bad' : ''}`, style: want ? {} : { opacity: 0.4 } }, fmt(p, p < 10 ? 1 : 0));
       })));
   }
-  box.append(h('div', { class: 'table-scroll' }, t), h('div', { class: 'faint', style: { fontSize: '11px' } }, '緑=安い（仕入れどき）、赤=高い（売りどき）。情報は商人が最後にいたときのもの。'));
+  add(box, h('div', { class: 'table-scroll' }, t), h('div', { class: 'faint', style: { fontSize: '11px' } }, '緑=安い（仕入れどき）、赤=高い（売りどき）。情報は商人が最後にいたときのもの。'));
   // 定期便
   const orders = world.player.merchants.filter((m) => m.order);
   if (orders.length) {
-    box.append(h('div', { class: 'section' }, '定期便の成績'));
+    add(box, h('div', { class: 'section' }, '定期便の成績'));
     for (const m of orders) {
       const days = Math.max(1, world.day - m.order.since);
-      box.append(h('div', { class: 'dim', style: { fontSize: '12px' } }, `${m.name}: ${m.order.stops.map((s) => world.cities[s.city].name).join('→')} `, h('span', { class: (m.order.profit || 0) >= 0 ? 'good' : 'bad' }, `${fmt(m.order.profit || 0)}銀（${fmt((m.order.profit || 0) / days, 1)}/日）`), m.order.paused ? ' 停止中' : ''));
+      add(box, h('div', { class: 'dim', style: { fontSize: '12px' } }, `${m.name}: ${m.order.stops.map((s) => world.cities[s.city].name).join('→')} `, h('span', { class: (m.order.profit || 0) >= 0 ? 'good' : 'bad' }, `${fmt(m.order.profit || 0)}銀（${fmt((m.order.profit || 0) / days, 1)}/日）`), m.order.paused ? ' 停止中' : ''));
     }
   }
   return box;
@@ -194,7 +202,7 @@ export function departDialog(app, mid, to) {
   const body = h('div', {});
   const draw = () => {
     clear(body);
-    body.append(
+    add(body, 
       h('div', {}, `${route.path.map((id) => world.cities[id].name).join(' → ')}`),
       h('div', { class: 'total-big' }, `約 ${route.days} 日`),
       route.edges.some((e) => e.monsoon) ? h('div', { class: 'dim' }, `季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（追い風なら速く、向かい風なら遅い）`) : null,
@@ -248,23 +256,23 @@ export function orderDialog(app, mid) {
   const goodOpts = (sel) => goods.map((g) => h('option', { value: g, selected: g === sel || undefined }, GOODS[g].name));
   const draw = () => {
     clear(body);
-    body.append(h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。'));
+    add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。'));
     stops.forEach((st, i) => {
       const box = h('div', { class: 'order-stop' });
-      box.append(h('div', { class: 'row' }, h('b', {}, `${i + 1}.`), h('select', { onchange: (e) => { st.city = e.target.value; } }, cityOpts(st.city)),
+      add(box, h('div', { class: 'row' }, h('b', {}, `${i + 1}.`), h('select', { onchange: (e) => { st.city = e.target.value; } }, cityOpts(st.city)),
         h('span', { style: { flex: 1 } }), stops.length > 2 ? h('button', { class: 'btn tiny danger', onclick: () => { stops.splice(i, 1); draw(); } }, '削除') : null));
-      (st.sell ||= []).forEach((x, j) => box.append(h('div', { class: 'row' }, '売る', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), '最低', h('input', { type: 'number', step: '0.1', value: x.min, onchange: (e) => { x.min = Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.sell.splice(j, 1); draw(); } }, '✕'))));
-      (st.buy ||= []).forEach((x, j) => box.append(h('div', { class: 'row' }, '買う', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), h('input', { type: 'number', value: x.qty, onchange: (e) => { x.qty = Number(e.target.value); } }), '個まで、上限', h('input', { type: 'number', step: '0.1', value: x.max === Infinity ? '' : x.max, onchange: (e) => { x.max = e.target.value === '' ? Infinity : Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.buy.splice(j, 1); draw(); } }, '✕'))));
+      (st.sell ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '売る', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), '最低', h('input', { type: 'number', step: '0.1', value: x.min, onchange: (e) => { x.min = Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.sell.splice(j, 1); draw(); } }, '✕'))));
+      (st.buy ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '買う', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), h('input', { type: 'number', value: x.qty, onchange: (e) => { x.qty = Number(e.target.value); } }), '個まで、上限', h('input', { type: 'number', step: '0.1', value: x.max === Infinity ? '' : x.max, onchange: (e) => { x.max = e.target.value === '' ? Infinity : Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.buy.splice(j, 1); draw(); } }, '✕'))));
       if (world.player.warehouses[st.city]) {
-        box.append(h('div', { class: 'row' }, '倉庫:', h('label', {}, '下ろす ', h('select', { onchange: (e) => { st.unload = e.target.value ? [e.target.value] : []; } }, h('option', { value: '' }, '—'), goodOpts((st.unload || [])[0]))),
+        add(box, h('div', { class: 'row' }, '倉庫:', h('label', {}, '下ろす ', h('select', { onchange: (e) => { st.unload = e.target.value ? [e.target.value] : []; } }, h('option', { value: '' }, '—'), goodOpts((st.unload || [])[0]))),
           h('label', {}, ' 積む ', h('select', { onchange: (e) => { st.load = e.target.value ? [e.target.value] : []; } }, h('option', { value: '' }, '—'), goodOpts((st.load || [])[0])))));
       }
-      box.append(h('div', { class: 'row' },
+      add(box, h('div', { class: 'row' },
         h('button', { class: 'btn tiny', onclick: () => { st.sell.push({ good: goods[0], min: GOODS[goods[0]].base * 0.8 }); draw(); } }, '+ 売る品'),
         h('button', { class: 'btn tiny', onclick: () => { st.buy.push({ good: goods[0], qty: 20, max: GOODS[goods[0]].base }); draw(); } }, '+ 買う品')));
-      body.append(box);
+      add(body, box);
     });
-    body.append(h('button', { class: 'btn small', onclick: () => { stops.push({ city: Object.keys(world.cities)[0], buy: [], sell: [] }); draw(); } }, '+ 停泊地を追加'));
+    add(body, h('button', { class: 'btn small', onclick: () => { stops.push({ city: Object.keys(world.cities)[0], buy: [], sell: [] }); draw(); } }, '+ 停泊地を追加'));
   };
   draw();
   modal(app, `${m.name}の定期便`, body, (close) => [
@@ -328,7 +336,7 @@ export function resultDialog(app) {
   let chosen = null;
   const body = h('div', { class: 'result' });
   if (f.win) {
-    body.append(h('img', { class: 'rank-img', src: `assets/svg/ui/rank-${f.rank.toLowerCase()}.svg`, alt: `ランク${f.rank}` }),
+    add(body, h('img', { class: 'rank-img', src: `assets/svg/ui/rank-${f.rank.toLowerCase()}.svg`, alt: `ランク${f.rank}` }),
       h('h2', { style: { fontFamily: 'var(--font-title)', fontSize: '30px', margin: '6px 0' } }, `ランク ${f.rank}`),
       h('div', { class: 'dim' }, `${f.day}日目に達成（期限 ${sc.deadline}日、S基準 ${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日）`),
       h('div', { class: 'total-big', style: { margin: '6px 0' } }, `資産 ${fmt(f.score)} 銀`),
@@ -337,13 +345,13 @@ export function resultDialog(app) {
       const hb = h('div', { class: 'heirlooms' });
       const draw = () => {
         clear(hb);
-        for (const [k, x] of Object.entries(HEIRLOOMS)) hb.append(h('div', { class: `heirloom ${chosen === k ? 'sel' : ''}`, onclick: () => { chosen = k; draw(); } }, h('b', {}, x.name), x.text));
+        for (const [k, x] of Object.entries(HEIRLOOMS)) add(hb, h('div', { class: `heirloom ${chosen === k ? 'sel' : ''}`, onclick: () => { chosen = k; draw(); } }, h('b', {}, x.name), x.text));
       };
       draw();
-      body.append(h('div', { class: 'section', style: { marginTop: '14px' } }, '家訓を1つ選んで次の世代へ受け継ぐ（重ねがけできる）'), hb);
+      add(body, h('div', { class: 'section', style: { marginTop: '14px' } }, '家訓を1つ選んで次の世代へ受け継ぐ（重ねがけできる）'), hb);
     }
   } else {
-    body.append(h('img', { class: 'rank-img', src: 'assets/svg/ui/rank-c.svg', alt: 'ランクC' }), h('h2', {}, '期限切れ'),
+    add(body, h('img', { class: 'rank-img', src: 'assets/svg/ui/rank-c.svg', alt: 'ランクC' }), h('h2', {}, '期限切れ'),
       h('div', { class: 'dim' }, G.goalsStatus(world).filter((g) => !g.done).map((g) => g.text).join(' / ')));
   }
   modal(app, f.win ? '目標達成！' : 'シナリオ失敗', body, (close) => [
@@ -363,12 +371,12 @@ export function titleScreen(app) {
     const sc = SCENARIOS[id];
     const unlocked = i === 0 || camp.cleared[SCENARIO_ORDER[i - 1]];
     const rank = camp.cleared[id];
-    list.append(h('div', { class: `scen ${unlocked ? '' : 'locked'}`, onclick: () => unlocked && (el.remove(), app.startScenario(id)) },
+    add(list, h('div', { class: `scen ${unlocked ? '' : 'locked'}`, onclick: () => unlocked && (el.remove(), app.startScenario(id)) },
       rank ? h('img', { class: 'rank', src: `assets/svg/ui/rank-${rank.toLowerCase()}.svg`, alt: rank }) : null,
       h('div', { class: 'no' }, `シナリオ ${sc.no}`), h('h3', {}, sc.title), h('p', {}, unlocked ? sc.intro : '前のシナリオを達成すると遊べる')));
   }
   const hasSave = app.hasSave();
-  el.append(
+  add(el, 
     h('img', { class: 'logo', src: 'assets/svg/ui/logo.svg', alt: '' }),
     h('h1', {}, '糖商記'),
     h('div', { class: 'sub' }, 'GREAT GLUCOSE EMPIRE'),
@@ -379,7 +387,7 @@ export function titleScreen(app) {
       h('button', { class: 'btn', title: '毎回ちがう地図で遊ぶ', onclick: () => { el.remove(); app.startScenario('free'); } }, 'フリープレイ（ランダムな地図）'),
       h('button', { class: 'btn ghost', onclick: () => helpDialog(app) }, '遊び方')),
     list,
-    camp.heirlooms.length ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `受け継いだ家訓: ${camp.heirlooms.map((k) => HEIRLOOMS[k].name).join('・')}`) : null);
-  document.body.append(el);
+    camp.heirlooms.length ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `受け継いだ家訓: ${camp.heirlooms.map((k) => HEIRLOOMS[k].name).join('・')}`) : '');
+  add(document.body, el);
   return el;
 }

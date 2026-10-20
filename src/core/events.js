@@ -5,6 +5,7 @@ import { chance, pick, randInt, nextRandom } from './rng.js';
 import { cityTier, dailyDemand } from './city.js';
 import { midPrice } from './market.js';
 import { TRANSPORTS } from '../data/transports.js';
+import { BUILDINGS } from '../data/buildings.js';
 
 // 通知を積む。UI と CLI はここから演出を取り出す。
 export function emit(world, ev) {
@@ -159,9 +160,11 @@ function rollContract(world) {
   const cities = Object.values(world.cities).filter((c) => cityTier(c) >= 1 || world.scenario.contractsAnyTier);
   if (!cities.length) return;
   const city = pick(world, cities);
-  const ids = world.scenario.goods.filter((id) => dailyDemand(city, id, false) > 0 && !(city.produces?.[id] > 0));
+  const obtainable = (id) => Object.values(world.cities).some((c) => c.produces?.[id] > 0) || (world.scenario.buildings || []).some((b) => BUILDINGS[b]?.recipes?.some((r) => r.out[id]));
+  const ids = world.scenario.goods.filter((id) => dailyDemand(city, id, false) > 0 && !(city.produces?.[id] > 0) && obtainable(id));
   if (!ids.length) return;
   const id = pick(world, ids);
+  const where = Object.values(world.cities).filter((c) => c.produces?.[id] > 0).map((c) => c.name);
   const capTotal = world.player.merchants.reduce((s, m) => s + TRANSPORTS[m.transport].cap, 0);
   const qty = Math.max(5, Math.min(Math.round(capTotal * 0.8), Math.round((randInt(world, 15, 40) * 10) / Math.max(4, GOODS[id].base))));
   // 一番近い商人から往復できる日数 + 余裕
@@ -174,7 +177,7 @@ function rollContract(world) {
   const reward = Math.round(qty * GOODS[id].base * 0.8 + 40);
   const c = { id: world.nextId++, city: city.id, good: id, qty, delivered: 0, deadline: world.day + days, reward };
   world.contracts.push(c);
-  emit(world, { type: 'contract', city: city.id, contract: c.id, rare: true, text: `大口注文: ${city.name}が${GOODS[id].name}を${qty}個求めている（${days}日以内、報酬 ${reward} 銀）` });
+  emit(world, { type: 'contract', city: city.id, contract: c.id, rare: true, text: `大口注文: ${city.name}が${GOODS[id].name}を${qty}個求めている（${days}日以内、報酬 ${reward} 銀）。${where.length ? `産地: ${where.join('、')}` : '工房でつくれる'}` });
 }
 
 function expireContracts(world) {
