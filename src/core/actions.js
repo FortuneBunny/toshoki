@@ -56,7 +56,7 @@ export function trade(world, mid, lines) {
 export function travel(world, mid, to, { guards = 0 } = {}) {
   const [m, err] = idle(world, mid);
   if (err) return err;
-  if (!world.cities[to]) return fail(`不明な町: ${to}`);
+  if (!world.cities[to]) return fail(`不明な町: ${to}（町: ${Object.values(world.cities).map((c) => `${c.name}=${c.id}`).join('、')}。日本語の名前でもよい）`);
   if (to === m.city) return fail('すでにその町にいる');
   if (guards < 0 || guards > 12) return fail('護衛は0〜12人');
   m.guards = Math.floor(guards);
