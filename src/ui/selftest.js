@@ -76,6 +76,15 @@ async function selftestWorkshop(app, { step, click, wait, log, errors }) {
   await step('製糖所ができた', () => { if (!w().player.buildings.length) throw new Error('なし'); });
   await step('粗糖を倉庫に入れる', () => { w().player.warehouses.toumitsu.stock.rawsugar = 10; });
   await step('数日進める', async () => { app.state.speed = 3; await wait(2500); app.state.speed = 0; });
+  await step('道を敷く: ボタンから相手の町を選んで確定', () => {
+    app.state.selCity = 'toumitsu'; app.render();
+    click('.side .btn', '街道を敷く');
+    if (!app.state.roadPick) throw new Error('道の選択に入らない');
+    app.clickCity('natsu');
+    const before = w().edges.length;
+    click('footer .btn', '決定');
+    if (w().edges.length !== before + 1) throw new Error('道が増えない');
+  });
   await step('白糖ができた', () => { if (!(w().stats.produced.whitesugar > 0)) throw new Error(`produced ${JSON.stringify(w().stats.produced)}`); });
   await step('交易画面に倉庫が出る', () => { click('.mcard .btn', '交易'); if (!document.body.textContent.includes('自分の倉庫')) throw new Error('倉庫なし'); });
   await step('倉庫から積む', () => click('.btn', '« 積む'));

@@ -64,6 +64,68 @@ function parseArgs(argv) {
   return { opts, pos };
 }
 
+// 今いる町: --at、または商人のいる町が1つならそこ
+function hereCity(world, opts) {
+  if (opts.at) return opts.at;
+  if (opts.merchant) return pickMerchant(world, opts).city;
+  const cs = [...new Set(world.player.merchants.filter((m) => !m.travel).map((m) => m.city))];
+  if (cs.length === 1) return cs[0];
+  return pickMerchant(world, opts).city;
+}
+// 日本語の町の名前を id に
+function cityArg(world, s) {
+  if (!s || world.cities[s]) return s;
+  const c = Object.values(world.cities).find((x) => x.name === s);
+  return c ? c.id : s;
+}
+
+const WORLD_CH = ['.', '"', ':', 'n', '^', '~'];
+function lookText(world, cx, cy, r = 12) {
+  const g = world.grid;
+  const rows = [`■ ${cx},${cy} のまわり（. 平地  " 肥えた土地  : 砂地  n 丘  ^ 山  ~ 水  - 小道  = 街道  ! 危険  @ 町）`];
+  const names = [];
+  for (let y = cy - r; y <= cy + r; y++) {
+    let line = '';
+    for (let x = cx - r * 2; x <= cx + r * 2; x++) {
+      if (x < 0 || y < 0 || x >= G.GRID_W || y >= G.GRID_H) { line += ' '; continue; }
+      const k = G.gridKey(x, y);
+      const id = g.cityAt.get(k);
+      if (id) { line += '@'; names.push(`@(${x},${y}) ${world.cities[id].name}(${id})`); continue; }
+      if (world.player.merchants.some((m) => { const [px, py] = m.travel ? [m.travel.tiles[m.travel.i][0], m.travel.tiles[m.travel.i][1]] : g.cityTiles[m.city]; return px === x && py === y; })) { line += 'M'; continue; }
+      line += g.path[k] === 2 ? '=' : g.path[k] === 1 ? (g.danger[k] ? '!' : '-') : WORLD_CH[g.terrain[k]];
+    }
+    rows.push(line);
+  }
+  if (names.length) rows.push(names.join('  '));
+  return rows.join('\n');
+}
+function overviewText(world) {
+  const g = world.grid;
+  const rows = ['■ 世界の地図（4×4マスを1文字。英字は町、~ 水、^ 山、: 砂、= 道）'];
+  const letters = {};
+  Object.keys(world.cities).forEach((id, i) => { letters[id] = String.fromCharCode(65 + i); });
+  for (let y = 0; y < G.GRID_H; y += 4) {
+    let line = '';
+    for (let x = 0; x < G.GRID_W; x += 2) {
+      let ch = null;
+      const cnt = [0, 0, 0, 0, 0, 0];
+      let road = 0;
+      for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 2; dx++) {
+        const k = G.gridKey(x + dx, y + dy);
+        const id = g.cityAt.get(k);
+        if (id) ch = letters[id];
+        cnt[g.terrain[k]]++;
+        if (g.path[k]) road++;
+      }
+      if (!ch) ch = road ? '=' : WORLD_CH[cnt.indexOf(Math.max(...cnt))];
+      line += ch;
+    }
+    rows.push(line);
+  }
+  rows.push(Object.entries(letters).map(([id, l]) => `${l}=${world.cities[id].name}(${id})`).join('  '));
+  return rows.join('\n');
+}
+
 function pickMerchant(world, opts) {
   const ms = world.player.merchants;
   if (opts.merchant) {
@@ -389,6 +451,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   prices            知っている全部の町の相場と、その情報の古さ
   city <町id>       町の詳細（糖度、人口、特産、需要、道）
   map               町と道の一覧
+  overview          世界の地図を文字で（縮小）
+  look [町|x,y]     その辺りの地図を文字で（1文字=1マス）
   district [町id]   町の区画（マス目）。建物・地形・資源と市場の圏
   buildable [町id]  その町に置ける生産施設と、置けるマスの候補
   merchants         商人の一覧
@@ -411,6 +475,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   load <品物> <数|all>                 倉庫 → 商人 へ積む（例: load whitesugar all）
   unload <品物> <数|all>               商人 → 倉庫 へ下ろす（工房の材料を入れる。例: unload cane all）
   road <道の番号> [confirm]            小道を街道に整備する
+  path <町> <町> trail|road|canal [confirm]  2つの町を結ぶ道を敷く（小道・街道・運河。経路は自動で一番安い所を通る）
+  port [confirm]                       水辺の町に港を開く（船が着ける）
   place <種類> <座標> [confirm]        区画に生産施設を置く（例: place wheat_farm C5 confirm）。町の供給が増える
   demolish <座標> [confirm]            自分が置いた施設を取り壊す
   expand [confirm]                     市場の圏を1マス広げる（置ける場所が増える）
@@ -432,6 +498,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   heirlooms                            家訓の一覧（利点と代償、解放の条件）。new --heirloom <家訓> で1つだけ持っていける
 
 --json を付けると結果を JSON で出す。
+町は id でも日本語の名前でも指定できる。商人が複数いても、place・expand・civic・donate・port は今いる町が1つなら自動で選ぶ（--at <町> でも指定できる）。
 -m <番号> はコマンドのどこに書いてもよい。続けて打つときは ; ではなく && でつなぐと、失敗したところで止まる。`;
 
 
@@ -440,6 +507,9 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
 function run(world, cmd, pos, opts) {
   const res = { text: '', data: null, world };
   const out = [];
+  // 町は日本語の名前でも指定できる
+  pos = pos.map((p) => cityArg(world, p));
+  if (opts.at) opts.at = cityArg(world, opts.at);
   const after = (r) => {
     if (r && r.ok === false) throw new Error(r.error);
     return r;
@@ -450,6 +520,42 @@ function run(world, cmd, pos, opts) {
     case 'prices': out.push(pricesText(world)); break;
     case 'city': out.push(cityText(world, pos[0] || pickMerchant(world, opts).city)); break;
     case 'map': out.push(mapText(world)); break;
+    case 'overview': out.push(overviewText(world)); break;
+    case 'look': {
+      let x;
+      let y;
+      if (pos[0] && /^\d+,\d+$/.test(pos[0])) [x, y] = pos[0].split(',').map(Number);
+      else {
+        const id = cityArg(world, pos[0]) || hereCity(world, opts);
+        if (!world.grid.cityTiles[id]) throw new Error('町か x,y を指定');
+        [x, y] = world.grid.cityTiles[id];
+      }
+      out.push(lookText(world, x, y));
+      break;
+    }
+    case 'path': {
+      const [a, b, kind] = [cityArg(world, pos[0]), cityArg(world, pos[1]), pos[2]];
+      if (!world.cities[a] || !world.cities[b] || !G.PATH_KINDS[kind]) throw new Error('path <町> <町> trail|road|canal [confirm]');
+      const why = G.pathCheck(world, kind);
+      if (why) throw new Error(why);
+      const plan = G.planPath(world, a, b, kind);
+      if (!plan) throw new Error('その2つの町は結べない（山や海を越えられない）');
+      if (pos[3] !== 'confirm') {
+        out.push(`${world.cities[a].name}〜${world.cities[b].name}に${G.PATH_KINDS[kind].name}: 新しく${plan.newTiles}マス、${plan.cost}銀（${G.PATH_KINDS[kind].note}）。敷いた道 ${G.pathsBuilt(world)}/${G.pathsAllowed(world)}本。確定するには: path ${pos[0]} ${pos[1]} ${kind} confirm`);
+        for (const t of world.allowedTransports) { const r = G.findPath(world, a, b, t); out.push(`  今の${TRANSPORTS[t].name}: ${r ? `約${r.days}日` : '行けない'}`); }
+        break;
+      }
+      const r = after(G.buildPath(world, a, b, kind));
+      out.push(`敷いた（${r.tiles}マス、${r.cost}銀）`);
+      for (const t of world.allowedTransports) { const rr = G.findPath(world, a, b, t); if (rr) out.push(`  ${TRANSPORTS[t].name}: 約${rr.days}日`); }
+      break;
+    }
+    case 'port': {
+      const at = hereCity(world, opts);
+      if (pos[0] !== 'confirm') { const why = G.portCheck(world, at); out.push(why ? `✖ ${why}` : `${world.cities[at].name}に港を開く: ${Math.round(G.PORT_COST * (world.player.mods?.buildCost ?? 1))}銀。確定するには: port confirm`); break; }
+      out.push(`港を開いた（${after(G.buildPort(world, at)).cost}銀）`);
+      break;
+    }
     case 'merchants': out.push(world.player.merchants.map((m) => merchantLine(world, m)).join('\n')); break;
     case 'route': {
       const m = pickMerchant(world, opts);
@@ -639,7 +745,7 @@ function run(world, cmd, pos, opts) {
       break;
     }
     case 'donate': {
-      const m = opts.at ? { city: opts.at } : needIdle(world, opts);
+      const m = { city: hereCity(world, opts) };
       if (!world.cities[m.city]) throw new Error(`不明な町: ${m.city}`);
       const cost = G.donateCost(world, m.city);
       if (pos[0] !== 'confirm') { out.push(`${world.cities[m.city].name}への寄進: ${cost}銀。${G.BALANCE.donateDays}日間、成長が${Math.round((G.BALANCE.donateGrowth - 1) * 100)}%早まる（糖度が40以上で成長しているときだけ）。確定するには: donate confirm`); break; }
@@ -647,14 +753,14 @@ function run(world, cmd, pos, opts) {
       break;
     }
     case 'district': out.push(districtText(world, pos[0] || pickMerchant(world, opts).city || pickMerchant(world, opts).travel?.to)); break;
-    case 'buildable': out.push(buildableText(world, pos[0] || opts.at || pickMerchant(world, opts).city)); break;
+    case 'buildable': out.push(buildableText(world, cityArg(world, pos[0]) || hereCity(world, opts))); break;
     case 'place': {
       const type = pos[0];
       const p = G.PRODUCERS[type];
       if (!p) throw new Error(`種類を指定（一覧は buildable）`);
       const xy = G.parseCoord(pos[1]);
       if (!xy) throw new Error('座標を A1〜L12 の形で指定（区画は district で見られる）');
-      const at = opts.at || pickMerchant(world, opts).city;
+      const at = hereCity(world, opts);
       if (!at) throw new Error('どの町か --at <町id> で指定する');
       const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
       if (pos[2] !== 'confirm') {
@@ -671,7 +777,7 @@ function run(world, cmd, pos, opts) {
       const cv = G.CIVICS[type];
       if (!cv) throw new Error(`種類を指定: ${Object.entries(G.CIVICS).map(([k, x]) => `${k}（${x.name}）`).join('、')}`);
       const xy = pos[1] && pos[1] !== 'confirm' ? G.parseCoord(pos[1]) : null;
-      const at = opts.at || pickMerchant(world, opts).city;
+      const at = hereCity(world, opts);
       if (!pos.includes('confirm')) {
         const why = G.civicCheck(world, at, type);
         out.push(why ? `✖ ${why}` : `${world.cities[at].name}に${cv.name}: ${G.civicCost(world, type)}銀。求める品 ${G.civicWants(type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}。届けるほど成長 最大+${Math.round(cv.growth * 100)}%・${cv.effect}。確定するには: civic ${type}${xy ? ' ' + pos[1] : ''} confirm`);
@@ -683,14 +789,14 @@ function run(world, cmd, pos, opts) {
     case 'demolish': {
       const xy = G.parseCoord(pos[0]);
       if (!xy) throw new Error('座標を A1〜L12 の形で指定');
-      const at = opts.at || pickMerchant(world, opts).city;
+      const at = hereCity(world, opts);
       if (pos[1] !== 'confirm') { out.push(`${pos[0]} の建物を取り壊す（費用は戻らない）。確定するには: demolish ${pos[0]} confirm`); break; }
       after(G.demolish(world, at, xy[0], xy[1]));
       out.push('取り壊した');
       break;
     }
     case 'expand': {
-      const at = opts.at || pickMerchant(world, opts).city;
+      const at = hereCity(world, opts);
       if (pos[0] !== 'confirm') { out.push(`${world.cities[at].name}の市場の圏を1マス広げる: ${G.expandCost(world, at)}銀。確定するには: expand confirm`); break; }
       out.push(`広げた（${after(G.expandMarket(world, at)).cost}銀）`);
       break;

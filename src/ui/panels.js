@@ -104,6 +104,16 @@ function cityPanel(app, id) {
     }
     if (opts.length) add(box, h('div', { class: 'section' }, '地図の上で建てる'), h('div', { class: 'chips' }, opts));
   }
+  // 道を敷く・港を開く
+  if (G.hasPresence(world, id)) {
+    const ways = [];
+    for (const kind of Object.keys(G.PATH_KINDS)) {
+      if (G.pathCheck(world, kind)) continue;
+      ways.push(h('button', { class: 'btn tiny', title: G.PATH_KINDS[kind].note, onclick: () => app.startPath(id, kind) }, `${G.PATH_KINDS[kind].name}を敷く`));
+    }
+    if (!G.portCheck(world, id)) ways.push(h('button', { class: 'btn tiny', title: '船が着けるようになる', onclick: () => app.confirm('港を開く', `${c.name}に港を開く: ${Math.round(G.PORT_COST * (world.player.mods?.buildCost ?? 1))}銀`, () => app.run(() => G.buildPort(world, id), 'road')) }, `港を開く ${G.PORT_COST}`));
+    if (ways.length) add(box, h('div', { class: 'section' }, `道と港（敷いた道 ${G.pathsBuilt(world)}/${G.pathsAllowed(world)}本）`), h('div', { class: 'chips' }, ways));
+  }
   if (here.length) {
     const max = world.scenario.maxMerchants ?? 4;
     if (world.player.merchants.length < max) {

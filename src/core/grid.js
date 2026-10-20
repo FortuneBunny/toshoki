@@ -109,6 +109,8 @@ export function buildGrid(world) {
   // 最初の道: シナリオの道をマスの上に敷く（海の道は敷かない＝船は水の上を自由に進む）
   const ordered = [...world.edges].sort((x, y) => (x.kind === 'sea' ? 0 : 1) - (y.kind === 'sea' ? 0 : 1));
   for (const e of ordered) {
+    // プレイヤーが敷いた道は、保存してある変化（gridMods）で戻す
+    if (e.built) { grid.edgeTiles[e.id] = e.tiles || []; continue; }
     if (e.kind === 'sea') {
       // 港どうしを水でつなぐ。陸を横切る所は水路にする（町のマスはそのまま）
       const tiles = astar(cityTiles[e.a], cityTiles[e.b], (k) => (grid.terrain[k] === T.WATER ? 1 : grid.cityAt.has(k) ? 1 : 6)) || straightLine(cityTiles[e.a], cityTiles[e.b]);
@@ -128,7 +130,10 @@ export function buildGrid(world) {
     grid.edgeTiles[e.id] = tiles;
   }
   // 後から敷いた道（セーブに残っている変化）
-  for (const m of world.gridMods || []) if (m.path !== undefined) grid.path[key(m.x, m.y)] = m.path;
+  for (const m of world.gridMods || []) {
+    if (m.terrain !== undefined) grid.terrain[key(m.x, m.y)] = m.terrain;
+    if (m.path !== undefined) grid.path[key(m.x, m.y)] = m.path;
+  }
   return grid;
 }
 

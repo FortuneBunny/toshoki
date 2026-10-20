@@ -312,10 +312,35 @@ function buildAt(wx, wy) {
   const r = b.kind === 'civic' ? app.run(() => G.buildCivic(app.world, b.city, b.type, xy), 'build') : app.run(() => G.placeProducer(app.world, b.city, b.type, xy[0], xy[1]), 'build');
   if (r.ok) { app.state.build = null; app.render(); }
 }
-app.clickCity = (id) => onCityClick(id);
 app.buildAt = (wx, wy) => buildAt(wx, wy);
+// 道を敷く: 町のパネルで種類を選び、地図で相手の町を選ぶ
+app.startPath = (from, kind) => {
+  app.state.roadPick = { from, kind };
+  app.state.pick = null;
+  setSpeed(0);
+  fx.toast(`${G.PATH_KINDS[kind].name}でつなぐ相手の町を地図で選ぶ（Esc でやめる）`, { icon: 'ui/workshop' });
+  app.render();
+};
+function finishPath(to) {
+  const { from, kind } = app.state.roadPick;
+  app.state.roadPick = null;
+  app.state.hoverRoute = null;
+  if (to === from) return app.render();
+  const plan = G.planPath(app.world, from, to, kind);
+  if (!plan) return app.error('その2つの町は結べない（山や海を越えられない）');
+  if (!plan.newTiles) return app.error('もうその道でつながっている');
+  const W = app.world;
+  const before = W.allowedTransports.map((t) => [t, G.findPath(W, from, to, t)?.days]);
+  app.confirm(`${G.PATH_KINDS[kind].name}を敷く`, h('div', {},
+    h('p', {}, `${W.cities[from].name}〜${W.cities[to].name}: 新しく${plan.newTiles}マス、`, h('b', {}, `${plan.cost}銀`), `（手持ち ${Math.floor(W.player.silver)}銀）`),
+    h('p', { class: 'muted' }, `${G.PATH_KINDS[kind].note}。敷いた道 ${G.pathsBuilt(W)}/${G.pathsAllowed(W)}本`),
+    h('p', { class: 'muted' }, `今の日数: ${before.map(([t, d]) => `${G.TRANSPORTS[t].name} ${d ? `約${d}日` : '行けない'}`).join('・')}`)),
+  () => app.run(() => G.buildPath(W, from, to, kind), 'road'));
+}
+app.clickCity = (id) => onCityClick(id);
 function onCityClick(id) {
   const st = app.state;
+  if (st.roadPick) return finishPath(id);
   if (st.pick) {
     if (st.pick.days[id] === undefined) return app.error('その町へは行けない');
     const mid = st.pick.mid;
@@ -510,11 +535,18 @@ document.addEventListener('keydown', (e) => {
   if (['1', '2', '3'].includes(e.key) && app.state.modals === 0) setSpeed(Number(e.key));
   if (e.key === 'Escape' && app.state.pick) { app.state.pick = null; app.state.hoverRoute = null; app.render(); }
   if (e.key === 'Escape' && app.state.build) { app.state.build = null; app.render(); }
+  if (e.key === 'Escape' && app.state.roadPick) { app.state.roadPick = null; app.state.hoverRoute = null; app.render(); }
 });
 
 // 行き先を選んでいる間は、カーソルの町までの経路を光らせる
 function hoverRouteTo(id) {
   const st = app.state;
+  if (st.roadPick && app.world) {
+    const plan = id && id !== st.roadPick.from ? G.planPath(app.world, st.roadPick.from, id, st.roadPick.kind) : null;
+    st.hoverRoute = plan ? { tiles: plan.tiles } : null;
+    app.map.update(app.world, st);
+    return;
+  }
   if (!st.pick || !app.world) return;
   const m = G.getMerchant(app.world, st.pick.mid);
   st.hoverRoute = id && m && id !== m.city ? G.findPath(app.world, m.city, id, m.transport) : null;

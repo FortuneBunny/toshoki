@@ -220,3 +220,17 @@ test('マス目: 移動中の商人は経路のマスを進み、到着する', 
   assert.ok(adv.events.some((e) => e.type === 'arrive'));
   assert.equal(m.city, 'kohaku');
 });
+
+test('道を敷く: 新しい街道で日数が縮み、セーブとロードで残る', () => {
+  const w = G.createWorld('s3', { seed: 1 });
+  w.player.silver = 5000;
+  const before = G.findPath(w, 'hachi', 'suitou', 'donkey').days;
+  assert.equal(G.findPath(w, 'hachi', 'suitou', 'cart'), null, '最初は荷車で行けない');
+  const r = G.buildPath(w, 'hachi', 'suitou', 'road');
+  assert.ok(r.ok, r.error);
+  assert.ok(G.findPath(w, 'hachi', 'suitou', 'cart'), '街道で荷車が通れる');
+  assert.ok(G.findPath(w, 'hachi', 'suitou', 'donkey').days <= before);
+  const w2 = G.deserialize(G.serialize(w));
+  assert.ok(G.findPath(w2, 'hachi', 'suitou', 'cart'), 'ロード後も街道がある');
+  assert.equal(G.buildPath(G.createWorld('s2', { seed: 1 }), 'mugi', 'kohaku', 'road').ok, false, 's2 では道を敷けない');
+});
