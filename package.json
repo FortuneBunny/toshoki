@@ -1,0 +1,15 @@
+{
+  "name": "toshoki",
+  "version": "0.1.0",
+  "description": "糖商記 〜Great Glucose Empire〜 — 糖を商う交易シミュレーション",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/",
+    "play": "node cli/toshoki.js",
+    "svg:check": "node tools/validate-svg.js assets/svg",
+    "bots": "node tools/sim-bots.js",
+    "serve": "node tools/serve.js"
+  },
+  "license": "MIT"
+}

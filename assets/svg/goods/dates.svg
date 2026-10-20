@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<defs>
+<g id="dates-fruit">
+<ellipse rx="5.6" ry="8" fill="#a65a1b"/>
+<path d="M3.8-3.5A4 6.5 0 0 1 0 6" fill="none" stroke="#6e3814" stroke-width="2.6"/>
+<ellipse cx="-2" cy="-3" rx="1.3" ry="2.6" fill="#e39a4f" stroke="none"/>
+</g>
+</defs>
+<g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M32 5V14M32 14L22 22M32 14L42 22M32 14V30M26 30L20 36M38 30L44 36M32 30L26 44M32 30L38 44" fill="none" stroke-width="6"/>
+<path d="M32 5V14M32 14L22 22M32 14L42 22M32 14V30M26 30L20 36M38 30L44 36M32 30L26 44M32 30L38 44" fill="none" stroke="#f2a93b" stroke-width="1.6"/>
+<use href="#dates-fruit" transform="translate(23 25) rotate(15)"/>
+<use href="#dates-fruit" transform="translate(41 25) rotate(-15)"/>
+<use href="#dates-fruit" transform="translate(32 28)"/>
+<use href="#dates-fruit" transform="translate(16 39) rotate(20)"/>
+<use href="#dates-fruit" transform="translate(48 39) rotate(-20)"/>
+<use href="#dates-fruit" transform="translate(27 42) rotate(8)"/>
+<use href="#dates-fruit" transform="translate(38 43) rotate(-8)"/>
+<use href="#dates-fruit" transform="translate(32 52)"/>
+</g>
+</svg>

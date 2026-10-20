@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="rush-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd166" stop-opacity="0.9"/>
+      <stop offset="0.5" stop-color="#f2a93b" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#f2a93b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="rush-core" cx="0.42" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#ffd166"/>
+      <stop offset="1" stop-color="#f2a93b"/>
+    </radialGradient>
+    <path id="rush-gem" d="M32 4 L35.5 10 L32 16 L28.5 10 Z"/>
+    <path id="rush-trail" d="M32 18 V21"/>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#rush-glow)"/>
+  <g stroke="#3b2618" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+    <g stroke="#ffd166" stroke-width="2">
+      <use href="#rush-trail"/><use href="#rush-trail" transform="rotate(45 32 32)"/><use href="#rush-trail" transform="rotate(90 32 32)"/><use href="#rush-trail" transform="rotate(135 32 32)"/>
+      <use href="#rush-trail" transform="rotate(180 32 32)"/><use href="#rush-trail" transform="rotate(225 32 32)"/><use href="#rush-trail" transform="rotate(270 32 32)"/><use href="#rush-trail" transform="rotate(315 32 32)"/>
+    </g>
+    <use href="#rush-gem" fill="#fffaf0"/>
+    <use href="#rush-gem" fill="#7fd8f0" transform="rotate(45 32 32)"/>
+    <use href="#rush-gem" fill="#ffd166" transform="rotate(90 32 32)"/>
+    <use href="#rush-gem" fill="#c8f4ff" transform="rotate(135 32 32)"/>
+    <use href="#rush-gem" fill="#fffaf0" transform="rotate(180 32 32)"/>
+    <use href="#rush-gem" fill="#7fd8f0" transform="rotate(225 32 32)"/>
+    <use href="#rush-gem" fill="#ffd166" transform="rotate(270 32 32)"/>
+    <use href="#rush-gem" fill="#c8f4ff" transform="rotate(315 32 32)"/>
+    <g fill="#ffd166" stroke-width="1.2">
+      <circle cx="40.4" cy="11.7" r="1.6"/><circle cx="52.3" cy="40.4" r="1.6"/><circle cx="23.6" cy="52.3" r="1.6"/><circle cx="11.7" cy="23.6" r="1.6"/>
+    </g>
+    <g fill="#fffaf0" stroke-width="1.2">
+      <circle cx="52.3" cy="23.6" r="1.3"/><circle cx="40.4" cy="52.3" r="1.3"/><circle cx="11.7" cy="40.4" r="1.3"/><circle cx="23.6" cy="11.7" r="1.3"/>
+    </g>
+    <polygon points="32,19 34.3,26.5 41.2,22.8 37.5,29.7 45,32 37.5,34.3 41.2,41.2 34.3,37.5 32,45 29.7,37.5 22.8,41.2 26.5,34.3 19,32 26.5,29.7 22.8,22.8 29.7,26.5" fill="url(#rush-core)" stroke-width="2.5"/>
+    <path d="M32 26 L36 32 L32 38 L28 32 Z" fill="#fffaf0" stroke-width="1.6"/>
+    <path d="M32 26 L36 32 L32 32 Z" fill="#c8f4ff" stroke="none"/>
+  </g>
+</svg>

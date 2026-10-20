@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <path id="palm-leaf" d="M0 0 Q-3 -11 -18 -9 Q-14 -6 -13 -2 Q-7 2 0 0 Z"/>
+    <g id="palm-crown">
+      <use href="#palm-leaf" fill="#3f7f4a" transform="rotate(200)"/>
+      <use href="#palm-leaf" fill="#3f7f4a" transform="rotate(150)"/>
+      <use href="#palm-leaf" fill="#7bb662" transform="rotate(-20)"/>
+      <use href="#palm-leaf" fill="#7bb662" transform="rotate(30)"/>
+      <use href="#palm-leaf" fill="#7bb662" transform="rotate(95)"/>
+    </g>
+  </defs>
+  <g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <ellipse cx="32" cy="54" rx="24" ry="4" fill="#e2c08a"/>
+    <path d="M44 54 Q44 36 41 26" fill="none" stroke-width="6.5"/>
+    <path d="M44 54 Q44 36 41 26" fill="none" stroke="#b98c55" stroke-width="2.5"/>
+    <g transform="translate(41 25) scale(0.8)" stroke-width="3"><use href="#palm-crown"/></g>
+    <path d="M22 54 Q22 34 26 21" fill="none" stroke-width="7"/>
+    <path d="M22 54 Q22 34 26 21" fill="none" stroke="#c9a06a" stroke-width="3"/>
+    <path d="M20.5 46 H24 M20.5 38 H24 M21.5 30 H25" fill="none" stroke-width="1.2"/>
+    <g transform="translate(26 20) scale(0.92)" stroke-width="2.7"><use href="#palm-crown"/></g>
+    <circle cx="24" cy="23" r="2" fill="#a65a1b" stroke-width="1.2"/>
+    <circle cx="28" cy="24" r="2" fill="#a65a1b" stroke-width="1.2"/>
+  </g>
+</svg>

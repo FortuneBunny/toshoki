@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M8 60 Q9 46 32 44 Q55 46 56 60 Z" fill="#3f7f4a"/>
+<path d="M25 45 L32 55 L39 45" fill="#ffd166"/>
+<ellipse cx="20.5" cy="32" rx="2.5" ry="3.5" fill="#d9a172"/>
+<ellipse cx="43.5" cy="32" rx="2.5" ry="3.5" fill="#d9a172"/>
+<ellipse cx="32" cy="32" rx="11.5" ry="12.5" fill="#d9a172"/>
+<path d="M20.5 33 Q21 50 32 50 Q43 50 43.5 33 Q39 39 32 38 Q25 39 20.5 33 Z" fill="#5a3a24"/>
+<path d="M18 26 Q16 9 32 8 Q48 9 46 26 Q32 20 18 26 Z" fill="#fffaf0"/>
+<circle cx="32" cy="21.5" r="2.8" fill="#f2a93b"/>
+</g>
+<path d="M21 15 Q32 11 44 17 M19 21 Q32 15 45 22" stroke="#e2c08a" stroke-width="1.5" fill="none"/>
+<path d="M27 37 Q32 34 37 37" stroke="#3b2618" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+<path d="M29 41 Q32 43 35 41" stroke="#c8553d" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+<path d="M25.5 30 Q27.5 28 29.5 30 M34.5 30 Q36.5 28 38.5 30" stroke="#3b2618" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+<path d="M25 26 L29.5 25.5 M34.5 25.5 L39 26" stroke="#5a3a24" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M32 30 L31 34 L33 34" stroke="#a65a1b" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+<path d="M40 47 Q50 49 54 58 L44 58 Z" fill="#3b2618" opacity="0.2"/>
+<circle cx="31" cy="20.5" r="0.9" fill="#fffaf0"/>
+</svg>

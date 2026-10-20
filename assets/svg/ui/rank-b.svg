@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="rank-b-bronze" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#f0bf8a"/>
+      <stop offset="0.5" stop-color="#d08a4c"/>
+      <stop offset="1" stop-color="#9a5f2e"/>
+    </linearGradient>
+    <linearGradient id="rank-b-face" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#c27a3e"/>
+      <stop offset="1" stop-color="#7d4a22"/>
+    </linearGradient>
+  </defs>
+  <g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M23 44 L17 60 L22 57.5 L26 60 L30 48 Z" fill="#c8553d"/>
+    <path d="M34 48 L38 60 L42 57.5 L47 60 L41 44 Z" fill="#8e3b2e"/>
+    <circle cx="32" cy="31" r="20" fill="url(#rank-b-bronze)"/>
+    <circle cx="32" cy="31" r="14" fill="url(#rank-b-face)" stroke-width="2"/>
+    <path d="M27 23 V39 H33 C39 39 39 31 33 31 H27 M27 31 H32.5 C37.5 31 37.5 23 32.5 23 H27" fill="none" stroke-width="6.5"/>
+    <path d="M27 23 V39 H33 C39 39 39 31 33 31 H27 M27 31 H32.5 C37.5 31 37.5 23 32.5 23 H27" fill="none" stroke="#fffaf0" stroke-width="3"/>
+    <path d="M17 24 Q19 18 24 15" fill="none" stroke="#fbe0c0" stroke-width="2"/>
+  </g>
+</svg>

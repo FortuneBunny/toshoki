@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <path id="cane-field-stalk" d="M0 0 V-34"/>
+    <path id="cane-field-leaf" d="M0 0 Q7 -7 15 0 Q7 2 0 0 Z"/>
+  </defs>
+  <g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <g transform="translate(0 3)"><g fill="none">
+      <g stroke-width="6"><use href="#cane-field-stalk" transform="translate(16 52)"/><use href="#cane-field-stalk" transform="translate(28 50) scale(1 1.15)"/><use href="#cane-field-stalk" transform="translate(40 50) scale(1 1.05)"/><use href="#cane-field-stalk" transform="translate(51 52) scale(1 0.85)"/></g>
+      <g stroke="#7bb662" stroke-width="2.8"><use href="#cane-field-stalk" transform="translate(16 52)"/><use href="#cane-field-stalk" transform="translate(28 50) scale(1 1.15)"/><use href="#cane-field-stalk" transform="translate(40 50) scale(1 1.05)"/><use href="#cane-field-stalk" transform="translate(51 52) scale(1 0.85)"/></g>
+    </g>
+    <path d="M14 42 H18 M14 31 H18 M26 40 H30 M26 28 H30 M26 16 H30 M38 41 H42 M38 30 H42 M38 19 H42 M49 44 H53 M49 34 H53" stroke-width="1.4"/>
+    <g stroke-width="1.5">
+      <use href="#cane-field-leaf" fill="#3f7f4a" transform="translate(16 18) rotate(-150)"/>
+      <use href="#cane-field-leaf" fill="#7bb662" transform="translate(16 18) rotate(-40)"/>
+      <use href="#cane-field-leaf" fill="#3f7f4a" transform="translate(28 11) rotate(-140)"/>
+      <use href="#cane-field-leaf" fill="#7bb662" transform="translate(28 11) rotate(-30)"/>
+      <use href="#cane-field-leaf" fill="#7bb662" transform="translate(28 11) rotate(-80) scale(0.75)"/>
+      <use href="#cane-field-leaf" fill="#3f7f4a" transform="translate(40 14) rotate(-145)"/>
+      <use href="#cane-field-leaf" fill="#7bb662" transform="translate(40 14) rotate(-35)"/>
+      <use href="#cane-field-leaf" fill="#7bb662" transform="translate(51 23) rotate(-30)"/>
+      <use href="#cane-field-leaf" fill="#3f7f4a" transform="translate(51 23) rotate(-140)"/>
+      <use href="#cane-field-leaf" fill="#7bb662" transform="translate(34 32) rotate(10)"/>
+      <use href="#cane-field-leaf" fill="#7bb662" transform="translate(22 36) rotate(170) scale(1 -1)"/>
+    </g>
+    </g>
+    <path d="M5 58 Q32 44 59 58 Z" fill="#b98c55"/>
+    <path d="M56 8 Q56 12 60 12 Q56 12 56 16 Q56 12 52 12 Q56 12 56 8 Z" fill="#fffaf0" stroke-width="1.2"/>
+  </g>
+</svg>

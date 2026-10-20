@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<defs>
+<g id="wheat-ear">
+<path d="M0-4V-29" fill="none" stroke-width="2"/>
+<path d="M0-26C8.5-19 9.5-7 0 0C-9.5-7-8.5-19 0-26Z" fill="#ffd166"/>
+<path d="M0-26C8.5-19 9.5-7 0 0C3-8 3-18 0-26Z" fill="#e0a526" stroke="none"/>
+<path d="M-5-18L0-14L5-18M-5.5-10L0-6L5.5-10" fill="none" stroke="#a65a1b" stroke-width="1.8"/>
+<path d="M-3.6-18C-3.6-20.5-2.4-22.5-1-23.5" fill="none" stroke="#fffaf0" stroke-width="1.5"/>
+<path d="M0-26C8.5-19 9.5-7 0 0C-9.5-7-8.5-19 0-26Z" fill="none"/>
+</g>
+</defs>
+<g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M26 35L31 46L27 56M32 33V56M38 35L33 46L37 56" fill="none" stroke-width="6.5"/>
+<path d="M26 35L31 46L27 56M32 33V56M38 35L33 46L37 56" fill="none" stroke="#e2c08a" stroke-width="1.5"/>
+<use href="#wheat-ear" transform="translate(25 35) rotate(-30)"/>
+<use href="#wheat-ear" transform="translate(39 35) rotate(30)"/>
+<use href="#wheat-ear" transform="translate(32 33)"/>
+<rect x="25.5" y="42.5" width="13" height="6.5" rx="2" fill="#c8553d"/>
+<path d="M33 43.8H37.2V47.8H33Z" fill="#8e3b2e" stroke="none"/>
+<rect x="25.5" y="42.5" width="13" height="6.5" rx="2" fill="none"/>
+</g>
+</svg>

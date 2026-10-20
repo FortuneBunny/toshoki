@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M6 20L22 10H58L42 20Z" fill="#7bb662"/>
+<path d="M42 20L58 10V40L42 50Z" fill="#2c5f37"/>
+<path d="M6 20H42V50H6Z" fill="#3f7f4a"/>
+<path d="M14 15L24 12M30 14L44 13" fill="none" stroke="#a8d48f" stroke-width="1.6"/>
+<rect x="11" y="25" width="26" height="20" rx="2" fill="none" stroke="#6aa865" stroke-width="1.8"/>
+<path d="M24 28L30 35L24 42L18 35Z" fill="#6aa865" stroke="#2c5f37" stroke-width="1.5"/>
+<path d="M6 20L22 10H58V40L42 50H6Z" fill="none"/>
+<path d="M42 20V50" fill="none"/>
+<path d="M36 58C38 50 46 45 56 46C55 54 46 59 36 58Z" fill="#7bb662"/>
+<path d="M56 46C55 54 46 59 36 58C44 55 50 51 56 46Z" fill="#3f7f4a" stroke="none"/>
+<path d="M37 57C42 53 48 49 55 47" fill="none" stroke="#3f7f4a" stroke-width="1.5"/>
+<path d="M36 58C38 50 46 45 56 46C55 54 46 59 36 58Z" fill="none"/>
+<path d="M22 58C20 52 23 47 30 46C31 52 28 57 22 58Z" fill="#7bb662"/>
+<path d="M23 57C25 53 27 50 29 47" fill="none" stroke="#3f7f4a" stroke-width="1.5"/>
+</g>
+</svg>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <g id="silver-coin">
+      <path d="M-14 0 V4 A14 5 0 0 0 14 4 V0 Z" fill="#a9b1bd"/>
+      <ellipse rx="14" ry="5" fill="#e6e9ee"/>
+      <ellipse rx="8" ry="2.6" fill="none" stroke="#a9b1bd" stroke-width="1.3"/>
+    </g>
+    <radialGradient id="silver-face" cx="0.38" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#e6e9ee"/>
+      <stop offset="1" stop-color="#a9b1bd"/>
+    </radialGradient>
+    <path id="silver-spark" d="M0 -6 Q1 -1 6 0 Q1 1 0 6 Q-1 1 -6 0 Q-1 -1 0 -6 Z"/>
+  </defs>
+  <g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <use href="#silver-coin" transform="translate(22 49)"/>
+    <use href="#silver-coin" transform="translate(23 43)"/>
+    <use href="#silver-coin" transform="translate(21 37)"/>
+    <use href="#silver-coin" transform="translate(23 31)"/>
+    <use href="#silver-coin" transform="translate(22 25)"/>
+    <circle cx="43.5" cy="41.5" r="13.5" fill="#6d7682"/>
+    <circle cx="42" cy="40" r="13" fill="url(#silver-face)"/>
+    <circle cx="42" cy="40" r="9" fill="none" stroke="#a9b1bd" stroke-width="1.5"/>
+    <rect x="38.5" y="36.5" width="7" height="7" fill="#6d7682" stroke-width="2"/>
+    <path d="M42 30.5 V33 M42 47 V49.5 M32.5 40 H35 M49 40 H51.5" stroke="#6d7682" stroke-width="1.6"/>
+    <path d="M34 34 Q36 30 40 29" fill="none" stroke="#ffffff" stroke-width="2"/>
+    <use href="#silver-spark" transform="translate(53 22) scale(0.9)" fill="#fffaf0" stroke-width="1.3"/>
+  </g>
+</svg>

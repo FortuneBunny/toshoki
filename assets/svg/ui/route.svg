@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <g id="route-arrow">
+      <path d="M15.1 25.8 A18 18 0 0 1 46.7 21.7" fill="none" stroke-width="9"/>
+      <path d="M15.1 25.8 A18 18 0 0 1 46.7 21.7" fill="none" stroke="currentColor" stroke-width="4.5"/>
+      <path d="M51.3 28.3 L52 17.8 L41.6 25.3 Z" fill="currentColor" stroke-width="2.5"/>
+    </g>
+  </defs>
+  <g stroke="#3b2618" stroke-linejoin="round" stroke-linecap="round">
+    <g color="#f2a93b"><use href="#route-arrow"/></g>
+    <g color="#5bb4d6"><use href="#route-arrow" transform="rotate(180 32 32)"/></g>
+    <circle cx="32" cy="32" r="7.5" fill="#f3dfb3" stroke-width="2.2"/>
+    <path d="M32 27 L35.5 32 L32 37 L28.5 32 Z" fill="#fffaf0" stroke-width="1.6"/>
+    <path d="M32 27 L35.5 32 L32 32 Z" fill="#7fd8f0" stroke="none"/>
+    <path d="M32 27 L35.5 32 L32 37 L28.5 32 Z" fill="none" stroke-width="1.6"/>
+  </g>
+</svg>

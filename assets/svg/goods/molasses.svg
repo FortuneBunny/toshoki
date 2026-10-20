@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M15 26C8 26 6 34 12 38M49 26C56 26 58 34 52 38" fill="none" stroke-width="7"/>
+<path d="M15 26C8 26 6 34 12 38M49 26C56 26 58 34 52 38" fill="none" stroke="#8e3b2e" stroke-width="2"/>
+<path d="M16 21C11 26 10 32 10 39C10 50 19 58 32 58C45 58 54 50 54 39C54 32 53 26 48 21Z" fill="#c8553d"/>
+<path d="M46 23C51 28 54 34 54 39C54 50 45 58 32 58C28 58 26 57 24 56C38 56 47 48 47 39C47 33 47 28 46 23Z" fill="#8e3b2e" stroke="none"/>
+<path d="M14 39C14 33 15.5 30 17.5 27" fill="none" stroke="#e98a73" stroke-width="2.2"/>
+<path d="M16 21C11 26 10 32 10 39C10 50 19 58 32 58C45 58 54 50 54 39C54 32 53 26 48 21Z" fill="none"/>
+<ellipse cx="32" cy="16.5" rx="19" ry="7" fill="#c8553d"/>
+<path d="M51 16.5C51 20.4 42.5 23.5 32 23.5C40 21.5 45 19.5 46 16.5Z" fill="#8e3b2e" stroke="none"/>
+<ellipse cx="32" cy="16.5" rx="19" ry="7" fill="none"/>
+<path d="M17 17C17 13 24 11.5 32 11.5C40 11.5 47 13 47 17C47 18.5 44 19.5 41 19.5C39 19.5 38.5 21 38.5 23V35C38.5 39 33.5 39 33.5 35V24C33.5 21.5 31 21 28 21C26 21 25 22 25 24V27C25 30 21 30 21 27V22C19 21 17 19.5 17 17Z" fill="#4b2a1a"/>
+<path d="M22 15.5C25 14 29 13.5 33 13.5" fill="none" stroke="#a65a1b" stroke-width="2"/>
+<path d="M35.5 25V32" fill="none" stroke="#a65a1b" stroke-width="1.5"/>
+<path d="M17 17C17 13 24 11.5 32 11.5C40 11.5 47 13 47 17C47 18.5 44 19.5 41 19.5C39 19.5 38.5 21 38.5 23V35C38.5 39 33.5 39 33.5 35V24C33.5 21.5 31 21 28 21C26 21 25 22 25 24V27C25 30 21 30 21 27V22C19 21 17 19.5 17 17Z" fill="none"/>
+<path d="M14 45C24 49 40 49 50 45" fill="none" stroke-width="1.8"/>
+</g>
+</svg>

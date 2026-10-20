@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="rank-a-silver" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#e6e9ee"/>
+      <stop offset="1" stop-color="#a9b1bd"/>
+    </linearGradient>
+    <linearGradient id="rank-a-face" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#c3cad4"/>
+      <stop offset="1" stop-color="#6d7682"/>
+    </linearGradient>
+    <path id="rank-a-spark" d="M0 -6 Q1 -1 6 0 Q1 1 0 6 Q-1 1 -6 0 Q-1 -1 0 -6 Z"/>
+  </defs>
+  <g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M23 44 L17 60 L22 57.5 L26 60 L30 48 Z" fill="#5bb4d6"/>
+    <path d="M34 48 L38 60 L42 57.5 L47 60 L41 44 Z" fill="#2f7fa8"/>
+    <circle cx="32" cy="31" r="20" fill="url(#rank-a-silver)"/>
+    <circle cx="32" cy="31" r="14" fill="url(#rank-a-face)" stroke-width="2"/>
+    <path d="M26 39 L32 23 L38 39 M28.3 33.5 H35.7" fill="none" stroke-width="6.5"/>
+    <path d="M26 39 L32 23 L38 39 M28.3 33.5 H35.7" fill="none" stroke="#fffaf0" stroke-width="3"/>
+    <path d="M17 24 Q19 18 24 15" fill="none" stroke="#ffffff" stroke-width="2.2"/>
+    <use href="#rank-a-spark" transform="translate(52 10) scale(0.75)" fill="#fffaf0" stroke-width="1.5"/>
+  </g>
+</svg>

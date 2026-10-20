@@ -1,0 +1,16 @@
+// ゲームの中身の公開窓口。UI と CLI はここから import する。
+export * from './world.js';
+export * from './actions.js';
+export * from './market.js';
+export * from './city.js';
+export * from './caravan.js';
+export * from './knowledge.js';
+export * from './scoring.js';
+export * from './save.js';
+export { buildingInputs } from './production.js';
+export { GOODS, GOOD_IDS, CATEGORIES, PROVISIONS } from '../data/goods.js';
+export { TRANSPORTS, ROUTE_KINDS } from '../data/transports.js';
+export { BUILDINGS } from '../data/buildings.js';
+export { BALANCE } from '../data/balance.js';
+export { SCENARIOS, SCENARIO_ORDER } from '../data/scenarios.js';
+export { HEIRLOOMS } from '../data/heirlooms.js';

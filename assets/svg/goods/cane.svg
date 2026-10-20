@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<defs>
+<g id="cane-stalk">
+<path d="M0-38C-4-45-10-48-16-47C-11-43-6-40 0-38ZM0-38C3-46 9-50 15-50C11-45 6-40 0-38Z" fill="#7bb662"/>
+<rect x="-4.5" y="-40" width="9" height="40" rx="2" fill="#7bb662"/>
+<rect x="1" y="-39" width="2.3" height="38" fill="#3f7f4a" stroke="none"/>
+<path d="M-2.2-36V-29M-2.2-23V-17M-2.2-11V-5" fill="none" stroke="#c4e3a6" stroke-width="1.5"/>
+<path d="M-4.5-27H4.5M-4.5-14H4.5" fill="none"/>
+<rect x="-4.5" y="-40" width="9" height="40" rx="2" fill="none"/>
+</g>
+</defs>
+<g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<use href="#cane-stalk" transform="translate(25 57) rotate(-16)"/>
+<use href="#cane-stalk" transform="translate(39 57) rotate(16)"/>
+<use href="#cane-stalk" transform="translate(32 56)"/>
+<path d="M22 41C28 43.5 36 43.5 42 41L42.5 46C36 48.5 28 48.5 21.5 46Z" fill="#e2c08a"/>
+<path d="M36 43.5C38.5 43 40.5 42.5 42 41L42.5 46C40.5 47 38.5 47.5 36 48Z" fill="#b98c55" stroke="none"/>
+<path d="M22 41C28 43.5 36 43.5 42 41L42.5 46C36 48.5 28 48.5 21.5 46Z" fill="none"/>
+<path d="M51 13L52 16L55 17L52 18L51 21L50 18L47 17L50 16Z" fill="#fffaf0" stroke="#7fd8f0" stroke-width="1.2"/>
+</g>
+</svg>

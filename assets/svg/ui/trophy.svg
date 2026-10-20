@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="trophy-gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff0b8"/>
+      <stop offset="0.35" stop-color="#ffd166"/>
+      <stop offset="1" stop-color="#e0a526"/>
+    </linearGradient>
+    <radialGradient id="trophy-glow" cx="0.5" cy="0.4" r="0.5">
+      <stop offset="0" stop-color="#ffd166" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ffd166" stop-opacity="0"/>
+    </radialGradient>
+    <path id="trophy-spark" d="M0 -6 Q1 -1 6 0 Q1 1 0 6 Q-1 1 -6 0 Q-1 -1 0 -6 Z"/>
+  </defs>
+  <circle cx="32" cy="28" r="28" fill="url(#trophy-glow)"/>
+  <g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M19 15 C9 13 8 30 21 31 M45 15 C55 13 56 30 43 31" fill="none" stroke-width="7"/>
+    <path d="M19 15 C9 13 8 30 21 31 M45 15 C55 13 56 30 43 31" fill="none" stroke="#e0a526" stroke-width="3"/>
+    <path d="M18 10 H46 V20 C46 32 40 38 32 38 C24 38 18 32 18 20 Z" fill="url(#trophy-gold)"/>
+    <ellipse cx="32" cy="10" rx="14" ry="3" fill="#c98a1c"/>
+    <path d="M28 38 H36 L35 44 H29 Z" fill="#e0a526"/>
+    <ellipse cx="32" cy="44.5" rx="6" ry="2" fill="#ffd166"/>
+    <path d="M23 51 C23 47 27 45.5 32 45.5 C37 45.5 41 47 41 51 Z" fill="url(#trophy-gold)"/>
+    <rect x="17" y="51" width="30" height="7" rx="2" fill="#a65a1b"/>
+    <path d="M25 54.5 H39" stroke="#ffd166" stroke-width="1.6"/>
+    <path d="M32 18 L37 24 L32 31 L27 24 Z" fill="#c8f4ff" stroke-width="1.8"/>
+    <path d="M32 18 L27 24 L32 24 Z" fill="#fffaf0" stroke="none"/>
+    <path d="M37 24 L32 31 L32 24 Z" fill="#7fd8f0" stroke="none"/>
+    <path d="M32 18 L37 24 L32 31 L27 24 Z" fill="none" stroke-width="1.8"/>
+    <path d="M22 16 V24 Q22 29 24.5 32" fill="none" stroke="#ffffff" stroke-width="2.2"/>
+    <use href="#trophy-spark" transform="translate(53 7) scale(0.85)" fill="#fffaf0" stroke-width="1.3"/>
+    <use href="#trophy-spark" transform="translate(9 40) scale(0.6)" fill="#c8f4ff" stroke-width="1.8"/>
+    <use href="#trophy-spark" transform="translate(54 42) scale(0.5)" fill="#fffaf0" stroke-width="2"/>
+  </g>
+</svg>

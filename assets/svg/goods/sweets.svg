@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<defs>
+<g id="sweets-ball">
+<circle r="7" fill="currentColor"/>
+<path d="M5.2 1.5A5.4 5.4 0 0 1 1.5 5.2" fill="none" stroke="#3b2618" stroke-opacity=".3" stroke-width="2.6"/>
+<circle cx="-2.4" cy="-2.6" r="1.6" fill="#fffaf0" stroke="none"/>
+</g>
+</defs>
+<g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M5 44C5 50 17 54 32 54C47 54 59 50 59 44Z" fill="#e0a526"/>
+<path d="M59 44C59 50 47 54 32 54C42 52 48 49 49 44Z" fill="#a65a1b" fill-opacity=".6" stroke="none"/>
+<path d="M22 54L24 58H40L42 54" fill="#e0a526"/>
+<use href="#sweets-ball" transform="translate(32 18)" color="#fffaf0"/>
+<use href="#sweets-ball" transform="translate(24.5 29)" color="#9b5de5"/>
+<use href="#sweets-ball" transform="translate(39.5 29)" color="#7bb662"/>
+<use href="#sweets-ball" transform="translate(16 39)" color="#c8553d"/>
+<use href="#sweets-ball" transform="translate(32 40)" color="#f2a93b"/>
+<use href="#sweets-ball" transform="translate(48 39)" color="#ffd166"/>
+<path d="M4 44H60" fill="none" stroke-width="5"/>
+<path d="M4 44H60" fill="none" stroke="#ffd166" stroke-width="1.2"/>
+<g fill="#c8f4ff" stroke="none"><circle cx="34" cy="14" r="0.9"/><circle cx="30" cy="21" r="0.9"/><circle cx="35" cy="20" r="0.8"/></g>
+<path d="M52 13L53.2 16.8L57 18L53.2 19.2L52 23L50.8 19.2L47 18L50.8 16.8Z" fill="#fffaf0" stroke="#7fd8f0" stroke-width="1.2"/>
+</g>
+</svg>

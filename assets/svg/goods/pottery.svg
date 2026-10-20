@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<ellipse cx="32" cy="57" rx="17" ry="2.6" fill="#3b2618" fill-opacity=".2" stroke="none"/>
+<path d="M24 6H40V10C40 14 37 15 37 17C47 20 53 28 53 37C53 46 46 52 40 54V56H24V54C18 52 11 46 11 37C11 28 17 20 27 17C27 15 24 14 24 10Z" fill="#fffaf0"/>
+<path d="M37 17C47 20 53 28 53 37C53 46 46 52 40 54V56H35V53C42 50 46 44 46 37C46 28 42 21 37 17Z" fill="#cfe0ec" stroke="none"/>
+<path d="M24 10H40" fill="none" stroke="#2f7fa8" stroke-width="2.4"/>
+<path d="M18 23C24 21 40 21 46 23" fill="none" stroke="#2f7fa8" stroke-width="2.4"/>
+<path d="M13 45C20 50 44 50 51 45" fill="none" stroke="#2f7fa8" stroke-width="2.4"/>
+<path d="M18 24.5L21 28L24 24.5L27 28L30 24.5L33 28L36 24.5L39 28L42 24.5L45 28" fill="none" stroke="#2f7fa8" stroke-width="1.6"/>
+<circle cx="32" cy="36.5" r="4" fill="#5bb4d6" stroke="#1d4e6e" stroke-width="1.8"/>
+<path d="M32 32.5C31 29 28 28 25 30C27 32 29 33 32 32.5ZM36 36.5C39 35.5 40 32.5 38.5 30C36.5 32 36 34 36 36.5ZM32 40.5C33 44 36 45 39 43C37 41 35 40 32 40.5ZM28 36.5C25 37.5 24 40.5 25.5 43C27.5 41 28 39 28 36.5Z" fill="#2f7fa8" stroke="#1d4e6e" stroke-width="1.2"/>
+<path d="M17 32C16 36 16.5 40 18 43" fill="none" stroke="#fff" stroke-width="2.2"/>
+<path d="M24 6H40V10C40 14 37 15 37 17C47 20 53 28 53 37C53 46 46 52 40 54V56H24V54C18 52 11 46 11 37C11 28 17 20 27 17C27 15 24 14 24 10Z" fill="none"/>
+</g>
+</svg>

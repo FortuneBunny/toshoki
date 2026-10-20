@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<defs>
+<g id="malt-grain">
+<path d="M5 -1C9 -4 10 -9 8 -13" fill="none" stroke-width="5"/>
+<path d="M5 -1C9 -4 10 -9 8 -13" fill="none" stroke="#9fd67f" stroke-width="2"/>
+<path d="M-5.5 1C-8 3-8 6-6 8" fill="none" stroke-width="4.5"/>
+<path d="M-5.5 1C-8 3-8 6-6 8" fill="none" stroke="#fffaf0" stroke-width="1.6"/>
+<ellipse rx="7" ry="4.3" fill="#e2c08a"/>
+<path d="M-4.8 2.8C-1.2 4 3 3.7 5.8 1.9" fill="none" stroke="#b98c55" stroke-width="2.2"/>
+<path d="M-4-1.5C-2.4-2.7 0-3 1.8-2.7" fill="none" stroke="#f3dfb3" stroke-width="1.5"/>
+<path d="M-6.8 0H6.8" fill="none" stroke="#b98c55" stroke-width="1" stroke-opacity=".6"/>
+</g>
+</defs>
+<g stroke="#3b2618" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<use href="#malt-grain" transform="translate(31 24) rotate(-12)"/>
+<use href="#malt-grain" transform="translate(19 33) rotate(14)"/>
+<use href="#malt-grain" transform="translate(43 33) rotate(-20)"/>
+<use href="#malt-grain" transform="translate(31 38) rotate(6)"/>
+<path d="M6 42C6 50 18 55 32 55C46 55 58 50 58 42Z" fill="#b98c55"/>
+<path d="M58 42C58 50 46 55 32 55C42 52 48 48 49 42Z" fill="#8a5f34" stroke="none"/>
+<path d="M4 41.5H60" fill="none" stroke-width="5"/>
+<path d="M4 41.5H60" fill="none" stroke="#e2c08a" stroke-width="1.2"/>
+<path d="M6 42C6 50 18 55 32 55C46 55 58 50 58 42" fill="none"/>
+<path d="M14 46C17 49 21 50.5 25 51" fill="none" stroke="#e2c08a" stroke-width="1.8"/>
+</g>
+</svg>
