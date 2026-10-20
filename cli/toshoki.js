@@ -732,6 +732,7 @@ function run(world, cmd, pos, opts) {
         if (plan.danger && world.scenario.bandits && Number(opts.guards || 0) < rec) out.push(`⚠ 盗賊の出る道（危険度${plan.danger}）。護衛は${rec}人いればたいてい撃退できる（今 ${Number(opts.guards || 0)}人。--guards n で雇う、1人1日${G.BALANCE.guardWage}銀）`);
       }
       if (world.player.silver < 0) out.push('⚠ 銀がマイナス。着いた町で売らないと仕入れができない');
+      if (!Object.keys(m.cargo).length) out.push('⚠ 空荷で出発する（直前の取引が失敗していないか確かめよう。相場を見に行くだけならこのままでよい）');
       const r = after(G.travel(world, m.id, pos[0], { guards: Number(opts.guards || 0) }));
       out.push(`${m.name}が${world.cities[pos[0]].name}へ出発（約${r.days}日）`);
       if ('nowait' in opts) { out.push('（時間は進めていない。ほかの商人にも指示してから wait で進める）'); break; }
