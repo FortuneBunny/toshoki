@@ -57,6 +57,7 @@ function parseArgs(argv) {
     if (a === '--json') opts.json = true;
     else if (a === '--nowait') opts.nowait = true;
     else if (a === '--force') opts.force = true;
+    else if (a === '--hold') opts.hold = true;
     else if (a.startsWith('--')) opts[a.slice(2)] = argv[++i];
     else if (a === '-m') opts.merchant = argv[++i];
     else pos.push(a);
@@ -189,7 +190,7 @@ function statusText(world) {
   out.push('商人:');
   // 毎日の出費と、今の銀で何日もつか
   const daily = G.dailyCost(world, { guards: true });
-  if (daily > 0) out.push(`毎日の出費 ${fmt(daily, 1)}銀（給金・維持費・護衛代）${pl.silver < daily * 20 ? `  ⚠ 売らずにいると約${Math.max(0, Math.floor(pl.silver / daily))}日で銀が尽きる` : ''}`);
+  if (daily > 0) out.push(`毎日の出費 ${fmt(daily, 1)}銀（給金・維持費・工房・護衛代。工房の材料費は別）${pl.silver < daily * 20 ? `  ⚠ 売らずにいると約${Math.max(0, Math.floor(pl.silver / daily))}日で銀が尽きる` : ''}`);
   // 工房の自動仕入れが止まりそうなら、先に知らせる
   const ab = pl.buildings.filter((b) => b.active && b.autoBuy);
   if (ab.length && pl.silver < G.BALANCE.autoBuyReserve * 2) out.push(`⚠ 手元の銀 ${Math.floor(pl.silver)}。${G.BALANCE.autoBuyReserve}銀を切ると工房の自動仕入れが止まる（倉庫の製品を売って銀に戻そう）`);
@@ -542,7 +543,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
                                          wait:品*数       その品がその数だけ積めるまで、この町で待つ（最大30日。空荷の往復を防ぐ）
                                        処理の順番は 下ろす → 積む → 売る → 買う
   order list                           定期便ごとの損益
-  order edit <番号> "<町 ...>"          停泊地を1つだけ書き直す（番号は order list の順）
+  order edit <停泊地の番号> "<町 ...>"  停泊地を1つだけ書き直す（番号は、その商人の定期便の停泊地の順。-m で商人を選ぶ）
+  order add ... --hold                  設定だけして、すぐには出発しない（order resume で動き出す）
   order add ... --reserve <銀>          仕入れで手元に残す銀（最初は50。砂漠の食料だけは割っても買う）
   order pause [町]                     次に町に着いたら（町を書けばその町で）定期便を止める
   order clear | order resume
@@ -868,7 +870,10 @@ function run(world, cmd, pos, opts) {
         if (!m.order) throw new Error('定期便がない');
         const i = Number(pos[1]) - 1;
         if (!(i >= 0 && i < m.order.stops.length) || !pos[2]) throw new Error(`order edit <1〜${m.order.stops.length}> "<町 sell:... buy:...>" [-m 番号]`);
-        m.order.stops[i] = parseStop(pos[2], world);
+        const next = parseStop(pos[2], world);
+        // 停泊地の町を変える書き換えは、取り違えを防ぐため --force が要る
+        if (next.city !== m.order.stops[i].city && !opts.force) throw new Error(`停泊地${i + 1}は${world.cities[m.order.stops[i].city].name}。別の町（${world.cities[next.city]?.name || next.city}）に変えるなら --force を付ける（番号は停泊地の順: ${m.order.stops.map((s, j) => `${j + 1}=${world.cities[s.city].name}`).join(' ')}）`);
+        m.order.stops[i] = next;
         const problem = G.validateOrder(world, m.order);
         if (problem) throw new Error(problem);
         out.push(`停泊地${i + 1}を書き直した: ${world.cities[m.order.stops[i].city].name}`);
@@ -880,7 +885,8 @@ function run(world, cmd, pos, opts) {
       if (pos[0] !== 'add') throw new Error('order add|list|pause|resume|clear');
       const stops = pos.slice(1).map((p) => parseStop(p, world));
       const replaced = !!m.order;
-      after(G.setOrder(world, m.id, { stops, guards: Number(opts.guards || 0), reserve: opts.reserve !== undefined ? Number(opts.reserve) : undefined }));
+      after(G.setOrder(world, m.id, { stops, guards: Number(opts.guards || 0), reserve: opts.reserve !== undefined ? Number(opts.reserve) : undefined, hold: 'hold' in opts }));
+      if ('hold' in opts) out.push('（すぐには出発しない。order resume で動き出す）');
       if (replaced) out.push('（以前の定期便は置き換えた）');
       out.push(`定期便: ${stops.map((s) => world.cities[s.city].name).join(' → ')} → …`);
       // 売り先が買い取らない品は、先に知らせる（町が育つと買い取るものもある）
@@ -979,7 +985,7 @@ function run(world, cmd, pos, opts) {
         const wh = world.player.warehouses[b.city];
         out.push(`#${b.id} ${def.name}（${world.cities[b.city].name}）${b.active ? '稼働中' : '停止中'}  自動仕入れ${b.autoBuy ? 'あり（手元の銀が100を切ると止まる）' : 'なし'}  昨日 ${b.lastMade || 0}回  累計 ${Object.entries(b.made || {}).map(([g, n]) => `${GOODS[g].name}${n}`).join(' ') || 'なし'}`);
         out.push(`   レシピ（${b.recipe ? `「${b.recipe}」だけ` : '上から順に試す'}。1日${def.batches + (world.player.mods?.batchBonus || 0)}回。固定するには workshop ${b.id} recipe <名前>）: ${def.recipes.map((r) => `「${r.name}」${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
-        out.push(`   材料は倉庫から使い、足りなければ町の市場で買う（基準価格の1.5倍まで）。できた品は倉庫に入る（load で積む）。${b.why ? `\n   ⚠ 止まっている理由: ${b.why}` : ''}`);
+        out.push(`   材料は倉庫から使い、足りなければ町の市場で買う（基準価格の${b.priceCap ?? 1.5}倍まで。変えるには workshop ${b.id} maxprice <倍率>）。できた品は倉庫に入る（load で積む）。${b.why ? `\n   ⚠ 止まっている理由: ${b.why}` : ''}`);
         out.push(`   倉庫: ${Object.entries(wh?.stock || {}).filter(([, q]) => q >= 1).map(([g, q]) => `${GOODS[g].name}${Math.floor(q)}`).join(' ') || '空'}`);
       }
       break;

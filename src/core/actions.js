@@ -343,6 +343,7 @@ export function setOrder(world, mid, order) {
     order.stops.forEach((s, i) => { const r = findPath(world, here, s.city, m.transport); if (r && r.days < best) { best = r.days; idx = i; } });
   }
   m.order.next = Math.max(0, idx);
+  if (order.hold) { m.order.paused = true; return { ok: true }; }
   if (!m.travel) runOrder(world, m);
   return { ok: true };
 }

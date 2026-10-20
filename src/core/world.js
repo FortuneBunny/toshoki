@@ -19,6 +19,7 @@ import { buildGrid, GRID_W, GRID_H, gridKey } from './grid.js';
 import { rivalTechs } from './techs.js';
 import { runOrder } from './orders.js';
 import { PRODUCERS } from '../data/district.js';
+import { BUILDINGS } from '../data/buildings.js';
 
 export const SAVE_VERSION = 2;
 // 地図の1ピクセルが表す距離（ロバは1日に10進む）
@@ -208,7 +209,8 @@ export function dailyCost(world, { guards = false } = {}) {
   const pl = world.player;
   let cost = 0;
   for (const m of pl.merchants) cost += B.merchantWage + TRANSPORTS[m.transport].upkeep;
-  // 表示用: 移動中の護衛代（定期便は次も同じ人数を雇う）
+  // 表示用: 工房の維持費（稼働中のもの）と、移動中の護衛代（定期便は次も同じ人数を雇う）
+  if (guards) for (const b of pl.buildings) if (b.active) cost += BUILDINGS[b.type]?.upkeep || 0;
   if (guards) for (const m of pl.merchants) cost += (m.travel ? m.guards : m.order?.guards || 0) * B.guardWage;
   // 自分が置いた生産施設の維持費
   for (const c of Object.values(world.cities)) for (const b of c.district?.buildings || []) if (b.placed && PRODUCERS[b.type]) cost += B.producerUpkeep;
