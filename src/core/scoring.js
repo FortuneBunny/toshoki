@@ -40,7 +40,7 @@ export function goalProgress(world, g) {
       const t = cityTier(c);
       const lo = c.basePop;
       const hi = B.tierPops[g.tier];
-      return { p: t >= g.tier ? 1 : Math.max(0, (c.pop - lo) / (hi - lo)), text: `${c.name}を「${tierName(g.tier)}」に育てる（今「${tierName(t)}」人口 ${Math.floor(c.pop)}/${hi}）` };
+      return { p: t >= g.tier ? 1 : Math.min(0.99, Math.max(0, (c.pop - lo) / (hi - lo))), text: `${c.name}を「${tierName(g.tier)}」に育てる（今「${tierName(t)}」人口 ${Math.floor(c.pop)}/${hi}）` };
     }
     case 'produce': {
       const v = s.produced[g.good] || 0;
@@ -62,12 +62,13 @@ export function goalProgress(world, g) {
       return { p: v / g.pop, text: `全ての町の人口の合計を ${g.pop} にする（今 ${Math.floor(v)}）` };
     }
     case 'share': {
-      const mine = s.soldTotal[g.good] || 0;
+      // 市場で買った分は差し引く（買って売る循環で数を稼げないように。数えるのは自分で作った分）
+      const mine = Math.max(0, (s.soldTotal[g.good] || 0) - (s.bought[g.good] || 0));
       const theirs = world.rivals.reduce((a, r) => a + (r.sold[g.good] || 0), 0);
       const total = mine + theirs;
       const share = total ? mine / total : 0;
       const p = Math.min(mine / g.min, share / g.share);
-      return { p, text: `${GOODS[g.good].name}を売った数でライバルを上回る（自分 ${mine} 個 / ライバル ${theirs} 個、最低 ${g.min} 個。仕入れた町での売り戻しは数えない）` };
+      return { p, text: `${GOODS[g.good].name}を売った数でライバルを上回る（自分 ${mine} 個 / ライバル ${theirs} 個、最低 ${g.min} 個。市場で買った分は差し引く＝数えるのは自分の工房で作った分）` };
     }
     default:
       return { p: 0, text: '?' };

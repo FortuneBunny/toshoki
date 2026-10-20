@@ -93,7 +93,10 @@ const EVENT_TYPES = [
   {
     id: 'windfall', weight: 2,
     fire(world, city) {
-      const ids = GOOD_IDS.filter((id) => ['luxury', 'trade'].includes(GOODS[id].cat) && GOODS[id].tier <= 3);
+      const all = GOOD_IDS.filter((id) => ['luxury', 'trade'].includes(GOODS[id].cat) && GOODS[id].tier <= 3);
+      // そのシナリオで扱う品だけ（扱わない品の噂は行動につながらない）
+      const ids = all.filter((id) => world.scenario.goods.includes(id));
+      if (!ids.length) return null;
       const id = pick(world, ids);
       const qty = randInt(world, 6, 14);
       city.stock[id] = (city.stock[id] || 0) + qty * 3;
