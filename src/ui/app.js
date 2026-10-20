@@ -200,7 +200,7 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'harvest': case 'windfall': fx.toast(e.text, { kind: 'rare', icon: e.type === 'windfall' ? 'ui/sugar-crystal' : 'terrain/field' }); sfx.rare(); break;
       case 'rumor': break;
       case 'arrive': sfx.arrive(); break;
-      case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': fx.toast(e.text, { icon: 'ui/star' }); break;
+      case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': fx.toast(e.text, { icon: 'ui/star' }); break;
       case 'orderStuck': case 'debt': fx.toast(e.text, { kind: 'bad' }); sfx.bad(); break;
       case 'milestone': fx.toast(e.text, { icon: 'ui/star' }); sfx.rare(); break;
       case 'victory': setTimeout(() => { sfx.victory(); fx.flash(); fx.burst(innerWidth / 2, innerHeight / 3, 60, { size: 24 }); }, 100); break;

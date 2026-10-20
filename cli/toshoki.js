@@ -323,6 +323,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   workshop <番号> on|off|autobuy|noautobuy
   load <品物> <数> / unload <品物> <数>  倉庫との積み下ろし
   road <道の番号> [confirm]            小道を街道に整備する
+  donate [confirm]                     今いる町に寄進する（費用は人口に比例。90日間、成長が早まる）
   order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..."
                                        定期便を設定（停泊地を2つ以上）。例:
                                        order add "mugi buy:wheat*20@3" "kohaku sell:wheat@5"
@@ -518,6 +519,13 @@ function run(world, cmd, pos, opts) {
       const next = SCENARIO_ORDER[idx + 1];
       out.push(`家訓「${hh.name}」を受け継いだ。`);
       out.push(next ? `次のシナリオ: node cli/toshoki.js new --scenario ${next} --heirlooms ${list.join(',')} --save save-${next}.json` : 'これが最後のシナリオだった。');
+      break;
+    }
+    case 'donate': {
+      const m = needIdle(world, opts);
+      const cost = G.donateCost(world, m.city);
+      if (pos[0] !== 'confirm') { out.push(`${world.cities[m.city].name}への寄進: ${cost}銀。${G.BALANCE.donateDays}日間、成長が${Math.round((G.BALANCE.donateGrowth - 1) * 100)}%早まる（糖度が40以上で成長しているときだけ）。確定するには: donate confirm`); break; }
+      out.push(`寄進した（${after(G.donate(world, m.city)).cost}銀）`);
       break;
     }
     case 'workshops': {

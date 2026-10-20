@@ -62,7 +62,10 @@ export const BALANCE = {
 
   // 人と組織
   merchantHireCost: 150,
-  autoBuyReserve: 300,        // 工房の自動仕入れは、手元の銀がこれを下回るなら止める
+  autoBuyReserve: 300,
+  donateCostPerPop: 1.5,      // 寄進の費用 = 人口 × これ
+  donateGrowth: 1.25,         // 寄進すると、成長がプラスのときの成長率が1.25倍
+  donateDays: 90,        // 工房の自動仕入れは、手元の銀がこれを下回るなら止める
   merchantWage: 1,
   repLevels: [0, 60, 180, 400, 800, 1500],  // 評判レベルの閾値
   repSpreadCut: 0.12,         // 評判1レベルごとに手数料を何割減らすか

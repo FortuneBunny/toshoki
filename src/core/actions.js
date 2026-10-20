@@ -12,6 +12,7 @@ import { cargoUsed, findPath } from './caravan.js';
 import { buildingInputs } from './production.js';
 import { emit } from './events.js';
 import { checkGoals } from './scoring.js';
+import { gainRep as gainRepFromAction } from './trade.js';
 
 const fail = (error) => ({ ok: false, error });
 
@@ -121,6 +122,24 @@ export function build(world, cityId, type) {
   world.player.warehouses[cityId] = world.player.warehouses[cityId] || { stock: {}, basis: {} };
   emit(world, { type: 'build', city: cityId, big: true, text: `${city.name}に${def.name}を建てた！倉庫も使えるようになった` });
   return { ok: true, building: b.id };
+}
+
+// 寄進: 町に井戸と市場を寄付し、しばらくの間、成長を後押しする（食べ物が足りている町にだけ効く）
+export function donateCost(world, cityId) {
+  return Math.round(world.cities[cityId].pop * B.donateCostPerPop);
+}
+export function donate(world, cityId) {
+  const city = world.cities[cityId];
+  if (!city) return fail('不明な町');
+  if (!world.player.merchants.some((m) => m.city === cityId)) return fail('寄進するには、その町に自分の商人がいる必要がある');
+  if (city.donatedUntil > world.day) return fail(`${city.name}への寄進はまだ効いている（あと${city.donatedUntil - world.day}日）`);
+  const cost = donateCost(world, cityId);
+  if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
+  world.player.silver -= cost;
+  city.donatedUntil = world.day + B.donateDays;
+  gainRepFromAction(world, 40);
+  emit(world, { type: 'donate', city: cityId, big: true, text: `${city.name}に井戸と市場を寄進した！${B.donateDays}日間、成長が${Math.round((B.donateGrowth - 1) * 100)}%早まる（糖度が足りているときだけ）。評判 +40` });
+  return { ok: true, cost };
 }
 
 export function setBuilding(world, bid, opts) {

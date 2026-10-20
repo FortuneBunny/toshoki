@@ -119,6 +119,7 @@ function growthRate(city) {
     r = B.growthBoom[0] + (B.growthBoom[1] - B.growthBoom[0]) * t;
   }
   if (r > 0) r *= B.luxuryBase + B.luxurySpan * city.luxury;
+  if (r > 0 && city.donatedUntil > (city.today ?? 0)) r *= B.donateGrowth;
   if (city.rush > 0) r += B.rushGrowthBonus;
   return r * (city.growthMod ?? 1);
 }
@@ -146,6 +147,7 @@ function rushCycle(world, city) {
 }
 
 export function updateCity(world, city) {
+  city.today = world.day;
   const before = cityTier(city);
   produce(world, city);
   consume(world, city);

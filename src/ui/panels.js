@@ -90,6 +90,10 @@ function cityPanel(app, id) {
       const cost = G.BALANCE.merchantHireCost * world.player.merchants.length;
       add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`商人を雇う（${cost}銀）`, `${c.name}で新しい商人を雇います。給金は1日${G.BALANCE.merchantWage}銀。最大${max}人。`, () => app.run(() => G.hireMerchant(world, id), 'hire')) }, `商人を雇う ${cost}銀`));
     }
+    if (!(c.donatedUntil > world.day)) {
+      const cost = G.donateCost(world, id);
+      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`${c.name}に寄進する（${cost}銀）`, `井戸と市場を寄付します。${G.BALANCE.donateDays}日間、成長が${Math.round((G.BALANCE.donateGrowth - 1) * 100)}%早まります（糖度が足りて成長しているときだけ）。`, () => app.run(() => G.donate(world, id), 'build')) }, `寄進 ${cost}銀`));
+    } else add(acts, h('span', { class: 'chip' }, `寄進の効果 あと${c.donatedUntil - world.day}日`));
     for (const b of (world.scenario.buildings || []).filter((x) => BUILDINGS[x]?.recipes)) {
       if (world.player.buildings.some((x) => x.city === id && x.type === b)) continue;
       const def = BUILDINGS[b];
