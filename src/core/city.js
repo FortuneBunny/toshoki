@@ -4,7 +4,9 @@ import { BALANCE as B } from '../data/balance.js';
 import { midPrice, targetStock } from './market.js';
 import { jitter } from './rng.js';
 import { emit } from './events.js';
-import { districtProduction, staffing, housingCap, updateHousing } from './district.js';
+import { districtProduction, staffing, housingCap, updateHousing, civicDemand, civicsIn, civicSatisfaction } from './district.js';
+import { CIVICS } from '../data/district.js';
+import { gainRep } from './trade.js';
 
 export function cityTier(city) {
   let t = 0;
@@ -17,11 +19,13 @@ export const tierName = (t) => B.tierNames[t];
 // 1日の消費量の基準。withPrice=true なら価格による増減と、ラッシュとクラッシュも反映する。
 export function dailyDemand(city, id, withPrice = true) {
   const g = GOODS[id];
-  if (!g.rate || cityTier(city) < g.tier) return 0;
-  let d = (g.rate * city.pop) / 1000;
+  const civic = civicDemand(city, id);
+  if ((!g.rate || cityTier(city) < g.tier) && !civic) return 0;
+  let d = (g.rate && cityTier(city) >= g.tier ? (g.rate * city.pop) / 1000 : 0) + civic;
   d *= city.demandMods?.[id] ?? 1;
   if (!withPrice) return d;
   if (g.kind === 'sweet') {
+    if (city.civicSat?.teahouse) d *= 1 + 0.1 * city.civicSat.teahouse;
     if (city.rush > 0) d *= B.rushSweetDemand;
     if (city.crash > 0) d *= B.crashSweetDemand;
   }
@@ -68,6 +72,8 @@ function consume(world, city) {
     wantGlu += w * GOODS[id].glu;
   }
   const scale = wantGlu > need * B.baseFoodCap ? (need * B.baseFoodCap) / wantGlu : 1;
+  city.eatRatio = {};
+  for (const id of foods) { const dd = dailyDemand(city, id); city.eatRatio[id] = dd > 0 ? Math.min(1, (city.stock[id] || 0) / dd) : 0; }
   let baseGlu = 0;
   city.diet = {};
   for (const id of foods) {
@@ -83,7 +89,9 @@ function consume(world, city) {
     if (GOODS[id].kind !== 'sweet') continue;
     // ドカ食い: 町が持ちたい量を超えた甘味は、毎日その一部が余分に食べられる
     const surplus = Math.max(0, (city.stock[id] || 0) - targetStock(city, id));
-    const eat = Math.min(city.stock[id] || 0, dailyDemand(city, id) + surplus * B.sweetBinge * (city.crash > 0 ? 0.2 : 1));
+    const dmd = dailyDemand(city, id);
+    const eat = Math.min(city.stock[id] || 0, dmd + surplus * B.sweetBinge * (city.crash > 0 ? 0.2 : 1));
+    city.eatRatio[id] = dmd > 0 ? Math.min(1, eat / dmd) : 0;
     if (eat <= 0) continue;
     city.stock[id] -= eat;
     const add = Math.min(eat * GOODS[id].glu * gluEff, need * B.singleSweetCap);
@@ -98,11 +106,18 @@ function consume(world, city) {
     const d = dailyDemand(city, id);
     if (d <= 0) continue;
     const eat = Math.min(city.stock[id] || 0, d);
+    city.eatRatio[id] = Math.min(1, eat / d);
     city.stock[id] -= eat;
     luxWant += d * GOODS[id].base;
     luxGot += eat * GOODS[id].base;
   }
   city.luxury = luxWant > 0 ? luxGot / luxWant : 1;
+  // 需要施設の満足度
+  // 満足度は日々の値をならしたもの（続けて届けていると上がり、途切れると下がる）
+  const prev = city.civicSat || {};
+  city.civicSat = {};
+  for (const b of civicsIn(city)) city.civicSat[b.type] = (prev[b.type] || 0) * 0.9 + civicSatisfaction(city, b.type, ids) * 0.1;
+  if (city.civicSat.academy) city.luxury = Math.max(city.luxury, Math.min(1, city.luxury + 0.25 * city.civicSat.academy));
   city.sweetLevel = need > 0 ? (B.sweetGain * sweetGlu) / need : 0;
   const target = need > 0 ? 100 * (baseGlu / need) + 100 * B.sweetGain * (sweetGlu / need) : 0;
   city.glucoseTarget = Math.min(220, target);
@@ -125,6 +140,8 @@ function growthRate(city) {
   }
   if (r > 0) r *= B.luxuryBase + B.luxurySpan * city.luxury;
   if (r > 0 && city.donatedUntil > (city.today ?? 0)) r *= B.donateGrowth;
+  // 需要施設: 求める品が届いているほど成長が加速
+  if (r > 0 && city.civicSat) for (const [t, s] of Object.entries(city.civicSat)) r *= 1 + CIVICS[t].growth * s;
   // 住める人数の上限: 家が建つ場所がなければ、それ以上は増えない
   if (r > 0 && city.district && city.pop >= housingCap(city, cityTier(city))) r = 0;
   if (city.rush > 0) r += B.rushGrowthBonus;
@@ -155,6 +172,8 @@ function rushCycle(world, city) {
 
 export function updateCity(world, city) {
   city.today = world.day;
+  // 寺院: 供物が届いていれば、評判が少しずつ上がる
+  if (city.civicSat?.temple > 0.5 && world.day % 2 === 0) gainRep(world, 1);
   const before = cityTier(city);
   produce(world, city);
   consume(world, city);

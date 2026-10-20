@@ -16,6 +16,7 @@ export function midPrice(city, id, stock = city.stock[id] || 0) {
   const r = Math.max(0, stock) / target;
   let mult = Math.pow(2 / (1 + r), B.priceElasticity);
   mult *= city.priceMods?.[id] ?? 1;
+  if (city.district?.buildings.some((b) => b.type === 'palace') && ['silk', 'spice', 'sugarart'].includes(id)) mult *= 1.15;
   mult = Math.min(B.priceMax, Math.max(B.priceMin, mult));
   return g.base * mult;
 }

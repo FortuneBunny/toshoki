@@ -202,6 +202,7 @@ function cityText(world, id) {
     const adv = G.dietAdvice(world, c).slice(0, 6);
     if (adv.length) out.push(`伸びしろ（1日あたりの目安量で、糖度がどれだけ上がるか）: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join(' / ')}`);
     if (world.scenario.goods.some((g) => GOODS[g].kind === 'goods')) out.push(`暮らしの豊かさ（非糖の品の充足）: ${Math.round(c.luxury * 100)}%`);
+    for (const b of G.civicsIn(c)) out.push(`需要施設 ${G.CIVICS[b.type].name}: 満足度 ${Math.round((c.civicSat?.[b.type] || 0) * 100)}%（求める品 ${G.civicWants(b.type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}。満足度に応じて成長 最大+${Math.round(G.CIVICS[b.type].growth * 100)}%）`);
     if (c.rush) out.push(`🍬 シュガーラッシュ中（あと${c.rush}日）: 甘味の需要と売値が上がる`);
     if (c.crash) out.push(`💥 シュガークラッシュ中（あと${c.crash}日）: 甘味が売れず、糖度に効かない`);
     const prod = Object.entries(c.produces).map(([g, r]) => `${GOODS[g].name}${fmt(r)}`).join(' ') || 'なし';
@@ -248,9 +249,9 @@ function districtText(world, id) {
       const inR = G.tileDist(x, y) <= rad;
       let ch;
       if (b) {
-        const name = b.type === 'house' ? '家' : b.type === 'market' ? '市場' : G.PRODUCERS[b.type]?.name || BUILDINGS[b.type]?.name || b.type;
-        ch = b.type === 'house' ? '家' : b.type === 'market' ? '市' : b.owner === 'player' ? '工' : name[0];
-        used.set(ch, b.type === 'house' ? '家（住居。人口に合わせて自動で建つ）' : b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の工房（${name}）` : name);
+        const name = G.CIVICS[b.type] ? G.CIVICS[b.type].name : b.type === 'house' ? '家' : b.type === 'market' ? '市場' : G.PRODUCERS[b.type]?.name || BUILDINGS[b.type]?.name || b.type;
+        ch = G.CIVICS[b.type] ? G.CIVICS[b.type].name[0] : b.type === 'house' ? '家' : b.type === 'market' ? '市' : b.owner === 'player' ? '工' : name[0];
+        used.set(ch, G.CIVICS[b.type] ? `${G.CIVICS[b.type].name}（需要施設）` : b.type === 'house' ? '家（住居。人口に合わせて自動で建つ）' : b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の工房（${name}）` : name);
       } else if (d.res[i] !== '-') ch = inR ? `${d.res[i]} ` : `${d.res[i]}.`;
       else ch = inR ? TERRAIN_CH[d.terrain[i]] : d.terrain[i] === 'w' ? '~~' : '  ';
       row += ch;
@@ -273,6 +274,12 @@ function buildableText(world, id) {
     const tiles = G.placeableTiles(c, tier, k);
     const cost = Math.round(p.cost * (world.player.mods?.buildCost ?? 1));
     out.push(`  ${k}（${p.name}）: ${cost}銀  ${GOODS[p.good].name} +${p.rate}/日  働き手${p.workers}人  ${tiles.length ? `置けるマス ${tiles.length}か所: ${tiles.slice(0, 6).map(([x, y]) => G.coordName(x, y)).join(' ')}` : '置けるマスがない'}`);
+  }
+  out.push('需要施設（その町に新しい需要を生み、求める品が届くと町が育つ）:');
+  for (const [k, cv] of Object.entries(G.CIVICS)) {
+    const why = G.civicCheck(world, id, k);
+    const wants = G.civicWants(k, world.scenario.goods).map((g) => GOODS[g].name).join('・');
+    out.push(`  ${k}（${cv.name}）: ${G.civicCost(world, k)}銀  求める品 ${wants || 'なし'}  成長 +${Math.round(cv.growth * 100)}%・${cv.effect}  ${why ? `✖ ${why}` : '建てられる（civic ' + k + ' confirm）'}`);
   }
   out.push(`市場の圏を広げる: expand（${G.expandCost(world, id)}銀）`);
   out.push('置く: place <種類> <座標> confirm（例: place wheat_farm C5 confirm）');
@@ -405,6 +412,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   place <種類> <座標> [confirm]        区画に生産施設を置く（例: place wheat_farm C5 confirm）。町の供給が増える
   demolish <座標> [confirm]            自分が置いた施設を取り壊す
   expand [confirm]                     市場の圏を1マス広げる（置ける場所が増える）
+  civic <種類> [座標] [confirm]        需要施設を建てる（teahouse 茶館 / temple 寺院 / academy 学問所 / palace 宮殿）
   donate [confirm]                     今いる町に寄進する（費用は人口に比例。90日間、成長が早まる）
   order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..." [--guards n]
                                        定期便を設定（停泊地を2つ以上）。例:
@@ -654,6 +662,20 @@ function run(world, cmd, pos, opts) {
       }
       after(G.placeProducer(world, at, type, xy[0], xy[1]));
       out.push(`建てた（${cost}銀）`);
+      break;
+    }
+    case 'civic': {
+      const type = pos[0];
+      const cv = G.CIVICS[type];
+      if (!cv) throw new Error(`種類を指定: ${Object.entries(G.CIVICS).map(([k, x]) => `${k}（${x.name}）`).join('、')}`);
+      const xy = pos[1] && pos[1] !== 'confirm' ? G.parseCoord(pos[1]) : null;
+      const at = opts.at || pickMerchant(world, opts).city;
+      if (!pos.includes('confirm')) {
+        const why = G.civicCheck(world, at, type);
+        out.push(why ? `✖ ${why}` : `${world.cities[at].name}に${cv.name}: ${G.civicCost(world, type)}銀。求める品 ${G.civicWants(type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}。届けるほど成長 最大+${Math.round(cv.growth * 100)}%・${cv.effect}。確定するには: civic ${type}${xy ? ' ' + pos[1] : ''} confirm`);
+        break;
+      }
+      out.push(`建てた（${after(G.buildCivic(world, at, type, xy)).cost}銀）`);
       break;
     }
     case 'demolish': {

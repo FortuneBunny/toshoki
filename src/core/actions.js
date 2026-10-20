@@ -10,8 +10,8 @@ import { executeTrade, previewTrade, moveWarehouse } from './trade.js';
 import { departWithExpectation, validateOrder, runOrder } from './orders.js';
 import { cargoUsed, findPath } from './caravan.js';
 import { buildingInputs } from './production.js';
-import { placeCheck, placeableTiles, addBuilding, cityRadius, coordName } from './district.js';
-import { PRODUCERS } from '../data/district.js';
+import { placeCheck, placeableTiles, addBuilding, cityRadius, coordName, civicWants, civicsIn } from './district.js';
+import { PRODUCERS, CIVICS } from '../data/district.js';
 import { emit } from './events.js';
 import { checkGoals } from './scoring.js';
 import { gainRep as gainRepFromAction } from './trade.js';
@@ -128,6 +128,40 @@ export function placeProducer(world, cityId, type, x, y) {
   addBuilding(city, { type, x, y, owner: 'town', rate: p.rate, placed: true });
   world.stats.placed = (world.stats.placed || 0) + 1;
   emit(world, { type: 'place', city: cityId, big: true, text: `${city.name}に${p.name}を建てた！${GOODS[p.good].name}が毎日 ${p.rate} 増える（${coordName(x, y)}）` });
+  return { ok: true, cost };
+}
+
+export function civicCost(world, type) {
+  return Math.round(CIVICS[type].cost * (world.player.mods?.buildCost ?? 1));
+}
+
+// 需要施設が建てられるか（理由を返す。建てられるなら null）
+export function civicCheck(world, cityId, type) {
+  const city = world.cities[cityId];
+  const c = CIVICS[type];
+  if (!city || !c) return '建てられない';
+  if (!districtEnabled(world)) return 'このシナリオでは区画に建物を置けない';
+  if (!civicWants(type, world.scenario.goods).length) return `${c.name}が求める品を、このシナリオでは扱わない`;
+  if (cityTier(city) < c.minTier) return `${c.name}は「${['集落', '村', '町', '都市', '大都市'][c.minTier]}」以上の町に建てられる`;
+  if (civicsIn(city).some((b) => b.type === type)) return 'すでにある';
+  return null;
+}
+
+export function buildCivic(world, cityId, type, at = null) {
+  const why = civicCheck(world, cityId, type);
+  if (why) return fail(why);
+  const city = world.cities[cityId];
+  if (!hasPresence(world, cityId)) return fail('建てるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
+  let spot = at;
+  if (spot) { const w2 = placeCheck(city, cityTier(city), null, spot[0], spot[1]); if (w2) return fail(w2); }
+  else spot = placeableTiles(city, cityTier(city), null)[0];
+  if (!spot) return fail('市場の圏に空きマスがない');
+  const cost = civicCost(world, type);
+  if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
+  world.player.silver -= cost;
+  addBuilding(city, { type, x: spot[0], y: spot[1], owner: 'town', civic: true, placed: true });
+  const c = CIVICS[type];
+  emit(world, { type: 'civic', city: cityId, big: true, text: `${city.name}に${c.name}を建てた！${civicWants(type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}が届くと町が育つ（${c.effect}）` });
   return { ok: true, cost };
 }
 

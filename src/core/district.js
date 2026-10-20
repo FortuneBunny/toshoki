@@ -1,6 +1,6 @@
 // 区画: 町の中のマス目。地形と資源の生成、建物の配置、町の生産量の集計。
 // 生成はワールドの乱数を使わない（町ごとのシードから作る）。今までの結果の再現性を保つため。
-import { DISTRICT_SIZE as N, DISTRICT_CENTER as C, MARKET_RADIUS, TERRAIN, RESOURCES, PRODUCERS, PRODUCER_FOR } from '../data/district.js';
+import { DISTRICT_SIZE as N, DISTRICT_CENTER as C, MARKET_RADIUS, TERRAIN, RESOURCES, PRODUCERS, PRODUCER_FOR, CIVICS } from '../data/district.js';
 const RESOURCE_NAMES = Object.fromEntries(Object.entries(RESOURCES).map(([k, v]) => [k, v.name]));
 import { hashSeed } from './rng.js';
 import { BALANCE as B } from '../data/balance.js';
@@ -147,6 +147,30 @@ export function tileAt(district, x, y) {
   if (!inside(x, y)) return null;
   const i = idx(x, y);
   return { x, y, terrain: district.terrain[i], res: district.res[i], building: district.buildings.find((b) => b.x === x && b.y === y && !b.virtual) || null };
+}
+
+// ---------- 需要施設（D3） ----------
+export function civicsIn(city) {
+  return city.district ? city.district.buildings.filter((b) => CIVICS[b.type]) : [];
+}
+
+// この町に需要施設が生む、その品の1日の需要（人口1000人あたりの量 × 人口）
+export function civicDemand(city, id) {
+  let d = 0;
+  for (const b of civicsIn(city)) d += CIVICS[b.type].wants[id] || 0;
+  return d ? (d * city.pop) / 1000 : 0;
+}
+
+// シナリオで扱う品のうち、その施設が求めるもの
+export function civicWants(type, goods) {
+  return Object.keys(CIVICS[type].wants).filter((g) => goods.includes(g));
+}
+
+// 需要施設の満足度（0〜1）: 求める品が、需要に対してどれだけ届いたか（町の消費の記録から）
+export function civicSatisfaction(city, type, goods) {
+  const ids = civicWants(type, goods);
+  if (!ids.length) return 0;
+  return ids.reduce((s, g) => s + Math.min(1, city.eatRatio?.[g] ?? 0), 0) / ids.length;
 }
 
 // ---------- 住居と労働力（D2） ----------

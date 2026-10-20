@@ -43,13 +43,25 @@ export function openDistrict(app, cityId) {
         onclick: () => { selected = selected === k ? null : k; demolishMode = false; render(); },
       }, goodIcon(p.good, 'icon-sm'), h('span', {}, p.name), h('small', { class: 'num' }, `${cost}銀`), h('small', { class: 'faint' }, n ? `${n}か所` : 'なし')));
     }
+    add(palette, h('div', { class: 'section' }, '需要施設'));
+    for (const [k, cv] of Object.entries(G.CIVICS)) {
+      const why = G.civicCheck(world, cityId, k);
+      if (why && /扱わない/.test(why)) continue;
+      const wants = G.civicWants(k, world.scenario.goods);
+      add(palette, h('button', {
+        class: `btn small district-item ${selected === `civic:${k}` ? 'primary' : ''}`, disabled: !canBuild || !!why || undefined,
+        title: why || `${cv.name}: ${wants.map((g) => G.GOODS[g].name).join('・')}が届くと成長 最大+${Math.round(cv.growth * 100)}%。${cv.effect}`,
+        onclick: () => { selected = selected === `civic:${k}` ? null : `civic:${k}`; demolishMode = false; render(); },
+      }, h('img', { src: `assets/svg/cities/${k}.svg`, class: 'icon-sm', alt: '', onerror: (e) => { e.target.style.visibility = 'hidden'; } }), h('span', {}, cv.name), h('small', { class: 'num' }, `${G.civicCost(world, k)}銀`), h('small', { class: 'faint' }, why ? why.replace(/^.*は「/, '「') : wants.map((g) => G.GOODS[g].name).join('・'))));
+    }
     add(palette, h('div', { class: 'section' }, 'そのほか'));
     add(palette, h('button', { class: `btn small ${demolishMode ? 'danger' : 'ghost'}`, disabled: !canBuild || undefined, onclick: () => { demolishMode = !demolishMode; selected = null; render(); } }, demolishMode ? '取り壊しモード中' : '自分の施設を取り壊す'));
     const ec = G.expandCost(world, cityId);
     add(palette, h('button', { class: 'btn small', disabled: !canBuild || (d.radiusBonus || 0) >= 2 || undefined, onclick: () => app.confirm(`市場の圏を広げる（${ec}銀）`, '建物を置ける範囲が1マス広がります（最大2回）。', () => { app.run(() => G.expandMarket(world, cityId), 'build'); render(); }) }, `市場の圏を広げる ${ec}銀`));
 
     // 右: 区画の絵
-    const valid = new Set(selected ? G.placeableTiles(city, tier, selected).map(([x, y]) => `${x},${y}`) : []);
+    const isCivic = selected?.startsWith('civic:');
+    const valid = new Set(selected ? G.placeableTiles(city, tier, isCivic ? null : selected).map(([x, y]) => `${x},${y}`) : []);
     const [minX] = iso(0, d.size - 1);
     const [maxX] = iso(d.size - 1, 0);
     const width = maxX - minX + TW + 20;
@@ -101,6 +113,10 @@ export function openDistrict(app, cityId) {
       add(g, s('rect', { x: cx - 2, y: cy - 4, width: 4, height: 6, fill: '#3b2618', opacity: 0.6 }));
       return g;
     }
+    if (G.CIVICS[b.type]) {
+      add(g, s('image', { href: `assets/svg/cities/${b.type}.svg`, x: cx - 30, y: cy - 50, width: 60, height: 60 }));
+      return g;
+    }
     if (b.type === 'market') {
       add(g, s('image', { href: `assets/svg/cities/tier${tier}.svg`, x: cx - 34, y: cy - 58, width: 68, height: 68 }));
     } else if (b.owner === 'player') {
@@ -119,7 +135,7 @@ export function openDistrict(app, cityId) {
     if (t.res !== '-') parts.push(G.RESOURCES[t.res].name);
     if (t.building) {
       const b = t.building;
-      parts.push(b.type === 'house' ? `家（${G.houseCap(G.cityTier(city))}人まで住める）` : b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の${G.BUILDINGS[b.type].name}` : `${G.PRODUCERS[b.type].name}（${G.GOODS[G.PRODUCERS[b.type].good].name} ${fmt(b.rate ?? G.PRODUCERS[b.type].rate, 1)}/日${b.placed ? '、自分が建てた' : ''}）`);
+      parts.push(G.CIVICS[b.type] ? `${G.CIVICS[b.type].name}（満足度 ${Math.round((city.civicSat?.[b.type] || 0) * 100)}%）` : b.type === 'house' ? `家（${G.houseCap(G.cityTier(city))}人まで住める）` : b.type === 'market' ? '市場' : b.owner === 'player' ? `自分の${G.BUILDINGS[b.type].name}` : `${G.PRODUCERS[b.type].name}（${G.GOODS[G.PRODUCERS[b.type].good].name} ${fmt(b.rate ?? G.PRODUCERS[b.type].rate, 1)}/日${b.placed ? '、自分が建てた' : ''}）`);
     }
     return parts.join('・');
   }
@@ -130,8 +146,9 @@ export function openDistrict(app, cityId) {
     const head = `${city.name}  ${G.tierName(tier)}・人口 ${fmt(city.pop)} / 住める人数 ${fmt(cap)}（家 ${G.houseCount(city)}軒）・働き手 ${fmt(Math.min(G.workersNeeded(city), G.workersAvailable(city)))} / ${fmt(G.workersAvailable(city))}（必要 ${fmt(G.workersNeeded(city))}）・市場の圏 ${G.cityRadius(city, tier)}マス${G.staffing(city) < 1 ? `\n⚠ 働き手が足りず、生産施設が ${Math.round(G.staffing(city) * 100)}% しか動いていない` : ''}${city.pop >= cap * 0.98 ? '\n⚠ 家を建てる空き地がなく、人口が頭打ち' : ''}`;
     let line = hover ? describe(hover.x, hover.y) : 'マスにカーソルを合わせると詳細';
     if (hover && selected) {
-      const why = G.placeCheck(city, tier, selected, hover.x, hover.y);
-      line += why ? `　✖ ${why}` : `　✔ ${G.PRODUCERS[selected].name}を置ける（クリック）`;
+      const civic = selected.startsWith('civic:') ? selected.slice(6) : null;
+      const why = G.placeCheck(city, tier, civic ? null : selected, hover.x, hover.y);
+      line += why ? `　✖ ${why}` : `　✔ ${civic ? G.CIVICS[civic].name : G.PRODUCERS[selected].name}を置ける（クリック）`;
     }
     info.textContent = `${head}\n${line}`;
   }
@@ -144,6 +161,12 @@ export function openDistrict(app, cityId) {
       return;
     }
     if (!selected) return;
+    if (selected.startsWith('civic:')) {
+      const type = selected.slice(6);
+      const r = app.run(() => G.buildCivic(world, cityId, type, [x, y]), 'build');
+      if (r.ok) { selected = null; render(); }
+      return;
+    }
     const why = G.placeCheck(city, G.cityTier(city), selected, x, y);
     if (why) return app.error(why);
     const p = G.PRODUCERS[selected];

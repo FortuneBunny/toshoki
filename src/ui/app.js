@@ -240,7 +240,7 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'harvest': case 'windfall': fx.toast(e.text, { kind: 'rare', icon: e.type === 'windfall' ? 'ui/sugar-crystal' : 'terrain/field' }); sfx.rare(); break;
       case 'rumor': break;
       case 'arrive': sfx.arrive(); break;
-      case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': fx.toast(e.text, { icon: 'ui/star' }); break;
+      case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': case 'place': case 'civic': case 'expand': fx.toast(e.text, { icon: 'ui/star' }); break;
       case 'orderStuck': case 'debt': fx.toast(e.text, { kind: 'bad' }); sfx.bad(); break;
       case 'milestone': fx.toast(e.text, { icon: 'ui/star' }); sfx.rare(); break;
       case 'victory': setTimeout(() => { sfx.victory(); fx.flash(); fx.burst(innerWidth / 2, innerHeight / 3, 60, { size: 24 }); }, 100); break;
@@ -515,7 +515,7 @@ if (direct && (G.SCENARIOS[direct[1]] || direct[1] === 'free')) {
   app.startScenario(direct[1], /unlockall/.test(location.hash) ? undefined : null);
   if (/open=trade/.test(location.hash)) { app.state.modals++; openTrade(app, 1); }
   if (/open=order/.test(location.hash)) { app.state.modals++; orderDialog(app, 1); }
-  if (/open=district/.test(location.hash)) app.openDistrict(app.world.player.merchants[0].city);
+  if (/open=district/.test(location.hash)) { if (/civics/.test(location.hash)) { app.world.player.silver = 99999; const cid = app.world.player.merchants[0].city; for (const k of Object.keys(G.CIVICS)) G.buildCivic(app.world, cid, k); } app.openDistrict(app.world.player.merchants[0].city); }
   if (/open=city/.test(location.hash)) { app.state.selCity = app.world.player.merchants[0].city; app.render(); }
   if (/selftest/.test(location.hash)) { app.setSetting('sound', false); import('./selftest.js').then((m) => m.selftest(app)); }
   if (/open=result/.test(location.hash)) { app.world.finished = { win: true, rank: 'S', day: 100, score: 3200 }; app.state.modals++; resultDialog(app); }

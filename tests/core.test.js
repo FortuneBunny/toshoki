@@ -170,3 +170,19 @@ test('労働力: 働き手が足りないと生産が落ちる', () => {
   for (let i = 0; i < 20; i++) c.district.buildings.push({ id: c.district.nextId++, type: 'date_grove', x: 0, y: 0, owner: 'town', rate: 0, virtual: true });
   assert.ok(G.staffing(c) < 1);
 });
+
+test('需要施設: 建てると需要が増え、求める品を届け続けると満足度が上がる', () => {
+  const w = G.createWorld('s6', { seed: 2 });
+  w.player.silver = 9999;
+  const c = w.cities.byakudan;
+  const before = G.dailyDemand(c, 'tea', false);
+  assert.ok(G.buildCivic(w, 'byakudan', 'academy').ok);
+  assert.ok(G.dailyDemand(c, 'tea', false) > before);
+  assert.equal(G.buildCivic(w, 'byakudan', 'academy').ok, false, '同じ種類は1つまで');
+  for (let d = 0; d < 60; d++) {
+    if (d % 5 === 0) { c.stock.tea = (c.stock.tea || 0) + 12; c.stock.pottery = (c.stock.pottery || 0) + 8; c.stock.salt = (c.stock.salt || 0) + 12; }
+    G.advance(w, 1, silent);
+  }
+  assert.ok(c.civicSat.academy > 0.6, `満足度 ${c.civicSat.academy}`);
+  assert.equal(G.buildCivic(w, 'kouboku', 'palace').ok, false, '段階が足りない町には建てられない');
+});
