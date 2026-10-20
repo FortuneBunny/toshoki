@@ -381,7 +381,8 @@ export function advance(world, days, { stopOn = STOP_TYPES } = {}) {
     tick(world);
     const ev = drainEvents(world);
     collected.push(...ev);
-    if (ev.some((e) => stopOn.has(e.type))) break;
+    // 定期便の商人が襲われても止めない（任せている便。損失は帳簿と記録に残る）
+    if (ev.some((e) => stopOn.has(e.type) && !(e.type === 'robbed' && getMerchant(world, e.merchant)?.order && !getMerchant(world, e.merchant).order.paused))) break;
   }
   return { ok: true, events: collected, day: world.day };
 }

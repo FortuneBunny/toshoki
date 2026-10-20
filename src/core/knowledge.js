@@ -1,3 +1,4 @@
+import { growthBlocker } from './city.js';
 // 相場の知識。商人がいる町の相場だけが最新になり、ほかの町の情報は時間とともに古くなる。
 import { midPrice, cityWants } from './market.js';
 
@@ -18,7 +19,7 @@ export function observe(world, cityId) {
     if (!h.length || h[h.length - 1][0] !== world.day) h.push([world.day, prices[id]]);
     if (h.length > 40) h.splice(0, h.length - 40);
   }
-  world.player.knowledge[cityId] = { day: world.day, prices, stock, wants, history, glucose: city.glucose, pop: city.pop, diet: { ...(city.diet || {}) }, sweetLevel: city.sweetLevel || 0 };
+  world.player.knowledge[cityId] = { day: world.day, prices, stock, wants, history, glucose: city.glucose, pop: city.pop, diet: { ...(city.diet || {}) }, sweetLevel: city.sweetLevel || 0, blocker: growthBlocker(world, city) };
 }
 
 export function observePresent(world) {
