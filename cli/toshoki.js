@@ -181,7 +181,7 @@ function statusText(world) {
       const k = world.player.knowledge[c.id];
       const here = world.player.merchants.some((m) => m.city === c.id);
       const adv = here ? G.dietAdvice(world, c).slice(0, 3) : [];
-      out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、${rushGap(here ? c.glucose : k?.glucose, (here ? c.sweetLevel : k?.sweetLevel) || 0)}` : ''}${here ? (() => { const st = G.dwellingStatus(c, G.cityTier(c)); return st.ok ? '' : `。⚠ 住居が${st.missing.map((g) => GOODS[g].name).join('・')}を求めていて家が建たない`; })() : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
+      out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、${rushGap(here ? c.glucose : k?.glucose, (here ? c.sweetLevel : k?.sweetLevel) || 0)}` : ''}${here ? (() => { const why = G.growthBlocker(world, c); return why ? `。⚠ ${why}` : ''; })() : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
     }
   });
   out.push('商人:');
@@ -282,6 +282,8 @@ function cityText(world, id) {
     const tierIdx = G.cityTier(c);
     const nextPop = G.BALANCE.tierPops[tierIdx + 1];
     out.push(`糖度 ${Math.round(c.glucose)}（目標値 ${Math.round(c.glucoseTarget)}）  1日の人口増加率 ${(G.growthPerDay(c) * 100).toFixed(2)}%${nextPop ? `  次の段階まで 人口 ${nextPop}` : ''}`);
+    const why = G.growthBlocker(world, c);
+    if (why) out.push(`伸びを止めているもの: ${why}`);
     out.push(`糖度の目安: 40未満=飢え（人口減） 40〜110=安定（成長） 110〜140=活況（急成長） 140以上で甘味を大量に食べるとシュガーラッシュ → その後クラッシュ`);
     const diet = Object.entries(c.diet || {}).sort((a, b) => b[1] - a[1]);
     out.push(dwellingLine(world, c));

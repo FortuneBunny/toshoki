@@ -226,3 +226,20 @@ export function dietAdvice(world, city) {
 export function growthPerDay(city) {
   return growthRate(city);
 }
+
+// 人口の伸びを止めている一番の理由（初めての人向けの一言）
+export function growthBlocker(world, city) {
+  const tier = cityTier(city);
+  if (city.crash > 0) return `シュガークラッシュ中（あと${city.crash}日）。終わるまで育たない`;
+  if (city.district && city.pop >= housingCap(city, tier) * 0.98) {
+    const dw = dwellingStatus(city, tier);
+    if (!dw.ok) return `家が建たない。住居が${dw.missing.map((g) => GOODS[g].name).join('・')}を求めている`;
+    return '家を建てる空き地がない（市場の圏を広げるか、施設を減らす）';
+  }
+  if (city.glucose < B.starveLine) return `糖度${Math.round(city.glucose)}で飢えている（40未満は人口が減る）。食べ物を届ける`;
+  if (city.glucose < 75) {
+    const missing = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && !(city.diet?.[g] > 0.05));
+    return `糖度${Math.round(city.glucose)}。伸びはゆっくり（糖度が上がるほど速く育つ）。食卓にない食べ物を届ける${missing.length ? `: ${missing.slice(0, 3).map((g) => GOODS[g].name).join('・')}` : ''}`;
+  }
+  return null;
+}
