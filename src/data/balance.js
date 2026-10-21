@@ -65,9 +65,9 @@ export const BALANCE = {
   branchCost: 3000,           // 商館の費用（2つ目からは倍々: 3000, 6000, 12000…）
   branchUpkeep: 5,            // 商館1つの1日の維持費
   branchMinTier: 2,           // 商館を建てられる町の段階（町以上）
-  autoBuyReserve: 100,
-  dwellingFullGrowth: 1.15,
-  postGrowth: 1.6,            // 交易所に食べ物を3種類以上届けているときの成長倍率   // 住居の求める品が全部そろった町の成長倍率
+  autoBuyReserve: 100,        // 工房の自動仕入れは、手元の銀がこれを下回るなら止める
+  dwellingFullGrowth: 1.15,   // 住居の求める品が全部そろった町の成長倍率
+  postGrowth: 1.6,            // 交易所に食べ物を3種類以上届けているときの成長倍率
   // 区画: 生産施設を置いたとき
   producerBuildDays: 10,      // 置いてから動き出すまでの日数
   producerUpkeep: 1,          // 自分が置いた生産施設の1日の維持費
@@ -80,7 +80,7 @@ export const BALANCE = {
   workshopWorkers: 30,        // 自分の工房1つが使う働き手
   donateCostPerPop: 1.5,      // 寄進の費用 = 人口 × これ
   donateGrowth: 1.25,         // 寄進すると、成長がプラスのときの成長率が1.25倍
-  donateDays: 90,        // 工房の自動仕入れは、手元の銀がこれを下回るなら止める
+  donateDays: 90,             // 寄進が効く日数
   merchantWage: 1,
   repLevels: [0, 60, 180, 400, 800, 1500],  // 評判レベルの閾値
   repSpreadCut: 0.12,         // 評判1レベルごとに手数料を何割減らすか

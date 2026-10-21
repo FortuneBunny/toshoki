@@ -100,7 +100,7 @@ export function runOrder(world, m, { depart = true } = {}) {
       if (n <= 0) {
         if (want > 0) {
           const unit = quote(world, city, b.good, 1);
-          notes.push(!(city.stock[b.good] >= 1) ? `${GOODS[b.good].name}は${city.name}に在庫がない` : unit > (b.max || Infinity) ? `${GOODS[b.good].name}は買値 ${unit.toFixed(2)} が上限 ${b.max} を超えるので買わない` : room <= 0 ? `${GOODS[b.good].name}は積載がいっぱい` : `${GOODS[b.good].name}は銀が足りず買えない`);
+          notes.push(!(city.stock[b.good] >= 1) ? `${GOODS[b.good].name}は${city.name}に在庫がない` : unit > (b.max || Infinity) ? `${GOODS[b.good].name}は買値 ${unit.toFixed(2)} が上限 ${b.max} を超えるので買わない` : room <= 0 ? `${GOODS[b.good].name}は積載がいっぱい` : keepForTown > 0 && (city.stock[b.good] || 0) - keepForTown < 1 ? `${GOODS[b.good].name}は${city.name}が食べる2日分しかないので買わない` : `${GOODS[b.good].name}は銀が足りず買えない`);
         }
         continue;
       }

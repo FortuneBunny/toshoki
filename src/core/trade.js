@@ -1,7 +1,7 @@
 // 売買の確定。交易画面、CLI、定期便はすべてここを通る。
 import { GOODS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
-import { quote, cityWants, midPrice } from './market.js';
+import { quote, cityWants, midPrice, spreadFor, sellBonus } from './market.js';
 import { cargoUsed, cargoCap } from './caravan.js';
 import { emit } from './events.js';
 import { observe } from './knowledge.js';
@@ -16,7 +16,40 @@ export function talentPrice(m, good, buying) {
   return f;
 }
 
+// 同じ品の行はまとめる（同じ売りの行を何度も書くと、1個を何個にも数えられたため。12回目の Sol の指摘）
+function mergeLines(lines) {
+  const by = new Map();
+  for (const { good, qty } of lines) if (qty) by.set(good, (by.get(good) || 0) + qty);
+  return [...by].map(([good, qty]) => ({ good, qty })).filter((l) => l.qty);
+}
+
+// 最近この町で自分が買った量（30日かけて忘れる）。同じ町で買った品を売り戻すときは、才能やラッシュの上乗せを付けない
+const RECENT_DAYS = 30;
+function recentBought(world, city, good) {
+  const r = city.playerBought?.[good];
+  if (!r) return 0;
+  return r.q * Math.max(0, 1 - (world.day - r.day) / RECENT_DAYS);
+}
+function noteBought(world, city, good, q) {
+  city.playerBought = city.playerBought || {};
+  city.playerBought[good] = { q: recentBought(world, city, good) + q, day: world.day };
+}
+
+// 売りの受け取り額。同じ町で最近買った分は、買値より必ず安くなるように上乗せを外す
+// （評判で手数料が下がると、甘党・値切り上手・ラッシュの上乗せで、同じ町の売り買いだけで儲かったため。12回目の Sol の指摘）
+export function sellValue(world, m, city, good, n) {
+  if (n <= 0) return 0;
+  const full = quote(world, city, good, -n) * talentPrice(m, good, false);
+  const k = Math.min(n, recentBought(world, city, good));
+  if (k <= 0) return full;
+  const s = spreadFor(world);
+  const mids = quote(world, city, good, -n) / ((1 - s) * sellBonus(world, city, good));
+  const plain = mids * Math.min(1 - s, 0.94 * (1 + s));
+  return full * ((n - k) / n) + Math.min(full, plain) * (k / n);
+}
+
 export function previewTrade(world, m, lines) {
+  lines = mergeLines(lines);
   const city = world.cities[m.city];
   const errors = [];
   let silverDelta = 0;
@@ -37,7 +70,7 @@ export function previewTrade(world, m, lines) {
       const have = m.cargo[good] || 0;
       if (-qty > have) errors.push(`${g.name}は${have}個しか積んでいない`);
       if (!cityWants(city, good)) errors.push(`${city.name}では${g.name}を買い取ってもらえない`);
-      const gain = quote(world, city, good, -Math.min(-qty, have)) * talentPrice(m, good, false);
+      const gain = sellValue(world, m, city, good, Math.min(-qty, have));
       silverDelta += gain;
       rows.push({ good, qty, total: gain });
     }
@@ -52,7 +85,7 @@ export function previewTrade(world, m, lines) {
 
 export function executeTrade(world, m, lines, { auto = false } = {}) {
   // 売りを先に（売った銀で買えるように）
-  lines = [...lines].sort((a, b) => a.qty - b.qty);
+  lines = mergeLines(lines).sort((a, b) => a.qty - b.qty);
   const pv = previewTrade(world, m, lines);
   if (!pv.ok) return pv;
   const city = world.cities[m.city];
@@ -72,6 +105,7 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       m.boughtAt = m.boughtAt || {};
       m.boughtAt[good] = have > 0 && m.boughtAt[good] !== city.id ? 'mixed' : city.id;
       city.stock[good] -= qty;
+      noteBought(world, city, good, qty);
       world.player.silver -= cost;
       world.stats.spent += cost;
       world.stats.bought[good] = (world.stats.bought[good] || 0) + qty;
@@ -80,8 +114,10 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       // 読み的中: 出発時に知っていた相場より高く売れたか
       const expected = m.expected?.city === city.id ? m.expected.prices[good] : undefined;
       const actualMid = midPrice(city, good);
-      const gain = quote(world, city, good, qty) * talentPrice(m, good, false);
+      const gain = sellValue(world, m, city, good, n);
       const basis = (m.cost[good] || 0) * n;
+      // 同じ町で仕入れた品を売り戻した分は、目標の取引量には数えない（全部売ると仕入れ先の記録が消えるので、先に判定する）
+      const resold = m.boughtAt?.[good] === city.id;
       const p = gain - basis;
       profit += p;
       sold += n;
@@ -90,8 +126,6 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       city.stock[good] = (city.stock[good] || 0) + n;
       world.player.silver += gain;
       world.stats.revenue += gain;
-      // 同じ町で仕入れた品を売り戻した分は、目標の取引量には数えない
-      const resold = m.boughtAt?.[good] === city.id;
       if (!resold) {
         world.stats.sold[city.id] = world.stats.sold[city.id] || {};
         world.stats.sold[city.id][good] = (world.stats.sold[city.id][good] || 0) + n;

@@ -67,7 +67,7 @@ export function updateProduction(world) {
     if (!b.active) continue;
     let made = 0;
     for (let i = 0; i < def.batches + (world.player.mods?.batchBonus || 0); i++) {
-      const recipes = def.recipes.filter((r) => (r.minTier ?? 0) <= cityTier(city) && (!b.recipe || b.recipe === r.name));
+      const recipes = def.recipes.filter((r) => (r.minTier ?? 0) <= cityTier(city) && (!b.recipe || b.recipe === r.name) && Object.keys(r.in).every((g) => world.scenario.goods.includes(g)));
       let ok = false;
       // 止まった理由は、上から試したレシピごとに並べる（下のレシピも試したことが分かるように）
       const whys = [];

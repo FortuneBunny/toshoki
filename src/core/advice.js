@@ -4,7 +4,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { quote, cityWants } from './market.js';
 import { routeInfo, merchantCap, hireCost, branchesAllowed, branchCost, branchCheck, donateCost, hasPresence } from './actions.js';
 import { dailyCost } from './world.js';
-import { glucoseNeed, cityTier } from './city.js';
+import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan } from './city.js';
 import { dwellingStatus } from './dwelling.js';
 import { goalsStatus } from './scoring.js';
 import { cargoCap, cargoUsed, foodNeeded } from './caravan.js';
@@ -101,7 +101,14 @@ export function silverAdvice(world) {
   const name = (id) => world.cities[id].name;
   // 目標の町で、食卓に足りない品（知っている範囲で）と、その産地
   const st = goalsStatus(world);
-  const goal = world.scenario.goals.find((g, i) => ['cityTier', 'cityPop', 'rushes'].includes(g.type) && !st[i]?.done);
+  // 目標の町（交易所の目標なら、開いた交易所のうち一番大きいもの）
+  let goal = world.scenario.goals.find((g, i) => ['cityTier', 'cityPop', 'rushes'].includes(g.type) && !st[i]?.done);
+  if (!goal) {
+    const pi = world.scenario.goals.findIndex((g, i) => g.type === 'postTier' && !st[i]?.done);
+    const post = Object.values(world.cities).filter((c) => c.founded).sort((a, b) => b.pop - a.pop)[0];
+    if (pi >= 0 && post) goal = { type: 'postTier', city: post.id };
+    else if (pi >= 0) out.push({ kind: 'found', text: '交易所の目標がまだ。交易所を開く（sites で候補）' });
+  }
   let lack = '';
   if (goal) {
     const k = pl.knowledge[goal.city];
@@ -110,8 +117,10 @@ export function silverAdvice(world) {
     const short = world.scenario.goods
       .filter((id) => ['food', 'sweet'].includes(GOODS[id].kind) && GOODS[id].glu && !(c.produces?.[id] > 0) && (diet[id] || 0) < (GOODS[id].kind === 'food' ? 0.3 : 0.2))
       .map((id) => {
-        const src = Object.values(world.cities).filter((x) => x.id !== c.id && (x.produces?.[id] || 0) > 0).sort((a, b) => b.produces[id] - a.produces[id])[0];
-        return src ? { id, src: src.id, gap: (GOODS[id].kind === 'food' ? 0.5 : 0.45) - (diet[id] || 0) } : null;
+        // 産地は、地元で食べる分を引いても余る町だけ（作っているだけで、余りのない町を勧めないように）
+        const spare = (x) => (x.produces?.[id] || 0) - dailyDemand(x, id, false);
+        const src = Object.values(world.cities).filter((x) => x.id !== c.id && spare(x) > 0.5).sort((a, b) => spare(b) - spare(a))[0];
+        return src ? { id, src: src.id, spare: spare(src), gap: (GOODS[id].kind === 'food' ? 0.5 : 0.45) - (diet[id] || 0) } : null;
       })
       .filter(Boolean)
       .sort((a, b) => b.gap - a.gap)
@@ -124,7 +133,12 @@ export function silverAdvice(world) {
     }
     if (short.length) {
       const need = glucoseNeed(c);
-      parts.push(`食卓に足りない ${short.map((s) => `${GOODS[s.id].name}（${name(s.src)}産、1日約${Math.max(1, Math.round((s.gap * need) / GOODS[s.id].glu))}個）`).join('・')}`);
+      parts.push(`食卓に足りない ${short.map((s) => `${GOODS[s.id].name}（${name(s.src)}産、1日約${Math.max(1, Math.round(Math.min(s.spare, (s.gap * need) / GOODS[s.id].glu)))}個）`).join('・')}`);
+    }
+    // ラッシュが目標なら、甘味（クラッシュ中は終わるまで待つ）
+    if (goal.type === 'rushes' && !(c.crash > 0)) {
+      const plan = rushSweetPlan(world, c).filter((p) => !(c.produces?.[p.good] > 0)).slice(0, 2);
+      if (plan.length) parts.unshift(`ラッシュに要る甘味 ${plan.map((p) => `${GOODS[p.good].name}（1日約${Math.max(1, Math.round(p.perDay))}個）`).join('・')}`);
     }
     if (parts.length) lack = `${name(goal.city)}の${parts.join('と、')} の定期便を足す`;
   }

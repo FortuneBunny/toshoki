@@ -27,8 +27,8 @@ export function observePresent(world) {
   for (const m of world.player.merchants) if (!m.travel) here.add(m.city);
   // 自分の交易所は、いつでも様子が分かる
   for (const c of Object.values(world.cities)) if (c.founded) here.add(c.id);
-  // 商館のある町も
-  for (const id of world.player.branches || []) here.add(id);
+  // 商館のある町は、5日ごとに相場が届く（いつも最新だと、古い情報で読む面白さが薄れるため。12回目の Opus の指摘）
+  if (world.day % 5 === 0) for (const id of world.player.branches || []) here.add(id);
   for (const id of here) observe(world, id);
   // 情報網の技術: 一定日数ごとに遠くの町の相場が（古いまま）届く
   const net = world.scenario.infoNetwork;

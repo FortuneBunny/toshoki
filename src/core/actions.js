@@ -122,7 +122,8 @@ export function buyTransport(world, mid, type) {
   return { ok: true, price };
 }
 
-const NAMES = [['ライラ', 'merchant-2'], ['ユースフ', 'merchant-3'], ['ナシル', 'merchant-4'], ['ザフラ', 'merchant-2'], ['オマル', 'merchant-1'], ['ファリダ', 'merchant-2']];
+const NAMES = [['ライラ', 'merchant-2'], ['ユースフ', 'merchant-3'], ['ナシル', 'merchant-4'], ['ザフラ', 'merchant-2'], ['オマル', 'merchant-1'], ['ファリダ', 'merchant-2'],
+  ['カリム', 'merchant-3'], ['サミーラ', 'merchant-2'], ['ハミド', 'merchant-4'], ['ヌール', 'merchant-2'], ['タリク', 'merchant-1'], ['アミナ', 'merchant-2'], ['ラシード', 'merchant-3'], ['ジャミラ', 'merchant-2']];
 
 // 雇う候補: 3人。才能は種と雇った人数から決まる（選び直しで変わらない）
 export function hireCandidates(world) {
@@ -138,7 +139,9 @@ export function hireCandidates(world) {
   const names = NAMES.filter(([nm]) => !used.has(nm));
   while (out.length < 3 && pool.length) {
     const talent = pool.splice(Math.floor(rnd() * pool.length), 1)[0];
-    const [name, portrait] = names[(out.length + n) % names.length] || NAMES[out.length];
+    // 名前を使い切ったら「二世」を付ける（同じ名前が並ばないように）
+    let [name, portrait] = names[(out.length + n) % names.length] || NAMES[(out.length + n) % NAMES.length];
+    for (let k = 2; used.has(name) || out.some((o) => o.name === name); k++) name = `${name.replace(/[二三四五六七八九]世$/, '')}${'二三四五六七八九'[Math.min(k, 9) - 2]}世`;
     out.push({ name, portrait, talent });
   }
   return out;
@@ -449,8 +452,8 @@ export function advance(world, days, { stopOn = STOP_TYPES } = {}) {
     tick(world);
     const ev = drainEvents(world);
     collected.push(...ev);
-    // 定期便の商人が襲われても止めない（任せている便。損失は帳簿と記録に残る）
-    if (ev.some((e) => stopOn.has(e.type) && !(e.type === 'robbed' && getMerchant(world, e.merchant)?.order && !getMerchant(world, e.merchant).order.paused))) break;
+    // 定期便の商人が襲われたり、砂漠で飢えたりしても止めない（任せている便。損失は帳簿と記録に残る）
+    if (ev.some((e) => stopOn.has(e.type) && !(['robbed', 'starve'].includes(e.type) && getMerchant(world, e.merchant)?.order && !getMerchant(world, e.merchant).order.paused))) break;
     // 銀が底をついたら止める。ただし30日に1回まで（行ったり来たりで何度も止まらないように）
     if (ev.some((e) => e.type === 'debt') && stopOn === STOP_TYPES && world.day - (world.lastDebtStop ?? -99) >= 30) { world.lastDebtStop = world.day; break; }
   }

@@ -349,14 +349,72 @@ test('商館: 雇える商人が1人ずつ増え、2つ目からは倍々に高�
   assert.equal(G.merchantCap(w), 7);
   assert.equal(G.branchCost(w), 6000);
   assert.equal(G.buildBranch(w, 'kohaku').ok, false); // 1つの町に1つまで
-  // 商館のある町は、商人がいなくても相場が毎日分かる
+  // 商館のある町は、商人がいなくても5日ごとに相場が届く
   w.player.merchants[0].city = 'kibi';
   w.player.merchants[1].city = 'kibi';
-  G.advance(w, 3, silent);
-  assert.equal(G.knowledgeAge(w, 'kohaku'), 0);
+  G.advance(w, 12, silent);
+  assert.ok(G.knowledgeAge(w, 'kohaku') < 5);
   assert.deepEqual(G.deserialize(G.serialize(w)).player.branches, ['kohaku']);
   // 商館のないシナリオでは建てられない
   const w2 = G.createWorld('s2', { seed: 5 });
   w2.player.silver = 50000;
   assert.equal(G.buildBranch(w2, w2.player.merchants[0].city).ok, false);
+});
+
+test('同じ売りの行を何度書いても、積んでいる数より多くは売れない（12回目 Sol）', () => {
+  const w = G.createWorld('s7', { seed: 121 });
+  const m = w.player.merchants[0];
+  m.cargo.whitesugar = 1;
+  m.cost.whitesugar = 30;
+  const before = w.player.silver;
+  const r = G.trade(w, m.id, Array.from({ length: 50 }, () => ({ good: 'whitesugar', qty: -1 })));
+  assert.equal(r.ok, false);
+  assert.equal(w.player.silver, before);
+  assert.equal(G.trade(w, m.id, [{ good: 'whitesugar', qty: -1 }]).ok, true);
+  assert.equal(w.stats.soldTotal.whitesugar, 1);
+});
+
+test('評判と才能があっても、同じ町で買って売るだけでは儲からない（12回目 Sol）', () => {
+  for (const talent of ['sweettooth', 'appraiser', 'haggler']) {
+    const w = G.createWorld('s8', { seed: 121 });
+    w.player.repLevel = 5;
+    w.player.silver = 5000;
+    const m = w.player.merchants[0];
+    m.talent = talent;
+    const c = w.cities[m.city];
+    c.stock.molasses = 40;
+    c.rush = 5; // ラッシュの上乗せも
+    const s0 = w.player.silver;
+    for (let i = 0; i < 3; i++) {
+      assert.equal(G.trade(w, m.id, [{ good: 'molasses', qty: 20 }]).ok, true);
+      assert.equal(G.trade(w, m.id, [{ good: 'molasses', qty: -20 }]).ok, true);
+    }
+    assert.ok(w.player.silver < s0, `${talent}: ${s0} → ${w.player.silver}`);
+  }
+});
+
+test('全部売っても、同じ町での売り戻しは目標の取引量に数えない（12回目 Sol）', () => {
+  const w = G.createWorld('s7', { seed: 121 });
+  const m = w.player.merchants[0];
+  w.cities[m.city].stock.wheat = 30;
+  G.trade(w, m.id, [{ good: 'wheat', qty: 2 }]);
+  G.trade(w, m.id, [{ good: 'wheat', qty: -1 }]);
+  G.trade(w, m.id, [{ good: 'wheat', qty: -1 }]);
+  assert.equal(w.stats.soldTotal.wheat || 0, 0);
+});
+
+test('暇を出したあとに雇っても、番号と名前が重ならない（12回目 Sol）', () => {
+  const w = G.createWorld('s8', { seed: 121 });
+  w.player.silver = 99999;
+  const at = w.player.merchants[0].city;
+  for (let i = 0; i < 4; i++) G.hireMerchant(w, at);
+  G.dismissMerchant(w, w.player.merchants[1].id);
+  G.hireMerchant(w, at);
+  for (const id of ['kohaku', 'kibi', 'seikai']) { w.player.merchants[0].city = id; G.buildBranch(w, id); }
+  w.player.merchants[0].city = at;
+  while (G.hireMerchant(w, at).ok);
+  const ids = w.player.merchants.map((x) => x.id);
+  const names = w.player.merchants.map((x) => x.name);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(new Set(names).size, names.length, names.join(','));
 });

@@ -175,7 +175,7 @@ function statusText(world) {
   const out = [];
   out.push(`■ ${world.scenario.no}. ${world.scenario.title}   ${G.dateString(world.day)}（${world.day}日目 / 期限 ${world.scenario.deadline}日）`);
   if (pl.heirloom) out.push(`家訓: ${G.heirloomText(pl.heirloom)}`);
-  out.push(`銀 ${Math.floor(pl.silver)}   資産 ${Math.floor(G.netWorth(world))}（銀＋積荷×基準の8割＋倉庫の品はその町で売った値の8割＋輸送手段・工房×半額。区画の施設・道・交易所・技術・寄進は入らない）   評判 Lv${pl.repLevel}（${pl.rep}）   連続黒字 ${pl.streak}`);
+  out.push(`銀 ${Math.floor(pl.silver)}   資産 ${Math.floor(G.netWorth(world))}（銀＋積荷と倉庫の品はその町で売った値の8割（積荷は移動中なら行き先）＋輸送手段・工房・商館×半額。区画の施設・道・交易所・技術・寄進は入らない）   評判 Lv${pl.repLevel}（${pl.rep}）   連続黒字 ${pl.streak}`);
   if (world.scenario.goods.some((id) => ['sea', 'river'].length) && world.edges.some((e) => e.monsoon)) out.push(`季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（切り替わるまで あと${180 - (world.day % 180)}日。夏は東へ、冬は西へ追い風）`);
   const sc = world.scenario;
   out.push(`ランクの基準: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`);
@@ -210,7 +210,12 @@ function statusText(world) {
   const sa = G.silverAdvice(world);
   if (sa.length) { out.push(`💰 銀が余っている（${Math.floor(pl.silver)}）。使い道の例:`); for (const a of sa) out.push(`  ・${a.text}`); }
   const stalled = world.player.buildings.filter((b) => b.active && !b.lastMade && world.day > 0);
-  for (const b of stalled) out.push(`⚠ ${world.cities[b.city].name}の${BUILDINGS[b.type].name}が止まっている: ${b.why || '材料がない'}（workshops で詳細）`);
+  for (const b of stalled) {
+    // 止まっている間に倉庫にたまった材料（定期便が下ろし続けると気づきにくいため）
+    const wh = world.player.warehouses[b.city]?.stock || {};
+    const piled = G.buildingInputs(b.type).filter((g) => (wh[g] || 0) >= 20).map((g) => `${GOODS[g].name}${Math.floor(wh[g])}`);
+    out.push(`⚠ ${world.cities[b.city].name}の${BUILDINGS[b.type].name}が止まっている: ${b.why || '材料がない'}${piled.length ? `。倉庫で眠っている材料: ${piled.join('・')}` : ''}（workshops で詳細）`);
+  }
   const active = world.contracts.filter((c) => !c.done && !c.failed);
   if (active.length) {
     out.push('大口注文:');

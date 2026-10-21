@@ -175,20 +175,31 @@ export function addMerchant(world, { name, portrait, city, transport = 'donkey' 
   const m = {
     capMult: world.player.mods?.cap ?? 1,
     cartCap: world.player.mods?.cartCap ?? 1,
-    id: world.player.merchants.length + 1, name, portrait: portrait || 'merchant-1', city, transport,
+    // 番号は使ったことのない番号（暇を出した商人の番号を使い回すと、同じ番号が2人になったため）
+    id: Math.max(0, world.player.lastMerchantId || 0, ...world.player.merchants.map((x) => x.id)) + 1, name, portrait: portrait || 'merchant-1', city, transport,
     cargo: {}, cost: {}, guards: 0, travel: null, order: null, lifetime: 0, expected: null,
   };
   world.player.merchants.push(m);
+  world.player.lastMerchantId = m.id;
   return m;
 }
 
 // 背景の交易: 価格差の大きい隣町へ、少しずつ品物が流れる
 function diffuse(world) {
   const rate = (world.scenario.diffusion ?? 1) * B.diffusionRate;
-  for (const e of world.edges) {
+  // 隣町どうしに加えて、間の町がその品を買わないときは、1つ先の町とも流れる（見えない商人は通り過ぎる町で売らない）
+  // 砂漠の町が絹を買わないので、玻璃の都の絹が琥珀京へまったく流れず、絹の便がいつも同じ答えになっていた（12回目の Opus の指摘）
+  const nb = {};
+  for (const e of world.edges) { (nb[e.a] = nb[e.a] || []).push(e.b); (nb[e.b] = nb[e.b] || []).push(e.a); }
+  const pairs = world.edges.map((e) => ({ a: e.a, b: e.b, via: null }));
+  for (const [mid, ns] of Object.entries(nb)) for (let i = 0; i < ns.length; i++) for (let j = i + 1; j < ns.length; j++) {
+    if (ns[i] !== ns[j] && !nb[ns[i]].includes(ns[j])) pairs.push({ a: ns[i], b: ns[j], via: mid });
+  }
+  for (const e of pairs) {
     const a = world.cities[e.a];
     const b = world.cities[e.b];
     for (const id of world.scenario.goods) {
+      if (e.via && dailyDemand(world.cities[e.via], id, false) > 0) continue;
       const pa = midPrice(a, id);
       const pb = midPrice(b, id);
       let from = null, to = null;

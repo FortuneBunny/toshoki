@@ -105,7 +105,20 @@ export function updateRivals(world) {
         if (route) { m.cargo = {}; m.dest = r.workshop.city; m.travelDays = route.days; m.from = m.city; m.departDay = world.day; continue; }
       }
       const plan = bestPlan(world, r, m);
-      if (!plan) { m.wait = 3; continue; }
+      if (!plan) {
+        // 運ぶ物がない町（大きな消費地など）で待ち続けないように、空荷で仕入れ先へ移る
+        // （12回目: s8 のライバルが50日目から琥珀京で止まり、絹がずっと上限値のままだった）
+        let to = null, bestScore = 0;
+        for (const id of Object.keys(world.cities)) {
+          if (id === m.city) continue;
+          const c = world.cities[id];
+          const score = (r.goods || world.scenario.goods).reduce((s, g) => s + ((c.stock[g] || 0) >= 6 && midPrice(c, g) < GOODS[g].base ? (GOODS[g].base - midPrice(c, g)) * Math.min(20, c.stock[g]) : 0), 0);
+          if (score > bestScore && findPath(world, m.city, id, m.transport)) { bestScore = score; to = id; }
+        }
+        if (to) { const route = findPath(world, m.city, to, m.transport); m.cargo = {}; m.dest = to; m.travelDays = route.days; m.from = m.city; m.departDay = world.day; continue; }
+        m.wait = 3;
+        continue;
+      }
       const here = world.cities[m.city];
       const cost = quote(world, here, plan.id, plan.n);
       here.stock[plan.id] -= plan.n;

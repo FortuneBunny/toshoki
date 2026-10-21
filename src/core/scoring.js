@@ -12,9 +12,16 @@ export function netWorth(world) {
   const pl = world.player;
   let w = pl.silver;
   for (const m of pl.merchants) {
-    for (const [id, q] of Object.entries(m.cargo)) w += q * GOODS[id].base * 0.8;
+    // 積荷も倉庫と同じく、今いる町（移動中なら行き先）で売ったときの値の8割（積み替えるだけで資産が増えないように。12回目の Opus の指摘）
+    const city = world.cities[m.travel?.to || m.city];
+    for (const [id, q] of Object.entries(m.cargo)) {
+      if (q <= 0 || !city || !cityWants(city, id)) continue;
+      w += Math.min(q * GOODS[id].base, quote(world, city, id, -Math.floor(q))) * 0.8;
+    }
     w += TRANSPORTS[m.transport].cost * 0.5;
   }
+  // 商館は、払った額の半分
+  for (let i = 0; i < (pl.branches?.length || 0); i++) w += B.branchCost * Math.pow(2, i) * 0.5;
   // 倉庫の品は、その町で全部売ったときの値の8割（買い取らない品は0）。売れない在庫を積んで資産を増やせないように
   for (const [cid, wh] of Object.entries(pl.warehouses)) {
     const city = world.cities[cid];

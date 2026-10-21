@@ -15,6 +15,8 @@ export const BUILDINGS = {
     recipes: [
       { in: { whitesugar: 3, honey: 1 }, out: { sugarart: 1 }, name: '砂糖細工', minTier: 3 },
       { in: { whitesugar: 2, wheat: 2 }, out: { sweets: 3 }, name: '菓子づくり' },
+      // 麦が手に入らない大都市で止まり続けないように、米でも作れる（12回目の Opus の指摘）
+      { in: { whitesugar: 2, rice: 2 }, out: { sweets: 3 }, name: '米菓子づくり' },
     ],
   },
   winery: {

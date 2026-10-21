@@ -63,5 +63,11 @@ export function deserialize(json) {
   Object.defineProperty(data, 'grid', { value: buildGrid(data), enumerable: false, writable: true });
   Object.defineProperty(data, 'routeCache', { value: new Map(), enumerable: false, writable: true });
   for (const c of Object.values(data.cities)) if (c.founded) linkPostHops(data, c.id);
+  // 古い版で暇を出したあとに雇うと、同じ番号の商人が2人いることがある。後の方に新しい番号を付ける
+  const seen = new Set();
+  for (const m of data.player.merchants) {
+    if (seen.has(m.id)) m.id = Math.max(...data.player.merchants.map((x) => x.id)) + 1;
+    seen.add(m.id);
+  }
   return data;
 }
