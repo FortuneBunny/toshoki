@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>shot frame</title>
+<style>html,body{margin:0;background:#111}iframe{border:0;display:block}</style>
+<script>
+// 狭い画面の撮影用: ?w=390&h=844#<ゲームのハッシュ> で、その大きさの iframe にゲームを開く
+const q = new URLSearchParams(location.search);
+const f = document.createElement('iframe');
+f.width = q.get('w') || 390; f.height = q.get('h') || 844;
+f.src = '../../index.html' + location.hash;
+document.addEventListener('DOMContentLoaded', () => document.body.append(f));
+</script>

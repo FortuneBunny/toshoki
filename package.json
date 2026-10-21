@@ -9,7 +9,9 @@
     "play": "node cli/toshoki.js",
     "svg:check": "node tools/validate-svg.js assets/svg",
     "bots": "node tools/sim-bots.js",
-    "serve": "node tools/serve.js"
+    "serve": "node tools/serve.js",
+    "shots": "node tools/shots/fixtures.js && node tools/shots/run.js",
+    "shots:spot": "node tools/shots/spot.js"
   },
   "license": "MIT"
 }

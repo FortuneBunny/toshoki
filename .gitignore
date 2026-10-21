@@ -1,3 +1,4 @@
 node_modules/
 playtests/raw/
 *.save.json
+tools/shots/out/

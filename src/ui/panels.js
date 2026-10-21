@@ -48,7 +48,7 @@ function cityPanel(app, id) {
   const box = h('div', {});
   add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}`)),
     h('button', { class: 'btn ghost small', style: { marginLeft: 'auto' }, onclick: () => { app.state.selCity = null; app.render(); } }, '✕')));
-  if (here.length) {
+  if (here.length || c.founded) { // 自分の交易所は、商人がいなくても今の様子が分かる
     const tier = G.cityTier(c);
     const next = G.BALANCE.tierPops[tier + 1];
     add(box, 

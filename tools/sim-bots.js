@@ -108,7 +108,7 @@ function upgrade(world, m) {
   if (world.player.merchants.length < max && world.player.silver > G.hireCost(world) * 3) G.hireMerchant(world, m.city);
 }
 
-const BOTS = {
+export const BOTS = {
   idle: () => {},
   random(world, m) {
     const city = world.cities[m.city];

@@ -1,0 +1,36 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>sprite check</title>
+<style>body{margin:0;background:#1c1712;color:#f3dfb3;font:12px sans-serif}canvas{display:block}</style>
+<canvas id="c"></canvas>
+<script>
+// 斜め見下ろしの素材の確認用: ?files=buildings/wheat_farm,houses/desert-1 （assets/svg/ からのパス、.svg なし）
+// 地面のひし形（左 4,96 / 上 64,66 / 右 124,96 / 下 64,126）がマスにぴったり重なるように描く。
+// 3つの大きさ（地図の拡大 1.0・2.0、区画の画面）と、砂地・草地の両方に並べる。
+const files = (new URLSearchParams(location.search).get('files') || '').split(',').filter(Boolean);
+const cv = document.getElementById('c');
+const scales = [32, 64, 52 * 1.6];
+const cols = Math.min(files.length, 8);
+const cellW = 150, rowH = 120;
+cv.width = 40 + cols * cellW * 2; cv.height = 60 + Math.ceil(files.length / cols) * scales.length * rowH;
+const c = cv.getContext('2d');
+c.fillStyle = '#1c1712'; c.fillRect(0, 0, cv.width, cv.height);
+function tile(x, y, w, col) { const h = w / 2; c.beginPath(); c.moveTo(x, y - h / 2); c.lineTo(x + w / 2, y); c.lineTo(x, y + h / 2); c.lineTo(x - w / 2, y); c.closePath(); c.fillStyle = col; c.fill(); c.strokeStyle = 'rgba(0,0,0,0.15)'; c.stroke(); }
+const imgs = files.map((f) => { const im = new Image(); im.src = `../../assets/svg/${f}.svg`; return im; });
+Promise.all(imgs.map((im) => new Promise((r) => { im.onload = r; im.onerror = r; }))).then(() => {
+  files.forEach((f, i) => {
+    const col = i % cols, row = Math.floor(i / cols);
+    scales.forEach((tw, si) => {
+      [['#e9d3a3', 0], ['#9cc46f', 1]].forEach(([ground, gi]) => {
+        const x = 40 + col * cellW * 2 + gi * cellW + cellW / 2;
+        const y = 60 + (row * scales.length + si) * rowH + rowH * 0.7;
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) tile(x + (dx - dy) * tw / 2, y + (dx + dy) * tw / 4, tw, ground);
+        const S = tw * 128 / 120;
+        if (imgs[i].naturalWidth) c.drawImage(imgs[i], x - S / 2, y - S * 96 / 128, S, S);
+        else { c.fillStyle = 'red'; c.fillText('読めない', x - 20, y); }
+      });
+    });
+    c.fillStyle = '#f3dfb3'; c.fillText(f, 40 + col * cellW * 2, 50 + row * scales.length * rowH);
+  });
+});
+</script>

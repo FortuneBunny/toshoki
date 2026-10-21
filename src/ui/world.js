@@ -10,6 +10,7 @@ const IMG = new Map();
 function img(path) {
   if (!IMG.has(path)) {
     const im = new Image();
+    im.onerror = () => console.error(`画像を読めない: assets/svg/${path}.svg`);
     im.src = `assets/svg/${path}.svg`;
     IMG.set(path, im);
   }
@@ -28,6 +29,14 @@ function shade(hex, f) {
   return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`;
 }
 
+// 家の絵: 町並みの様式ごとに3種類（3は大きな町だけに混ざる立派な家）
+// 様式は町そのものから決める（砂漠・港・茶か絹を作る町は東方・それ以外は平原）
+export function houseSprite(world, city, v) {
+  const n = G.cityTier(city) >= 3 && v > 0.75 ? 3 : v < 0.45 ? 1 : 2;
+  const own = Object.keys(city.produces || {});
+  const style = city.tags.includes('desert') ? 'desert' : city.tags.includes('port') ? 'port' : own.includes('tea') || own.includes('silk') ? 'east' : 'plain';
+  return `${style}-${n}`;
+}
 function cityImage(c) {
   const t = G.cityTier(c);
   if (c.tags.includes('port') && t >= 1 && t <= 2) return 'cities/port-town';
@@ -103,7 +112,7 @@ export function createWorldView(container, world, handlers) {
     terrainCache.height = canvas.height;
     const c = terrainCache.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.fillStyle = '#2f7fa8';
+    c.fillStyle = '#1c1712'; // 世界の外（海と見分けがつくよう暗く）
     c.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
     const hw = (TW / 2) * cam.zoom;
     const hh = (TH / 2) * cam.zoom;
@@ -145,6 +154,8 @@ export function createWorldView(container, world, handlers) {
         else if (t === 2 && r < 0.04) deco = 'terrain/dunes';
         else if (t === 1 && r < 0.05) deco = 'terrain/forest';
         else if (t === 3 && r < 0.06) deco = 'terrain/mountain';
+        else if (t === 2 && r > 0.985 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => grid.terrain[G.gridKey(x + dx, y + dy)] === 1)) deco = 'terrain/palm';
+        else if (t === 5 && r < 0.012) deco = 'terrain/waves';
         if (!deco || grid.path[k] || grid.cityAt.has(k)) continue;
         const im = img(deco);
         if (!ready(im)) continue;
@@ -197,8 +208,12 @@ export function createWorldView(container, world, handlers) {
     for (const { b, w } of list) {
       const [sx, sy] = toScreen(...iso(w[0], w[1]));
       if (sx < -60 || sy < -60 || sx > canvas.clientWidth + 60 || sy > canvas.clientHeight + 60) continue;
+      // 斜め見下ろしの素材（地面のひし形がマスに重なるように描く）。読み込み前は図形で代用
+      const S = TW * cam.zoom * (128 / 120);
       if (b.type === 'house') {
         const v = ((b.x * 7 + b.y * 11) % 10) / 10;
+        const hi = img(`houses/${houseSprite(world, city, v)}`);
+        if (ready(hi)) { c.drawImage(hi, sx - S / 2, sy - S * 0.75, S, S); continue; }
         const ww = (12 + v * 5) * cam.zoom;
         const h2 = (8 + v * 3) * cam.zoom;
         c.fillStyle = ['#f3dfb3', '#e2c08a', '#f0d6a0'][Math.floor(v * 3)];
@@ -218,6 +233,8 @@ export function createWorldView(container, world, handlers) {
       }
       if (G.PRODUCERS[b.type]) {
         const building = b.readyDay !== undefined && world.day < b.readyDay;
+        const bi = img(`buildings/${b.type}`);
+        if (ready(bi)) { c.globalAlpha = building ? 0.5 : 1; c.drawImage(bi, sx - S / 2, sy - S * 0.75, S, S); c.globalAlpha = 1; continue; }
         c.fillStyle = b.placed ? 'rgba(242,169,59,0.55)' : 'rgba(160,122,72,0.5)';
         c.beginPath();
         c.moveTo(sx, sy - hh);
@@ -307,6 +324,7 @@ export function createWorldView(container, world, handlers) {
       }
     }
     // 町
+    const labels = [];
     const cities = Object.values(world.cities).sort((a, b) => (a.x + a.y) - (b.x + b.y));
     for (const c of cities) {
       const [tx, ty] = world.grid.cityTiles[c.id];
@@ -361,14 +379,50 @@ export function createWorldView(container, world, handlers) {
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
-      if (c.rush > 0) { ctx.fillStyle = 'rgba(200,244,255,0.25)'; ctx.beginPath(); ctx.ellipse(sx, sy, R * 1.3, R * 0.75, 0, 0, Math.PI * 2); ctx.fill(); }
+      if (c.rush > 0) {
+        // ラッシュ: 脈打つ光の輪と、町のまわりを回るきらめき
+        const t = Date.now() / 1000;
+        const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+        const glow = ctx.createRadialGradient(sx, sy, R * 0.3, sx, sy, R * 1.9);
+        glow.addColorStop(0, `rgba(255,230,150,${0.35 + pulse * 0.2})`);
+        glow.addColorStop(0.6, `rgba(255,120,200,${0.18 + pulse * 0.12})`);
+        glow.addColorStop(1, 'rgba(255,120,200,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.ellipse(sx, sy, R * 1.9, R * 1.1, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `rgba(255,150,220,${0.6 + pulse * 0.4})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(sx, sy, R * (1.25 + pulse * 0.1), R * (0.7 + pulse * 0.06), 0, 0, Math.PI * 2); ctx.stroke();
+        for (let i = 0; i < 6; i++) {
+          const a = t * 1.5 + (i * Math.PI) / 3;
+          const px = sx + Math.cos(a) * R * 1.4;
+          const py = sy - R * 0.4 + Math.sin(a) * R * 0.8;
+          ctx.fillStyle = i % 2 ? '#c8f4ff' : '#fff7d6';
+          ctx.beginPath(); ctx.moveTo(px, py - 5); ctx.lineTo(px + 2, py); ctx.lineTo(px, py + 5); ctx.lineTo(px - 2, py); ctx.closePath(); ctx.fill();
+        }
+      }
+      if (c.crash > 0) {
+        // クラッシュ: 町をくすませる
+        ctx.fillStyle = 'rgba(70,80,110,0.28)';
+        ctx.beginPath(); ctx.ellipse(sx, sy, R * 1.5, R * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+      }
       const im = img(cityImage(c));
       const s = 64 * Math.max(0.55, cam.zoom);
-      if (ready(im)) ctx.drawImage(im, sx - s / 2, sy - s * 0.8, s, s);
-      // 名前と人口
+      if (ready(im)) {
+        if (c.crash > 0) ctx.filter = 'saturate(0.35) brightness(0.85)';
+        ctx.drawImage(im, sx - s / 2, sy - s * 0.8, s, s);
+        ctx.filter = 'none';
+      }
+      // 名前・人口・バッジは、家や隊商に隠れないよう最後にまとめて描く
+      labels.push(() => {
       const fs = Math.max(11, 14 * Math.min(1.2, cam.zoom + 0.3));
       ctx.font = `900 ${fs}px "Zen Maru Gothic", sans-serif`;
       ctx.textAlign = 'center';
+      // 名前の下地（家が密集しても読めるように）
+      ctx.font = `700 ${fs * 0.75}px "Zen Maru Gothic", sans-serif`;
+      const plateW = Math.max(ctx.measureText(`${G.tierName(G.cityTier(c))} ${Math.round(c.pop).toLocaleString('ja-JP')}人・未訪問`).width, c.name.length * fs) + 14;
+      ctx.fillStyle = 'rgba(246,231,196,0.82)';
+      ctx.beginPath(); ctx.roundRect(sx - plateW / 2, sy + s * 0.32 + 2, plateW, fs * 2.15, 7); ctx.fill();
+      ctx.font = `900 ${fs}px "Zen Maru Gothic", sans-serif`;
       ctx.lineWidth = 4;
       ctx.strokeStyle = '#f6e7c4';
       ctx.fillStyle = '#3b2618';
@@ -381,6 +435,16 @@ export function createWorldView(container, world, handlers) {
       ctx.strokeText(sub, sx, sy + s * 0.32 + fs * 1.9);
       ctx.fillStyle = '#5b4026';
       ctx.fillText(sub, sx, sy + s * 0.32 + fs * 1.9);
+      if (c.rush > 0 || c.crash > 0) {
+        const tag = c.rush > 0 ? `シュガーラッシュ！ あと${c.rush}日` : `クラッシュ あと${c.crash}日`;
+        ctx.font = `900 ${fs * 0.8}px "Zen Maru Gothic", sans-serif`;
+        const tw = ctx.measureText(tag).width + 12;
+        const ty = sy + s * 0.32 + fs * 2.4;
+        ctx.fillStyle = c.rush > 0 ? '#d6338a' : '#4a5470';
+        ctx.beginPath(); ctx.roundRect(sx - tw / 2, ty, tw, fs * 1.15, 6); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(tag, sx, ty + fs * 0.88);
+      }
       if (state.pick?.days?.[c.id] !== undefined) {
         ctx.fillStyle = '#3b2618';
         ctx.strokeText(`▼ 約${state.pick.days[c.id]}日`, sx, sy - s * 0.85);
@@ -400,6 +464,7 @@ export function createWorldView(container, world, handlers) {
       if (c.rush > 0) badges.push('ui/rush');
       if (c.crash > 0) badges.push('ui/crash');
       badges.forEach((b, i) => { const bi = img(b); if (ready(bi)) ctx.drawImage(bi, sx + s * 0.35, sy - s * 0.8 + i * 20, 20, 20); });
+      });
     }
     // 隊商
     const units = [];
@@ -447,6 +512,7 @@ export function createWorldView(container, world, handlers) {
       ctx.fillText(u.label, sx + s * 0.4, sy - s * 0.95 + 3);
       if (u.sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(sx, sy, s * 0.5, s * 0.25, 0, 0, Math.PI * 2); ctx.stroke(); }
     }
+    for (const f of labels) f();
     drawMini();
   }
 
@@ -583,6 +649,8 @@ export function createWorldView(container, world, handlers) {
     invalidate();
     draw();
   });
+  // ラッシュ中の町があれば、光を動かすために描き直す
+  setInterval(() => { if (Object.values(world.cities).some((c) => c.rush > 0) && !document.hidden) draw(); }, 80);
   // 画像が読み込まれたら描き直す
   setInterval(() => { if ([...IMG.values()].some((im) => !im.__drawn && ready(im))) { IMG.forEach((im) => { if (ready(im)) im.__drawn = true; }); invalidate(); draw(); } }, 300);
 
@@ -596,5 +664,18 @@ export function createWorldView(container, world, handlers) {
     },
     unitPos,
     centerOn(px, py) { [cam.x, cam.y] = pxToWorld(px, py); invalidate(); draw(); },
+    // 開発用（撮影）: 町か "x,y" のマス、"fit" で全体。zoom は倍率
+    camTo(target, zoom) {
+      requestAnimationFrame(() => {
+        if (target === 'fit') fitAll();
+        else {
+          const t = world.grid.cityTiles[target] || target.split('-').map(Number);
+          [cam.x, cam.y] = iso(t[0], t[1]);
+        }
+        if (zoom) cam.zoom = zoom;
+        invalidate();
+        draw();
+      });
+    },
   };
 }

@@ -595,21 +595,46 @@ function hoverRouteTo(id) {
 
 window.addEventListener('beforeunload', () => app.save());
 
-// 開発用: #play=s2 で直接シナリオを始める
+// 開発用: #play=s2 で直接シナリオを始める。#load=<セーブのJSONのURL> で途中の状態から（画面の撮影用）
 const direct = location.hash.match(/play=(\w+)/);
-if (direct && (G.SCENARIOS[direct[1]] || direct[1] === 'free')) {
+const loadUrl = location.hash.match(/load=([^&]+)/);
+if (loadUrl) {
+  fetch(decodeURIComponent(loadUrl[1])).then((r) => r.text()).then((t) => { mount(G.deserialize(t)); devOpens(); });
+} else if (direct && (G.SCENARIOS[direct[1]] || direct[1] === 'free')) {
   if (/unlockall/.test(location.hash)) app.campaign.unlocked = Object.keys(G.HEIRLOOMS).slice(0, 4);
   app.startScenario(direct[1], /unlockall/.test(location.hash) ? undefined : null);
-  if (/open=trade/.test(location.hash)) { app.state.modals++; openTrade(app, 1); }
-  if (/open=order/.test(location.hash)) { app.state.modals++; orderDialog(app, 1); }
-  if (/open=district/.test(location.hash)) { if (/civics/.test(location.hash)) { app.world.player.silver = 99999; const cid = app.world.player.merchants[0].city; for (const k of Object.keys(G.CIVICS)) G.buildCivic(app.world, cid, k); } app.openDistrict(app.world.player.merchants[0].city); }
-  if (/open=city/.test(location.hash)) { app.state.selCity = app.world.player.merchants[0].city; app.render(); }
-  if (/open=found/.test(location.hash)) { app.world.player.silver = 99999; app.startFound(); }
-  if (/open=built/.test(location.hash)) { const W = app.world; W.player.silver = 99999; const s = G.foundSites(W)[0]; const r = G.foundPost(W, s.x, s.y); const c0 = W.player.merchants[0].city; G.buildPath(W, c0, r.id, 'road'); app.state.selCity = r.id; app.map.centerOn(W.cities[r.id].x, W.cities[r.id].y); app.render(); }
-  if (/selftest/.test(location.hash)) { app.setSetting('sound', false); import('./selftest.js').then((m) => m.selftest(app)); }
-  if (/open=result/.test(location.hash)) { app.world.finished = { win: true, rank: 'S', day: 100, score: 3200 }; app.state.modals++; resultDialog(app); }
+  devOpens();
 }
 else app.showTitle();
+
+function devCity() {
+  const w = app.world;
+  const pick = location.hash.match(/city=(\w+)/);
+  if (pick && w.cities[pick[1]]) return pick[1];
+  return w.player.merchants.find((m) => m.city)?.city || Object.values(w.cities).sort((a, b) => b.pop - a.pop)[0].id;
+}
+function devOpens() {
+  const cam = location.hash.match(/cam=([\w-]+)(?:@([\d.]+))?/);
+  if (cam) app.map.camTo(cam[1], cam[2] ? Number(cam[2]) : undefined);
+  const mid = location.hash.match(/merchant=(\d+)/);
+  if (mid) app.state.selMerchant = app.world.player.merchants[Number(mid[1]) - 1]?.id;
+  if (/open=trade/.test(location.hash)) { app.state.modals++; openTrade(app, 1); }
+  if (/open=order/.test(location.hash)) { app.state.modals++; orderDialog(app, 1); }
+  if (/open=district/.test(location.hash)) { if (/civics/.test(location.hash)) { app.world.player.silver = 99999; const cid = app.world.player.merchants[0].city; for (const k of Object.keys(G.CIVICS)) G.buildCivic(app.world, cid, k); } app.openDistrict(devCity()); }
+  if (/open=city/.test(location.hash)) { app.state.selCity = devCity(); app.render(); }
+  if (/open=found/.test(location.hash)) { app.world.player.silver = 99999; app.startFound(); }
+  if (/open=built/.test(location.hash)) { const W = app.world; W.player.silver = 99999; const s = G.foundSites(W)[0]; if (!s) return; const r = G.foundPost(W, s.x, s.y); const c0 = W.player.merchants[0].city; G.buildPath(W, c0, r.id, 'road'); app.state.selCity = r.id; app.map.centerOn(W.cities[r.id].x, W.cities[r.id].y); app.render(); }
+  if (/selftest/.test(location.hash)) { app.setSetting('sound', false); import('./selftest.js').then((m) => m.selftest(app)); }
+  if (/open=result/.test(location.hash)) { app.world.finished = { win: true, rank: 'S', day: 100, score: 3200 }; app.state.modals++; resultDialog(app); }
+  if (/open=help/.test(location.hash)) { app.state.modals++; helpDialog(app); }
+  if (/open=tech/.test(location.hash)) { app.state.modals++; techDialog(app); }
+  if (/open=hire/.test(location.hash)) { app.state.modals++; hireDialog(app, app.world.player.merchants[0].city, G.hireCost(app.world), app.world.scenario.maxMerchants ?? 4); }
+  if (/open=settings/.test(location.hash)) { app.state.modals++; settingsDialog(app); }
+  if (/open=ledger/.test(location.hash)) { app.state.modals++; ledgerDialog(app); }
+  if (/open=depart/.test(location.hash)) { app.state.modals++; const m = G.getMerchant(app.world, app.state.selMerchant); const to = Object.keys(app.world.cities).find((k) => k !== m.city && app.world.player.knowledge[k]) || Object.keys(app.world.cities).find((k) => k !== m.city); departDialog(app, m.id, to); }
+  if (/run=\d+/.test(location.hash)) setSpeed(Number(location.hash.match(/run=(\d+)/)[1]));
+  app.render();
+}
 // 時間はタイマーで進める（背景タブでも一定に動き、ヘッドレスでも試験できる）
 setInterval(loop, 50);
 window.__toshoki = app;

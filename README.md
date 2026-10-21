@@ -55,6 +55,7 @@ npm run serve          # http://localhost:8123/ で開発用サーバー
 npm test               # ゲームの中身のテスト
 npm run bots -- s2     # 決まった戦略のボットでバランスを確認
 npm run svg:check      # SVG 素材の検証
+npm run shots          # 主な画面をまとめて撮る（開発用サーバーを起動してから。tools/shots/out/ に出力）
 ```
 
 - `src/core/` ゲームの中身（ブラウザと CLI で共通）

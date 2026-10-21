@@ -138,7 +138,7 @@ img { user-select: none; }
 .cargo-bar i { display: block; height: 100%; background: linear-gradient(90deg, #d9822b, #ffd166); }
 .progress-bar { height: 4px; background: #3a2e22; border-radius: 2px; overflow: hidden; }
 .progress-bar i { display: block; height: 100%; background: var(--crystal-deep); }
-.mcard .acts { display: flex; gap: 4px; margin-top: 4px; }
+.mcard .acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .mcard.add { align-items: center; justify-content: center; color: var(--text-faint); border-style: dashed; width: 120px; }
 
 /* ---------- 地図 ---------- */
@@ -344,6 +344,12 @@ input[type=number] { width: 70px; }
   .trow > :nth-child(10) { display: none; }
   .topbar { gap: 6px; }
   .date { min-width: 0; }
+}
+@media (max-width: 600px) {
+  .trade-head { grid-template-columns: 1fr; gap: 2px; }
+  .trade-head .side-r, .trade-head .hint { text-align: left; }
+  .trade-main { overflow-x: auto; }
+  .minimap { width: 120px; height: 72px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

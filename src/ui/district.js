@@ -2,6 +2,7 @@
 import { h, s, add, clear, goodIcon, fmt } from './dom.js';
 import { modal } from './panels.js';
 import * as G from '../core/index.js';
+import { houseSprite } from './world.js';
 
 const TW = 52; // マスの幅
 const TH = 26; // マスの高さ
@@ -104,15 +105,10 @@ export function openDistrict(app, cityId) {
 
   function buildingSprite(b, cx, cy, tier) {
     const g = s('g', { 'pointer-events': 'none' });
+    const S = TW * (128 / 120); // 斜め見下ろしの素材の大きさ（地面のひし形がマスに重なる）
     if (b.type === 'house') {
       const v = ((b.x * 7 + b.y * 11) % 10) / 10;
-      const w = 16 + v * 6;
-      const hh = 10 + v * 4;
-      const roof = ['#c8553d', '#d9822b', '#8e3b2e', '#a65a1b'][Math.floor(v * 4)];
-      add(g, s('rect', { x: cx - w / 2, y: cy - hh + 2, width: w, height: hh, fill: ['#f3dfb3', '#e2c08a', '#f0d6a0'][Math.floor(v * 3)], stroke: '#3b2618', 'stroke-width': 1.2 }));
-      if (tier >= 3 && v > 0.75) add(g, s('path', { d: `M${cx - w / 2 + 1},${cy - hh + 2} Q${cx},${cy - hh - w * 0.7} ${cx + w / 2 - 1},${cy - hh + 2} Z`, fill: v > 0.9 ? '#ffd166' : '#5bb4d6', stroke: '#3b2618', 'stroke-width': 1.2 }));
-      else add(g, s('path', { d: `M${cx - w / 2 - 2},${cy - hh + 2} L${cx},${cy - hh - 6} L${cx + w / 2 + 2},${cy - hh + 2} Z`, fill: roof, stroke: '#3b2618', 'stroke-width': 1.2 }));
-      add(g, s('rect', { x: cx - 2, y: cy - 4, width: 4, height: 6, fill: '#3b2618', opacity: 0.6 }));
+      add(g, s('image', { href: `assets/svg/houses/${houseSprite(world, city, v)}.svg`, x: cx - S / 2, y: cy - S * 0.75, width: S, height: S }));
       return g;
     }
     if (G.CIVICS[b.type]) {
@@ -126,8 +122,9 @@ export function openDistrict(app, cityId) {
     } else {
       const p = G.PRODUCERS[b.type];
       const building = b.readyDay !== undefined && world.day < b.readyDay;
-      add(g, s('polygon', { points: diamond(cx, cy + 1), fill: b.placed ? '#f2a93b' : '#a07a48', opacity: 0.55 }));
-      add(g, s('image', { href: `assets/svg/goods/${p.good}.svg`, x: cx - 16, y: cy - 30, width: 32, height: 32, opacity: building ? 0.45 : 1 }));
+      if (b.placed) add(g, s('polygon', { points: diamond(cx, cy + 1), fill: '#f2a93b', opacity: 0.35 }));
+      add(g, s('image', { href: `assets/svg/buildings/${b.type}.svg`, x: cx - S / 2, y: cy - S * 0.75, width: S, height: S, opacity: building ? 0.5 : 1 }));
+      add(g, s('title', {}, `${p.name}（${G.GOODS[p.good].name}）`));
       if (building) add(g, s('text', { x: cx, y: cy + 6, 'text-anchor': 'middle', style: 'font:900 10px sans-serif;fill:#3b2618' }, `建設中 あと${b.readyDay - world.day}日`));
     }
     return g;
