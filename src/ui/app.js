@@ -542,6 +542,12 @@ function loop() {
       const evs = flushEvents({ events: adv.events });
       if (w.day % 10 === 0) app.save();
       if (evs.some((e) => e.type === 'victory' || e.type === 'defeat')) { finish(); break; }
+      // 町で待っているだけの商人がいたら知らせる（行き先を選び損ねたまま35日が過ぎた。画面だけのテストの指摘）
+      for (const m of w.player.merchants) {
+        if (m.travel || (m.order && !m.order.paused)) { m.idleSince = null; continue; }
+        m.idleSince = m.idleSince ?? w.day;
+        if ((w.day - m.idleSince) % 10 === 0 && w.day > m.idleSince) fx.toast(`${m.name}は${w.cities[m.city].name}で${w.day - m.idleSince}日待っている。「出発」で行き先を選ぶか、定期便を組む`, { icon: `transport/${m.transport}` });
+      }
       if (app.settings.autoPause && evs.some((e) => e.type === 'arrive')) {
         setSpeed(0);
         const e = evs.find((x) => x.type === 'arrive');

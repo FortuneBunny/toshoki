@@ -86,7 +86,7 @@ export function adviceText(world, mid) {
     let qty2 = Math.min(qty, Math.floor(cargoCap(m) / 4));
     while (qty2 > 0 && local && quote(world, here, local, qty2) > world.player.silver * 0.25) qty2 = Math.floor(qty2 * 0.8);
     const carry = local && qty2 >= 2 ? `ここの特産の${GOODS[local].name}を${qty2}個（約${Math.round(quote(world, here, local, qty2))}銀）積んで、` : '';
-    lines.push(`${carry}まだ相場を知らない${name(u.to)}へ行ってみる（約${u.days}日）。相場が分からないので赤字の恐れもある。少なめに試し、着いたら market で確かめて売る${food ? `。砂漠を渡るので食料を${food}個積む` : ''}`);
+    lines.push(`${carry}まだ相場を知らない${name(u.to)}へ行ってみる（約${u.days}日）。相場が分からないので赤字の恐れもある。少なめに試し、着いたら相場を確かめて売る${food ? `。砂漠を渡るので食料を${food}個積む` : ''}`);
   }
   // 積んでいる品の売り先（買ったあとに「見込みのある取引がない」とだけ出て、どこへ行けばよいか分からなかったため）
   if (!ss.length) {

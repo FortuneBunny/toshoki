@@ -577,6 +577,11 @@ export function createWorldView(container, world, handlers) {
       const [cx, cy] = toScreen(...iso(tx, ty));
       const d = Math.hypot((cx - sx) / 1.3, cy - 10 * cam.zoom - sy);
       if (d < 38 * Math.max(0.6, cam.zoom) && (!best || d < best.d)) best = { id: c.id, d };
+      // 名札（町の名前と人口の下地）を押しても町を選ぶ（名札を押して何も起きず、行き先を選べなかったため）
+      const s = 64 * Math.max(0.55, cam.zoom);
+      const fs = Math.max(11, 14 * Math.min(1.2, cam.zoom + 0.3));
+      const half = Math.max(c.name.length * fs, 10 * fs * 0.75) / 2 + 7;
+      if (Math.abs(sx - cx) < half && sy > cy + s * 0.32 && sy < cy + s * 0.32 + fs * 2.3 && (!best || best.d > 1)) best = { id: c.id, d: 1 };
     }
     return best?.id || null;
   }

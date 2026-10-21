@@ -47,6 +47,7 @@ export function openTrade(app, merchantId) {
     return G.preview(world, m.id, lines());
   }
 
+  let refocus = null; // 打っている途中の数量欄（描き直したあとも、そこに戻す）
   function setQty(id, q, e) {
     const { maxBuy, maxSell } = limits(id);
     q = Math.max(-maxSell, Math.min(maxBuy, Math.round(q)));
@@ -157,7 +158,15 @@ export function openTrade(app, merchantId) {
         class: `qty ${q > 0 ? 'buy' : q < 0 ? 'sell' : ''}`, value: q ? (q > 0 ? `+${q}` : q) : '0', inputmode: 'numeric',
         'aria-label': `${g.name}の数量`,
         onchange: (e) => setQty(id, parseInt(e.target.value, 10) || 0),
-        onfocus: (e) => e.target.select(),
+        // 打ったそばから集計に反映する（Tab や Enter を押すまで変わらず、入力が効いていないように見えたため）
+        oninput: (e) => {
+          const v = e.target.value.trim();
+          const n = parseInt(v, 10);
+          if (/^[+-]?$/.test(v) || Number.isNaN(n)) return;
+          refocus = id;
+          setQty(id, n);
+        },
+        onfocus: (e) => { if (refocus !== id) e.target.select(); },
       });
       const sp = hist.length > 1 ? sparkline(hist.map((x) => x[1]), 56, 18) : h('span');
       // 基準価格に対する今の値段（真ん中が基準）と、最近の上げ下げ
@@ -224,7 +233,7 @@ export function openTrade(app, merchantId) {
       h('div', { class: `capacity ${over ? 'over' : ''}` }, h('i', { style: { width: `${Math.min(100, (pv.cargoAfter / cap) * 100)}%` } })),
       h('h4', {}, h('span', {}, '取引後の銀')),
       h('div', { class: `total-big num ${world.player.silver + pv.silverDelta < 0 ? 'bad' : ''}` }, fmt(world.player.silver + pv.silverDelta)),
-      h('div', { class: 'dim num' }, `${fmt(world.player.silver)} → ${pv.silverDelta >= 0 ? '+' : ''}${fmt(pv.silverDelta)}`),
+      h('div', { class: 'dim num' }, `今 ${fmt(world.player.silver)}　${pv.silverDelta >= 0 ? '+' : ''}${fmt(pv.silverDelta)}`),
       pv.ok ? null : h('div', { class: 'bad', style: { fontSize: '12px' } }, pv.errors.join(' / ')),
       contractsHere());
 
@@ -237,6 +246,11 @@ export function openTrade(app, merchantId) {
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, false) }, '取引を確定'));
 
     add(modal, header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, table, whBox), summary)), footer);
+    if (refocus) {
+      const el = modal.querySelector(`input[aria-label="${GOODS[refocus].name}の数量"]`);
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      refocus = null;
+    }
   }
 
   function contractsHere() {

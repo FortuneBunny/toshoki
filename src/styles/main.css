@@ -254,6 +254,8 @@ img { user-select: none; }
 .flash { position: fixed; inset: 0; background: radial-gradient(circle, rgba(255, 240, 190, 0.55), rgba(255, 200, 80, 0) 70%); animation: flash 0.5s forwards; pointer-events: none; z-index: 69; }
 @keyframes flash { to { opacity: 0; } }
 #toasts { position: fixed; top: 108px; left: 50%; transform: translateX(-50%); z-index: 75; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+/* ダイアログを開いている間は、知らせを下に出す（見出しや「買う」欄の上に重なって読めなかった） */
+body:has(.modal-back) #toasts { top: auto; bottom: 24px; }
 .toast { background: linear-gradient(#3b2d18, #241a10); border: 1px solid #c79a42; border-radius: 30px; padding: 8px 18px 8px 8px; display: flex; align-items: center; gap: 10px; font-weight: 900; box-shadow: var(--shadow); animation: toastIn 0.35s cubic-bezier(0.2, 1.5, 0.4, 1), toastOut 0.4s 3.2s forwards; }
 .toast.bad { border-color: #c75a42; background: linear-gradient(#3b1c18, #24100c); }
 .toast.rare { border-color: var(--crystal-deep); }
