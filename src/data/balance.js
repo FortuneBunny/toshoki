@@ -62,6 +62,9 @@ export const BALANCE = {
 
   // 人と組織
   merchantHireCost: 150,
+  branchCost: 3000,           // 商館の費用（2つ目からは倍々: 3000, 6000, 12000…）
+  branchUpkeep: 5,            // 商館1つの1日の維持費
+  branchMinTier: 2,           // 商館を建てられる町の段階（町以上）
   autoBuyReserve: 100,
   dwellingFullGrowth: 1.15,
   postGrowth: 1.6,            // 交易所に食べ物を3種類以上届けているときの成長倍率   // 住居の求める品が全部そろった町の成長倍率

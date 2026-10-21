@@ -65,6 +65,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
     player: {
       silver: sc.start.silver,
       merchants: [],
+      branches: [],
       knowledge: {},
       buildings: [],
       warehouses: {},
@@ -214,6 +215,7 @@ export function dailyCost(world, { guards = false } = {}) {
   if (guards) for (const m of pl.merchants) cost += (m.travel ? m.guards : m.order?.guards || 0) * B.guardWage;
   // 自分が置いた生産施設の維持費
   for (const c of Object.values(world.cities)) for (const b of c.district?.buildings || []) if (b.placed && PRODUCERS[b.type]) cost += B.producerUpkeep;
+  cost += (pl.branches?.length || 0) * B.branchUpkeep;
   return cost * (pl.mods?.upkeep ?? 1) + (pl.mods?.dailyFee || 0);
 }
 

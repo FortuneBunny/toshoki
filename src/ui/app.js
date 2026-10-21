@@ -244,7 +244,7 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'harvest': case 'windfall': fx.toast(e.text, { kind: 'rare', icon: e.type === 'windfall' ? 'ui/sugar-crystal' : 'terrain/field' }); sfx.rare(); break;
       case 'rumor': break;
       case 'arrive': sfx.arrive(); break;
-      case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': case 'place': case 'civic': case 'expand': fx.toast(e.text, { icon: 'ui/star' }); break;
+      case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': case 'place': case 'civic': case 'expand': case 'branch': fx.toast(e.text, { icon: 'ui/star' }); break;
       case 'orderStuck': case 'debt': fx.toast(e.text, { kind: 'bad' }); sfx.bad(); break;
       case 'milestone': fx.toast(e.text, { icon: 'ui/star' }); sfx.rare(); break;
       case 'victory': setTimeout(() => { sfx.victory(); fx.flash(); fx.burst(innerWidth / 2, innerHeight / 3, 60, { size: 24 }); }, 100); break;
@@ -459,7 +459,7 @@ function renderMerchants() {
           !m.travel && w.player.merchants.length > 1 ? h('button', { class: 'btn small ghost', title: '輸送手段を半額で下取りし、積荷は今の町で売る。給金と維持費がかからなくなる', onclick: (e) => { e.stopPropagation(); app.confirm(`${m.name}に暇を出す`, `${TRANSPORTS[m.transport].name}を${TRANSPORTS[m.transport].cost * 0.5}銀で下取りし、積荷は${w.cities[m.city].name}で売り払います。`, () => app.run(() => G.dismissMerchant(w, m.id))); } }, '暇') : null)));
     add(el, card);
   }
-  const max = w.scenario.maxMerchants ?? 4;
+  const max = G.merchantCap(w);
   if (w.player.merchants.length < max) add(el, h('div', { class: 'mcard add', title: '商人がいる町の画面から雇える' }, `＋ 商人 ${w.player.merchants.length}/${max}`));
 }
 
@@ -628,7 +628,7 @@ function devOpens() {
   if (/open=result/.test(location.hash)) { app.world.finished = { win: true, rank: 'S', day: 100, score: 3200 }; app.state.modals++; resultDialog(app); }
   if (/open=help/.test(location.hash)) { app.state.modals++; helpDialog(app); }
   if (/open=tech/.test(location.hash)) { app.state.modals++; techDialog(app); }
-  if (/open=hire/.test(location.hash)) { app.state.modals++; hireDialog(app, app.world.player.merchants[0].city, G.hireCost(app.world), app.world.scenario.maxMerchants ?? 4); }
+  if (/open=hire/.test(location.hash)) { app.state.modals++; hireDialog(app, app.world.player.merchants[0].city, G.hireCost(app.world), G.merchantCap(app.world)); }
   if (/open=settings/.test(location.hash)) { app.state.modals++; settingsDialog(app); }
   if (/open=ledger/.test(location.hash)) { app.state.modals++; ledgerDialog(app); }
   if (/open=depart/.test(location.hash)) { app.state.modals++; const m = G.getMerchant(app.world, app.state.selMerchant); const to = Object.keys(app.world.cities).find((k) => k !== m.city && app.world.player.knowledge[k]) || Object.keys(app.world.cities).find((k) => k !== m.city); departDialog(app, m.id, to); }

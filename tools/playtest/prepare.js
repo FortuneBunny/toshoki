@@ -10,8 +10,8 @@ const PERSONAS = {
 };
 
 const [round, tester, tier, scenarios = 's1,s2', max = '120', seed = '7'] = process.argv.slice(2);
-if (!round || !tester || !PERSONAS[tier]) {
-  console.error('usage: prepare.js <round> <tester> <expert|mid|novice> [scenarios] [max] [seed]');
+if (!round || !tester || !(PERSONAS[tier] || tier === 'adversary')) {
+  console.error('usage: prepare.js <round> <tester> <expert|mid|novice|adversary> [scenarios] [max] [seed]');
   process.exit(1);
 }
 const dir = resolve('playtests/raw', round, tester);
@@ -19,8 +19,16 @@ if (existsSync(dir)) rmSync(dir, { recursive: true });
 mkdirSync(join(dir, 'game'), { recursive: true });
 for (const p of ['cli', 'src', 'package.json']) cpSync(p, join(dir, 'game', p), { recursive: true });
 
-const prompt = readFileSync('tools/playtest/prompt.md', 'utf8')
-  .replaceAll('{{PERSONA}}', PERSONAS[tier])
+// 敵対的評価（tier が adversary）: 仕様とソースを読ませ、壊し方を探させる
+const adversary = tier === 'adversary';
+if (adversary) {
+  mkdirSync(join(dir, 'spec'), { recursive: true });
+  mkdirSync(join(dir, 'scratch'), { recursive: true });
+  for (const f of ['pillars.md', 'PLAN.md', 'PLAN-construction.md', 'balance-log.md']) cpSync(join('docs', f), join(dir, 'spec', f));
+  cpSync('README.md', join(dir, 'spec', 'README.md'));
+}
+const prompt = readFileSync(adversary ? 'tools/playtest/adversarial.md' : 'tools/playtest/prompt.md', 'utf8')
+  .replaceAll('{{PERSONA}}', PERSONAS[tier] || '')
   .replaceAll('{{DIR}}', dir.replace(/\\/g, '/'))
   .replaceAll('{{SCENARIOS}}', scenarios.split(',').map((s) => `\`${s}\``).join(' → '))
   .replaceAll('{{SCENARIO}}', '<id>')

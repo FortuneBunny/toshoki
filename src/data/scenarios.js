@@ -154,7 +154,7 @@ const s5 = {
   buildings: ['malthouse', 'winery', 'confectionery', 'road'],
   events: true, contracts: true, bandits: false, newsDaysPerHop: 3,
   disabledEvents: ['sandstorm'],
-  maxMerchants: 4,
+  maxMerchants: 4, branches: true,
 };
 
 const s6 = {
@@ -185,7 +185,7 @@ const s6 = {
   techs: { relay: { from: 30 } },
   events: true, contracts: true, bandits: false, newsDaysPerHop: 5,
   disabledEvents: ['sandstorm'],
-  maxMerchants: 3,
+  maxMerchants: 3, branches: true,
 };
 
 const s7 = {
@@ -224,7 +224,7 @@ const s7 = {
   buildings: ['mill', 'confectionery', 'road'],
   events: true, contracts: true, bandits: false, newsDaysPerHop: 4,
   disabledEvents: ['sandstorm'],
-  maxMerchants: 4,
+  maxMerchants: 4, branches: true,
 };
 
 const s8 = {
@@ -275,7 +275,7 @@ const s8 = {
   buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],
   techs: { relay: { from: 120 }, carrack: { from: 240 }, refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 60 } },
   events: true, contracts: true, bandits: true, newsDaysPerHop: 4,
-  maxMerchants: 6,
+  maxMerchants: 6, branches: true,
 };
 
 export const SCENARIOS = { s1, s2, s3, s4, s5, s6, s7, s8 };

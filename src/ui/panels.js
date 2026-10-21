@@ -46,9 +46,9 @@ function cityPanel(app, id) {
   const k = world.player.knowledge[id];
   const age = G.knowledgeAge(world, id);
   const box = h('div', {});
-  add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}`)),
+  add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}${world.player.branches?.includes(id) ? '・自分の商館' : ''}`)),
     h('button', { class: 'btn ghost small', style: { marginLeft: 'auto' }, onclick: () => { app.state.selCity = null; app.render(); } }, '✕')));
-  if (here.length || c.founded) { // 自分の交易所は、商人がいなくても今の様子が分かる
+  if (here.length || c.founded || world.player.branches?.includes(id)) { // 自分の交易所と商館のある町は、商人がいなくても今の様子が分かる
     const tier = G.cityTier(c);
     const next = G.BALANCE.tierPops[tier + 1];
     add(box, 
@@ -116,10 +116,16 @@ function cityPanel(app, id) {
     if (ways.length) add(box, h('div', { class: 'section' }, `道と港（敷いた道 ${G.pathsBuilt(world)}/${G.pathsAllowed(world)}本）`), h('div', { class: 'chips' }, ways));
   }
   if (here.length) {
-    const max = world.scenario.maxMerchants ?? 4;
+    const max = G.merchantCap(world);
     if (world.player.merchants.length < max) {
       const cost = G.hireCost(world);
       add(acts, h('button', { class: 'btn small', onclick: () => hireDialog(app, id, cost, max) }, `商人を雇う ${cost}銀`));
+    }
+    if (G.branchesAllowed(world) && !world.player.branches?.includes(id)) {
+      const why = G.branchCheck(world, id);
+      const cost = G.branchCost(world);
+      add(acts, h('button', { class: 'btn small', disabled: why || undefined, title: why || '雇える商人が1人増える。この町の倉庫が使え、相場がいつでも分かる',
+        onclick: () => app.confirm(`${c.name}に商館を開く（${cost}銀）`, `${G.spendWarning(world, cost) ? `⚠ ${G.spendWarning(world, cost)}。` : ''}雇える商人が${G.merchantCap(world)}人から${G.merchantCap(world) + 1}人に増えます。この町の倉庫が使え、相場がいつでも分かります。維持費 ${G.BALANCE.branchUpkeep}銀/日。次の商館は倍の値段になります。`, () => app.run(() => G.buildBranch(world, id), 'build')) }, `商館 ${cost}銀`));
     }
     if (!(c.donatedUntil > world.day)) {
       const cost = G.donateCost(world, id);
@@ -199,6 +205,9 @@ function overview(app) {
   // 次の一手の例: 選んでいる商人（町にいて、定期便がない）
   const am = world.player.merchants.find((m) => m.id === app.state.selMerchant) || world.player.merchants[0];
   if (am && !am.travel && !am.order) add(box, h('div', { class: 'section' }, `💡 ${am.name}の次の一手の例`), h('ul', { class: 'advice' }, G.adviceText(world, am.id).map((l) => h('li', {}, l))));
+  // 銀の使い道（銀が眠っているとき）
+  const sa = G.silverAdvice(world);
+  if (sa.length) add(box, h('div', { class: 'section' }, `💰 銀の使い道（今 ${Math.floor(world.player.silver)}銀）`), h('ul', { class: 'advice' }, sa.map((a) => h('li', {}, a.text))));
   // 全部の町の相場（知っている範囲）
   add(box, h('div', { class: 'section' }, '知っている相場'));
   const t = h('table', { class: 'prices-table' });

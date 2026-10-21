@@ -179,7 +179,7 @@ function statusText(world) {
   if (world.scenario.goods.some((id) => ['sea', 'river'].length) && world.edges.some((e) => e.monsoon)) out.push(`季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（切り替わるまで あと${180 - (world.day % 180)}日。夏は東へ、冬は西へ追い風）`);
   const sc = world.scenario;
   out.push(`ランクの基準: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`);
-  out.push(`このシナリオ: 輸送手段 ${world.allowedTransports.map((t) => TRANSPORTS[t].name).join('・')} / 商人は最大${sc.maxMerchants ?? 4}人 / 工房 ${(sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes).map((b) => BUILDINGS[b].name).join('・') || 'なし'}${(sc.buildings || []).includes('road') ? ' / 道の整備あり' : ''}（費用は shop）`);
+  out.push(`このシナリオ: 輸送手段 ${world.allowedTransports.map((t) => TRANSPORTS[t].name).join('・')} / 商人は最大${G.merchantCap(world)}人${G.branchesAllowed(world) ? '（商館で1人ずつ増やせる）' : ''} / 工房 ${(sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes).map((b) => BUILDINGS[b].name).join('・') || 'なし'}${(sc.buildings || []).includes('road') ? ' / 道の整備あり' : ''}（費用は shop）`);
   out.push(`使える建設: 区画の施設 ${G.districtEnabled(world) ? 'あり' : 'なし'} / 道を敷く ${G.pathsAllowed(world) ? `${G.pathsAllowed(world)}本まで` : 'なし'} / 交易所 ${G.postsAllowed(world) ? `${G.postsAllowed(world)}つまで` : 'なし'} / 技術 ${G.techList(world).length ? G.techList(world).map((t) => t.name).join('・') : 'なし'}`);
   out.push('目標（全部が同時にそろった時に達成。銀・資産・町の人口や段階は、一度届いても下回ると戻る）:');
   G.goalsStatus(world).forEach((g, i) => {
@@ -206,6 +206,9 @@ function statusText(world) {
   for (const m of pl.merchants) out.push('  ' + merchantLine(world, m));
   // 町にいて定期便のない商人には、次の一手の例を1つ（詳しくは advice）
   for (const m of pl.merchants) if (!m.travel && !m.order && world.day < 120) out.push(`  💡 #${m.id} 次の一手の例: ${G.adviceText(world, m.id)[0]}（ほかの案は advice）`);
+  // 銀が眠っていれば、目標に効く使い方を
+  const sa = G.silverAdvice(world);
+  if (sa.length) { out.push(`💰 銀が余っている（${Math.floor(pl.silver)}）。使い道の例:`); for (const a of sa) out.push(`  ・${a.text}`); }
   const stalled = world.player.buildings.filter((b) => b.active && !b.lastMade && world.day > 0);
   for (const b of stalled) out.push(`⚠ ${world.cities[b.city].name}の${BUILDINGS[b.type].name}が止まっている: ${b.why || '材料がない'}（workshops で詳細）`);
   const active = world.contracts.filter((c) => !c.done && !c.failed);
@@ -403,6 +406,7 @@ function buildableText(world, id) {
     out.push(`  ${k}（${cv.name}）: ${G.civicCost(world, k)}銀  求める品 ${wants || 'なし'}  成長 +${Math.round(cv.growth * 100)}%・${cv.effect}  ${why ? `✖ ${why}` : '建てられる（civic ' + k + ' confirm）'}`);
   }
   out.push(`市場の圏を広げる: expand（${G.expandCost(world, id)}銀）`);
+  if (G.branchesAllowed(world)) { const why = G.branchCheck(world, id); out.push(`商館: ${why ? `✖ ${why}` : `branch confirm（${G.branchCost(world)}銀。雇える商人 +1）`}`); }
   out.push('置く: place <種類> <座標> confirm（例: place wheat_farm C5 confirm）');
   return out.join('\n');
 }
@@ -550,6 +554,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   demolish <座標> [confirm]            自分が置いた施設を取り壊す
   expand [confirm]                     市場の圏を1マス広げる（置ける場所が増える）
   civic <種類> [座標] [confirm]        需要施設を建てる（teahouse 茶館 / temple 寺院 / academy 学問所 / palace 宮殿）
+  branch [confirm]                     今いる町に商館を開く（雇える商人 +1、その町の倉庫と相場。2つ目からは倍々に高い）
   donate [confirm]                     今いる町に寄進する（費用は人口に比例。90日間、成長が早まる）
   order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..." [--guards n]
                                        定期便を設定（停泊地を2つ以上）。例:
@@ -571,7 +576,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   heirlooms                            家訓の一覧（利点と代償、解放の条件）。new --heirloom <家訓> で1つだけ持っていける
 
 --json を付けると結果を JSON で出す。
-町は id でも日本語の名前でも指定できる。商人が複数いても、place・expand・civic・donate・port は今いる町が1つなら自動で選ぶ（--at <町> でも指定できる）。
+町は id でも日本語の名前でも指定できる。商人が複数いても、place・expand・civic・donate・port・branch は今いる町が1つなら自動で選ぶ（--at <町> でも指定できる）。
 -m <番号> はコマンドのどこに書いてもよい。続けて打つときは ; ではなく && でつなぐと、失敗したところで止まる。`;
 
 
@@ -798,7 +803,7 @@ function run(world, cmd, pos, opts) {
       if (!pos.includes('confirm')) {
         const hereAt = opts.at || (opts.merchant ? pickMerchant(world, opts).city : world.player.merchants.find((x) => !x.travel)?.city);
         if (hereAt && !G.hasPresence(world, hereAt)) out.push(`⚠ ${world.cities[hereAt].name}では今は雇えない（商人がいるか、定期便が回っている町で雇える）`);
-        out.push(`商人を雇うと ${cost} 銀（銀 ${Math.floor(world.player.silver)} → ${Math.floor(world.player.silver - cost)}）。上限 ${world.scenario.maxMerchants ?? 4} 人。候補:`);
+        out.push(`商人を雇うと ${cost} 銀（銀 ${Math.floor(world.player.silver)} → ${Math.floor(world.player.silver - cost)}）。上限 ${G.merchantCap(world)} 人。候補:`);
         cands.forEach((c, i) => out.push(`  ${i + 1}. ${c.name}【${G.TALENTS[c.talent].name}】${G.TALENTS[c.talent].text}`));
         out.push('確定するには: hire <候補の番号> confirm（例: hire 2 confirm。番号を省くと1番）');
         break;
@@ -941,7 +946,7 @@ function run(world, cmd, pos, opts) {
     case 'shop': {
       const sc = world.scenario;
       const pl = world.player;
-      const max = sc.maxMerchants ?? 4;
+      const max = G.merchantCap(world);
       out.push('■ 投資の費用と条件');
       out.push(`商人を雇う（hire confirm [--at 町]）: ${pl.merchants.length >= max ? `上限（${max}人）に達している` : `次は ${G.hireCost(world)} 銀（150×今の人数${pl.mods?.hireCost ? `×${pl.mods.hireCost}（家訓）` : ''}。雇うほど高くなる）。商人が滞在している町か、定期便が回っている町で雇える。最大${max}人。給金は1人1日${G.BALANCE.merchantWage}銀`}`);
       out.push('輸送手段（transport <種類> confirm。今のものは半額で下取り）:');
@@ -954,6 +959,7 @@ function run(world, cmd, pos, opts) {
       out.push(`工房（build <種類> confirm [--at 町]）: ${bs.length ? '同じ種類は1つの町に1つまで。倉庫が付く。材料は倉庫から使い、足りなければ市場で自動仕入れ（基準価格の1.5倍まで、手元の銀100は残す）' : 'このシナリオでは建てられない'}`);
       for (const b of bs) out.push(`  ${BUILDINGS[b].name}(${b}): ${G.buildCost(world, b)}銀  維持費${BUILDINGS[b].upkeep}/日  1日${BUILDINGS[b].batches}回  ${BUILDINGS[b].recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
       out.push(`道の整備（road <番号> confirm）: ${(sc.buildings || []).includes('road') ? `小道を街道にする。距離×${BUILDINGS.road.costPerLength}銀` : 'このシナリオではできない'}`);
+      out.push(`商館（branch confirm [--at 町]）: ${G.branchesAllowed(world) ? `次は ${G.branchCost(world)}銀（2つ目からは倍々）＋維持費${G.BALANCE.branchUpkeep}/日。「${G.BALANCE.tierNames[G.BALANCE.branchMinTier]}」以上の町に1つずつ。雇える商人 +1、その町の倉庫が使え、相場がいつでも分かる。今あるもの: ${(pl.branches || []).map((id) => world.cities[id].name).join('・') || 'なし'}` : 'このシナリオでは建てられない'}`);
       out.push(`護衛: 1人1日${G.BALANCE.guardWage}銀（travel <町> --guards n）`);
       break;
     }
@@ -1014,6 +1020,17 @@ function run(world, cmd, pos, opts) {
       if (pos[1] !== 'confirm') { out.push(`${pos[0]} の建物を取り壊す（費用は戻らない）。確定するには: demolish ${pos[0]} confirm`); break; }
       after(G.demolish(world, at, xy[0], xy[1]));
       out.push('取り壊した');
+      break;
+    }
+    case 'branch': {
+      const at = hereCity(world, opts);
+      const why = G.branchCheck(world, at);
+      if (why) throw new Error(why);
+      const cost = G.branchCost(world);
+      const warn = G.spendWarning(world, cost);
+      if (pos[0] !== 'confirm') { out.push(`${warn ? `⚠ ${warn}
+` : ''}${world.cities[at].name}に商館を開く: ${cost}銀＋維持費${G.BALANCE.branchUpkeep}/日。雇える商人が${G.merchantCap(world)}人 → ${G.merchantCap(world) + 1}人になり、この町の倉庫が使え、相場がいつでも分かる。確定するには: branch confirm`); break; }
+      out.push(`商館を開いた（${after(G.buildBranch(world, at)).cost}銀）。hire confirm で商人を雇える`);
       break;
     }
     case 'expand': {

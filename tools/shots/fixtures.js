@@ -68,6 +68,10 @@ save('s7-mid', play('s7', 200));
   if (s) { const r = G.foundPost(w, s.x, s.y); if (r.ok !== false && r.id) { G.buildPath(w, cap, r.id, 'road'); grow(w, r.id, 700); } }
   G.advance(w, 5, { stopOn: new Set() });
   save('s8-built', w);
+  // 商館（都と港に開き、銀が余っている状態）
+  G.buildBranch(w, cap);
+  w.player.silver = 30000;
+  save('s8-branch', w);
 }
 {
   const w = play('free', 300);

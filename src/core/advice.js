@@ -2,7 +2,11 @@
 import { GOODS, PROVISIONS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
 import { quote, cityWants } from './market.js';
-import { routeInfo } from './actions.js';
+import { routeInfo, merchantCap, hireCost, branchesAllowed, branchCost, branchCheck, donateCost, hasPresence } from './actions.js';
+import { dailyCost } from './world.js';
+import { glucoseNeed, cityTier } from './city.js';
+import { dwellingStatus } from './dwelling.js';
+import { goalsStatus } from './scoring.js';
 import { cargoCap, cargoUsed, foodNeeded } from './caravan.js';
 
 export function suggestTrades(world, mid, limit = 3) {
@@ -85,4 +89,59 @@ export function adviceText(world, mid) {
   }
   if (!lines.length) lines.push('今いる町で見込みのある取引が見つからない。積荷を売るか、別の町へ行って相場を確かめよう');
   return lines;
+}
+
+// 銀の使い道: 銀が眠っているときに、目標に効く使い方を示す（全員テスト10〜11回目: 下手な役ほど銀を余らせたまま目標に届かなかった）
+// 返すのは { text, kind } の配列。銀に余裕がなければ空
+export function silverAdvice(world) {
+  const pl = world.player;
+  const spare = pl.silver - Math.max(1000, dailyCost(world, { guards: true }) * 60);
+  if (spare < 1500 || world.finished) return [];
+  const out = [];
+  const name = (id) => world.cities[id].name;
+  // 目標の町で、食卓に足りない品（知っている範囲で）と、その産地
+  const st = goalsStatus(world);
+  const goal = world.scenario.goals.find((g, i) => ['cityTier', 'cityPop', 'rushes'].includes(g.type) && !st[i]?.done);
+  let lack = '';
+  if (goal) {
+    const k = pl.knowledge[goal.city];
+    const c = world.cities[goal.city];
+    const diet = k?.diet || {};
+    const short = world.scenario.goods
+      .filter((id) => ['food', 'sweet'].includes(GOODS[id].kind) && GOODS[id].glu && !(c.produces?.[id] > 0) && (diet[id] || 0) < (GOODS[id].kind === 'food' ? 0.3 : 0.2))
+      .map((id) => {
+        const src = Object.values(world.cities).filter((x) => x.id !== c.id && (x.produces?.[id] || 0) > 0).sort((a, b) => b.produces[id] - a.produces[id])[0];
+        return src ? { id, src: src.id, gap: (GOODS[id].kind === 'food' ? 0.5 : 0.45) - (diet[id] || 0) } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.gap - a.gap)
+      .slice(0, 2);
+    const parts = [];
+    // 家が建たずに止まっているなら、住居の求める品が先（前に見たときの様子で判断する）
+    if (k?.blocker && /住居/.test(k.blocker)) {
+      const miss = dwellingStatus(c, cityTier(c)).missing;
+      if (miss.length) parts.push(`住居の求める ${miss.map((g) => GOODS[g].name).join('・')}`);
+    }
+    if (short.length) {
+      const need = glucoseNeed(c);
+      parts.push(`食卓に足りない ${short.map((s) => `${GOODS[s.id].name}（${name(s.src)}産、1日約${Math.max(1, Math.round((s.gap * need) / GOODS[s.id].glu))}個）`).join('・')}`);
+    }
+    if (parts.length) lack = `${name(goal.city)}の${parts.join('と、')} の定期便を足す`;
+  }
+  const cap = merchantCap(world);
+  if (pl.merchants.length < cap) {
+    out.push({ kind: 'hire', text: `商人をあと${cap - pl.merchants.length}人雇える（次は${hireCost(world)}銀）。${lack ? `雇って、${lack}と目標に効く` : '雇って、儲かる便か目標の町への便を足す'}` });
+  } else if (branchesAllowed(world)) {
+    const cost = branchCost(world);
+    const spots = Object.keys(world.cities).filter((id) => !branchCheck(world, id) && hasPresence(world, id) && !world.cities[id].founded).slice(0, 3);
+    if (spare >= cost && spots.length) out.push({ kind: 'branch', text: `商人が上限（${cap}人）。商館（${cost}銀）を開くと、もう1人雇える。候補: ${spots.map(name).join('・')}（定期便が回っている町）${lack ? `。${lack}と目標に効く` : ''}` });
+    else if (lack) out.push({ kind: 'route', text: `商人は上限。今の定期便を組み替えて、${lack}と目標に効く${spots.length ? `（商館は${cost}銀で、もう1人雇える）` : ''}` });
+  }
+  if (goal) {
+    const c = world.cities[goal.city];
+    const k = pl.knowledge[goal.city];
+    const cost = donateCost(world, goal.city);
+    if (!(c.donatedUntil > world.day) && (k?.glucose ?? 0) >= 60 && spare >= cost) out.push({ kind: 'donate', text: `${name(goal.city)}に寄進（${cost}銀）すると、90日間成長が速まる（糖度が足りているときだけ効く。食べ物を届ける代わりにはならない）` });
+  }
+  return out;
 }

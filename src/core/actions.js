@@ -24,7 +24,7 @@ const fail = (error) => ({ ok: false, error });
 
 // その町に自分の手がかりがあるか（商人が滞在している、または定期便がその町を回っている）
 export function hasPresence(world, cityId) {
-  if (world.cities[cityId]?.founded) return true;
+  if (world.cities[cityId]?.founded || world.player.branches?.includes(cityId)) return true;
   return world.player.merchants.some((m) => m.city === cityId || m.order?.stops.some((s) => s.city === cityId));
 }
 
@@ -250,12 +250,47 @@ export function expandMarket(world, cityId) {
   return { ok: true, cost };
 }
 
+// ---------- 商館 ----------
+// 商館: 町に一族の支店を置く。雇える商人の上限が1人増え、その町では倉庫が使え、相場がいつでも分かる。
+// 2つ目からは倍々に高くなる（終盤の銀を、運ぶ量に換える手段。全員テスト11回目までの「銀が余る」への対策）
+export function branchesAllowed(world) {
+  return !!world.scenario.branches;
+}
+export function merchantCap(world) {
+  return (world.scenario.maxMerchants ?? 4) + (world.player.branches?.length || 0);
+}
+export function branchCost(world) {
+  return Math.round(B.branchCost * Math.pow(2, world.player.branches?.length || 0) * (world.player.mods?.buildCost ?? 1));
+}
+// 商館を建てられるか（理由を返す。建てられるなら null）
+export function branchCheck(world, cityId) {
+  const city = world.cities[cityId];
+  if (!city) return '不明な町';
+  if (!branchesAllowed(world)) return 'このシナリオでは商館を建てられない';
+  if (world.player.branches?.includes(cityId)) return 'すでに商館がある';
+  if (cityTier(city) < B.branchMinTier) return `商館は「${B.tierNames[B.branchMinTier]}」以上の町に建てられる`;
+  return null;
+}
+export function buildBranch(world, cityId) {
+  const why = branchCheck(world, cityId);
+  if (why) return fail(why);
+  const city = world.cities[cityId];
+  if (!world.player.merchants.some((m) => m.city === cityId || m.order?.stops.some((s) => s.city === cityId))) return fail('建てるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
+  const cost = branchCost(world);
+  if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
+  world.player.silver -= cost;
+  world.player.branches = [...(world.player.branches || []), cityId];
+  world.player.warehouses[cityId] = world.player.warehouses[cityId] || { stock: {}, basis: {} };
+  emit(world, { type: 'branch', city: cityId, big: true, text: `${city.name}に商館を開いた！雇える商人が${merchantCap(world)}人に増えた。この町の倉庫が使え、相場がいつでも分かる（維持費 ${B.branchUpkeep}銀/日）` });
+  return { ok: true, cost };
+}
+
 export function hireMerchant(world, cityId, pick = 0) {
   const city = world.cities[cityId];
   if (!city) return fail('不明な町');
   if (!hasPresence(world, cityId)) return fail('雇うには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
-  const max = world.scenario.maxMerchants ?? 4;
-  if (world.player.merchants.length >= max) return fail(`このシナリオで雇える商人は${max}人まで`);
+  const max = merchantCap(world);
+  if (world.player.merchants.length >= max) return fail(`今雇える商人は${max}人まで${branchesAllowed(world) ? `（商館を建てると1人ずつ増える。次の商館は ${branchCost(world)}銀）` : ''}`);
   const cost = hireCost(world);
   if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
   world.player.silver -= cost;

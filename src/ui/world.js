@@ -429,12 +429,20 @@ export function createWorldView(container, world, handlers) {
       ctx.strokeText(c.name, sx, sy + s * 0.32 + fs);
       ctx.fillText(c.name, sx, sy + s * 0.32 + fs);
       const age = G.knowledgeAge(world, c.id);
-      const sub = `${G.tierName(G.cityTier(c))} ${Math.round(c.pop).toLocaleString('ja-JP')}人${age === null ? '・未訪問' : age > 0 && !here ? `・${age}日前` : ''}`;
+      const sub = `${G.tierName(G.cityTier(c))} ${Math.round(c.pop).toLocaleString('ja-JP')}人${world.player.branches?.includes(c.id) ? '・商館' : ''}${age === null ? '・未訪問' : age > 0 && !here ? `・${age}日前` : ''}`;
       ctx.font = `700 ${fs * 0.75}px "Zen Maru Gothic", sans-serif`;
       ctx.lineWidth = 3;
       ctx.strokeText(sub, sx, sy + s * 0.32 + fs * 1.9);
       ctx.fillStyle = '#5b4026';
       ctx.fillText(sub, sx, sy + s * 0.32 + fs * 1.9);
+      // 商館のある町には、一族の旗
+      if (world.player.branches?.includes(c.id)) {
+        const fx0 = sx + s * 0.4, fy0 = sy - s * 0.75, fh = s * 0.55;
+        ctx.strokeStyle = '#3b2618'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(fx0, fy0 + fh); ctx.lineTo(fx0, fy0); ctx.stroke();
+        ctx.fillStyle = '#c2410c'; ctx.strokeStyle = '#f6e7c4'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(fx0, fy0); ctx.lineTo(fx0 + fh * 0.62, fy0 + fh * 0.17); ctx.lineTo(fx0, fy0 + fh * 0.34); ctx.closePath(); ctx.stroke(); ctx.fill();
+      }
       if (c.rush > 0 || c.crash > 0) {
         const tag = c.rush > 0 ? `シュガーラッシュ！ あと${c.rush}日` : `クラッシュ あと${c.crash}日`;
         ctx.font = `900 ${fs * 0.8}px "Zen Maru Gothic", sans-serif`;

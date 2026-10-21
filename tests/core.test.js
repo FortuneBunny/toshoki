@@ -340,3 +340,23 @@ test('借金のときでも売れる。商人に暇を出すと下取りで銀�
   assert.ok(w.player.silver >= before);
   assert.equal(G.dismissMerchant(w, 1).ok, false, '最後の1人は残す');
 });
+
+test('商館: 雇える商人が1人ずつ増え、2つ目からは倍々に高くなる', () => {
+  const w = G.createWorld('s8', { seed: 5 });
+  w.player.silver = 50000;
+  assert.equal(G.merchantCap(w), 6);
+  assert.equal(G.buildBranch(w, 'kohaku').cost, 3000);
+  assert.equal(G.merchantCap(w), 7);
+  assert.equal(G.branchCost(w), 6000);
+  assert.equal(G.buildBranch(w, 'kohaku').ok, false); // 1つの町に1つまで
+  // 商館のある町は、商人がいなくても相場が毎日分かる
+  w.player.merchants[0].city = 'kibi';
+  w.player.merchants[1].city = 'kibi';
+  G.advance(w, 3, silent);
+  assert.equal(G.knowledgeAge(w, 'kohaku'), 0);
+  assert.deepEqual(G.deserialize(G.serialize(w)).player.branches, ['kohaku']);
+  // 商館のないシナリオでは建てられない
+  const w2 = G.createWorld('s2', { seed: 5 });
+  w2.player.silver = 50000;
+  assert.equal(G.buildBranch(w2, w2.player.merchants[0].city).ok, false);
+});

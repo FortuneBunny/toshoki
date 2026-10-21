@@ -10,10 +10,11 @@ export const BUILDINGS = {
     ],
   },
   confectionery: {
-    name: '菓子工房', cost: 900, upkeep: 3, batches: 2,
+    // 菓子づくりは白糖2＋麦2→菓子3（2026-10-21 に 白糖1＋麦1→菓子2 から変更。docs/balance-log.md）
+    name: '菓子工房', cost: 1200, upkeep: 3, batches: 2,
     recipes: [
       { in: { whitesugar: 3, honey: 1 }, out: { sugarart: 1 }, name: '砂糖細工', minTier: 3 },
-      { in: { whitesugar: 1, wheat: 1 }, out: { sweets: 2 }, name: '菓子づくり' },
+      { in: { whitesugar: 2, wheat: 2 }, out: { sweets: 3 }, name: '菓子づくり' },
     ],
   },
   winery: {

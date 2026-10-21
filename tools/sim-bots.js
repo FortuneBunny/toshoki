@@ -104,7 +104,7 @@ function upgrade(world, m) {
     if (!G.canBuyTransportAt(world, city, t)) continue;
     if (world.player.silver > def.cost * 2.2) { G.buyTransport(world, m.id, t); break; }
   }
-  const max = world.scenario.maxMerchants ?? 4;
+  const max = G.merchantCap(world);
   if (world.player.merchants.length < max && world.player.silver > G.hireCost(world) * 3) G.hireMerchant(world, m.city);
 }
 
