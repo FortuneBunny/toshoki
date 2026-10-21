@@ -181,7 +181,8 @@ function eatProvisions(world, m) {
     if (!left) break;
   }
   if (left <= 0) return false;
-  m.hunger += left;
+  // 足りなかった分は持ち越さない（持ち越すと、次に食料を積んだとき、たまった分をまとめて食べてしまい、
+  // 出発の画面の「約2個食べる」が20個から13個に減った。画面だけのテスト（Sol）の指摘）
   // 食料が尽きた: 進みが遅れ、積荷の一部を失う
   let lost = 0;
   for (const id of Object.keys(m.cargo)) {

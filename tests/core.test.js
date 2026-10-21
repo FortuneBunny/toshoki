@@ -505,3 +505,14 @@ test('前に遊んだ世界の状態が、次に作る世界に漏れない（�
   assert.deepEqual(play(), first);
   assert.ok(!G.SCENARIOS.s7.cities.some((c) => c.tags?.includes('port')));
 });
+
+test('砂漠で食料が尽きても、足りなかった分は次の旅に持ち越さない（画面だけのテスト Sol）', () => {
+  const w = G.createWorld('s8', { seed: 1 });
+  const m = w.player.merchants[0];
+  m.cargo = {};
+  assert.ok(G.travel(w, m.id, 'natsume').ok);
+  let starved = false;
+  for (let d = 0; d < 80 && m.travel; d++) { const r = G.advance(w, 1, silent); if (r.events.some((e) => e.type === 'starve')) starved = true; }
+  assert.ok(starved, '食料なしで砂漠を渡ると尽きる');
+  assert.ok((m.hunger || 0) < 1, `持ち越すのは端数だけ（${m.hunger}）`);
+});

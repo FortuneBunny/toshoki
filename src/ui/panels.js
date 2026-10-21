@@ -283,7 +283,8 @@ export function departDialog(app, mid, to) {
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' } }, icon('transport/guard', 'icon'), '護衛',
           h('button', { class: 'btn tiny', onclick: () => { guards = Math.max(0, guards - 1); draw(); } }, '−'), h('b', { class: 'num' }, guards), h('button', { class: 'btn tiny', onclick: () => { guards = Math.min(12, guards + 1); draw(); } }, '＋'),
           h('span', { class: 'dim' }, `費用 約${guards * G.BALANCE.guardWage * route.days}銀`))) : null,
-      k ? h('div', { class: 'dim', style: { marginTop: '6px' } }, `${dest.name}の相場は${G.knowledgeAge(world, to)}日前の情報。着く頃には ${G.knowledgeAge(world, to) + route.days} 日前の情報になる。`) : h('div', { class: 'dim' }, `${dest.name}の相場はまだ知らない。`),
+      // 噂だけで、相場を見たことのない町は「まだ知らない」（「null日前の情報」と出ていた）
+      k && G.knowledgeAge(world, to) !== null ? h('div', { class: 'dim', style: { marginTop: '6px' } }, `${dest.name}の相場は${G.knowledgeAge(world, to)}日前の情報。着く頃には ${G.knowledgeAge(world, to) + route.days} 日前の情報になる。`) : h('div', { class: 'dim' }, `${dest.name}の相場はまだ知らない。着いてから確かめる。`),
       Object.keys(m.cargo).length && k ? h('div', { class: 'chips' }, Object.entries(m.cargo).map(([g, q]) => {
         const p = k.prices?.[g];
         const want = k.wants?.[g] !== false;
