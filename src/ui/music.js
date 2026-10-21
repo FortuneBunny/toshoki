@@ -3,6 +3,7 @@
 let ctx = null;
 let out = null;
 let volume = 0.35;
+const BOOST = 2; // 音量のつまみに掛ける倍率（録って測ると BGM のピークが 0.07 ほどで、小さすぎた）
 let enabled = false;
 let timer = null;
 let region = 'plain';
@@ -33,7 +34,7 @@ function ensure() {
     if (!AC) return null;
     ctx = new AC();
     out = ctx.createGain();
-    out.gain.value = volume;
+    out.gain.value = volume * BOOST;
     out.connect(ctx.destination);
   }
   if (ctx.state === 'suspended') ctx.resume();
@@ -96,7 +97,7 @@ function schedule() {
 export function setMusic(on, vol) {
   if (vol !== undefined) volume = vol;
   enabled = on;
-  if (out) out.gain.value = volume;
+  if (out) out.gain.value = volume * BOOST;
   if (on) {
     if (!ensure()) return;
     if (!timer) { nextTime = ctx.currentTime + 0.1; timer = setInterval(schedule, 100); }

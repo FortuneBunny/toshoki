@@ -58,6 +58,7 @@ export function openTrade(app, merchantId) {
   }
   let refocus = null; // 打っている途中の数量欄（描き直したあとも、そこに戻す）
   function setQty(id, q, e) {
+    if (rendering) return; // 描き直しの途中に消える入力欄の change は無視する
     const { maxBuy, maxSell } = limits(id);
     q = Math.max(-maxSell, Math.min(maxBuy, Math.round(q)));
     qty[id] = q;
@@ -100,7 +101,14 @@ export function openTrade(app, merchantId) {
       ${hist.length > 1 ? `最近の相場: ${hist.slice(-8).map((x) => fmt(x[1], 1)).join(' → ')}` : ''}`;
   }
 
+  // 描き直しの途中で入力欄が消えると、その欄の change が走ってもう一度描き直そうとし、例外とクリック音の二重鳴りが出た
+  let rendering = false;
   function render() {
+    if (rendering) return;
+    rendering = true;
+    try { renderNow(); } finally { rendering = false; }
+  }
+  function renderNow() {
     clear(modal);
     const pv = preview();
     const cap = G.cargoCap(m);

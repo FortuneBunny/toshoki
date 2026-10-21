@@ -61,7 +61,7 @@ function cityPanel(app, id) {
         c.founded && G.settlersAllowed(world) ? h('dt', {}, '開拓団') : null,
         c.founded && G.settlersAllowed(world) ? h('dd', {}, `${c.settlerGroups || 0}/${G.BALANCE.settlerMax}団 住みついた${world.player.merchants.some((m) => m.settlers?.to === id) ? `（運んでいる途中 ${world.player.merchants.filter((m) => m.settlers?.to === id).length}団）` : ''}`, h('div', { class: 'dim', style: { fontSize: '11px' } }, G.settleCheck(world, id) ? `受け入れ ✖ ${G.settleCheck(world, id)}` : '受け入れ ○ 今なら住みつける')) : null,
         h('dt', {}, '住居'), h('dd', {}, `家 ${G.houseCount(c)}軒・住める人数 ${fmt(G.housingCap(c, tier))}${c.pop >= G.housingCap(c, tier) * 0.98 ? '（頭打ち）' : ''}`),
-        h('dt', { title: '町が育つほど求める品が増える。1つ欠けまでそろえば新しい家が建つ' }, '住居の求め'), h('dd', {}, dwellingEl(c, tier)),
+        h('dt', { title: '町が育つほど求める品が増える。1つ欠けまでそろえば新しい家が建つ' }, '住居の求め'), h('dd', {}, dwellingEl(c, tier, world)),
         h('dt', {}, '働き手'), h('dd', { class: G.staffing(c) < 1 ? 'bad' : '' }, `${fmt(G.workersAvailable(c))}人（必要 ${fmt(G.workersNeeded(c))}）${G.staffing(c) < 1 ? ` 生産 ${Math.round(G.staffing(c) * 100)}%` : ''}`)),
       G.civicsIn(c).length ? h('div', {}, h('div', { class: 'section' }, '需要施設'), h('div', { class: 'chips' }, G.civicsIn(c).map((b) => h('span', { class: 'chip', title: `${G.CIVICS[b.type].name}: ${G.civicWants(b.type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}が届くほど成長` }, h('img', { src: `assets/svg/cities/${b.type}.svg`, class: 'icon-sm', alt: '' }), `${G.CIVICS[b.type].name} 満足度 ${Math.round((c.civicSat?.[b.type] || 0) * 100)}%`)))) : null,
       h('div', { class: 'section' }, '食卓（糖度への寄与）'),
@@ -277,7 +277,7 @@ export function departDialog(app, mid, to) {
       h('div', {}, `${route.path.map((id) => world.cities[id].name).join(' → ')}`),
       h('div', { class: 'total-big' }, `約 ${route.days} 日`),
       route.edges.some((e) => e.monsoon) ? h('div', { class: 'dim' }, `季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（追い風なら速く、向かい風なら遅い）`) : null,
-      desertDays ? h('div', { class: food >= need ? 'good' : 'bad' }, `砂漠 約${desertDays}日。隊商の食料 ${food} / 必要 ${need}${food < need ? '（足りない！なつめやし・干しぶどう・キビ・麦・米を積もう）' : ''}`) : null,
+      desertDays ? h('div', { class: food >= need ? 'good' : 'bad' }, `砂漠 約${desertDays}日。隊商の食料 ${food} / 必要 ${need}${food < need ? '（足りない！なつめやし・干しぶどう・キビ・麦・米を積もう）' : ''}`, food && need ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `道中で積荷の${G.PROVISIONS.filter((g) => m.cargo[g]).map((g) => GOODS[g].name).join('・')}を約${Math.min(food, need)}個食べる（売るつもりの分も減る）`) : null) : null,
       route.edges.some((e) => e.danger) && world.scenario.bandits ? h('div', {},
         h('div', { class: 'amber' }, `⚔ 盗賊の出る道（最大危険度 ${Math.max(...route.edges.map((e) => e.danger))}）`),
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' } }, icon('transport/guard', 'icon'), '護衛',
@@ -502,8 +502,11 @@ export function techDialog(app) {
 }
 
 // 住居の求める品（○そろっている ×足りない）
-function dwellingEl(c, tier) {
+function dwellingEl(c, tier, world) {
   const st = G.dwellingStatus(c, tier);
+  // 足りない品がどこで手に入るか（蜂蜜をどこで買えばよいか分からず、町に育てられなかった。画面だけのテストの指摘）
+  const where = st.missing.map((g) => { const p = G.producersOf(world, g, c.id).slice(0, 2); return p.length ? `${GOODS[g].name}は${p.map((x) => x.name).join('・')}で採れる` : null; }).filter(Boolean);
+  const whereEl = where.length ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `${where.join('、')}。${st.ok ? '届けると育ちが少し速まる' : '運んで届ける'}`) : null;
   if (!st.wants.length) return h('span', { class: 'dim' }, (c.dwellWants || []).length ? `まだない（育つと ${(c.dwellWants || []).map((g) => GOODS[g].name).join('・')} を求める）` : 'なし');
-  return h('span', {}, st.wants.map((g) => h('span', { class: `chip ${st.met.includes(g) ? 'good' : 'bad'}`, title: st.met.includes(g) ? 'そろっている' : '足りない' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${st.met.includes(g) ? '○' : '×'}`)), st.ok ? (st.wants.length === 1 ? h('div', { class: 'dim', style: { fontSize: '11px' } }, '今求めるのは1つだけ。届かなくても家は建つ') : null) : h('div', { class: 'bad', style: { fontSize: '11px' } }, `家がゆっくりしか建たない（${st.wants.length}つのうち${st.wants.length - 1}つ以上そろえば、どんどん建つ）`));
+  return h('span', {}, st.wants.map((g) => h('span', { class: `chip ${st.met.includes(g) ? 'good' : 'bad'}`, title: st.met.includes(g) ? 'そろっている' : '足りない' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${st.met.includes(g) ? '○' : '×'}`)), st.ok ? (st.wants.length === 1 ? h('div', { class: 'dim', style: { fontSize: '11px' } }, '今求めるのは1つだけ。届かなくても家は建つ') : null) : h('div', { class: 'bad', style: { fontSize: '11px' } }, `家がゆっくりしか建たない（${st.wants.length}つのうち${st.wants.length - 1}つ以上そろえば、どんどん建つ）`), whereEl);
 }

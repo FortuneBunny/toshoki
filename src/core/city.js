@@ -250,13 +250,19 @@ export function growthPerDay(city) {
   return growthRate(city);
 }
 
+// その品を作っている町（多い順）。住居の求める品などの「どこで手に入るか」の案内に使う
+export function producersOf(world, good, exclude = null) {
+  return Object.values(world.cities).filter((c) => c.id !== exclude && (c.produces?.[good] || 0) > 0).sort((a, b) => b.produces[good] - a.produces[good]);
+}
+const whereText = (world, goods, exclude) => goods.map((g) => { const p = producersOf(world, g, exclude).slice(0, 2); return p.length ? `${GOODS[g].name}は${p.map((c) => c.name).join('・')}で採れる` : null; }).filter(Boolean).join('、');
+
 // 人口の伸びを止めている一番の理由（初めての人向けの一言）
 export function growthBlocker(world, city) {
   const tier = cityTier(city);
   if (city.crash > 0) return `シュガークラッシュ中（あと${city.crash}日）。終わるまで育たない`;
   if (city.district && city.pop >= housingCap(city, tier) * 0.98) {
     const dw = dwellingStatus(city, tier);
-    if (!dw.ok) return `家がゆっくりしか建たない（5日に1軒）。今足りない住居の品: ${dw.missing.map((g) => GOODS[g].name).join('・')}`;
+    if (!dw.ok) { const w = whereText(world, dw.missing, city.id); return `家がゆっくりしか建たない（5日に1軒）。今足りない住居の品: ${dw.missing.map((g) => GOODS[g].name).join('・')}${w ? `（${w}）` : ''}`; }
     return '家を建てる空き地がない（市場の圏を広げるか、施設を減らす）';
   }
   if (city.glucose < B.starveLine) return `糖度${Math.round(city.glucose)}で飢えている（40未満は人口が減る）。食べ物を届ける`;

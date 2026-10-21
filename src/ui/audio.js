@@ -3,6 +3,9 @@ let ctx = null;
 let master = null;
 let enabled = true;
 let volume = 0.5;
+// 音量のつまみに掛ける倍率。録って測ると全体にかなり小さかった（効果音のピーク 0.06〜0.23）ので上げる。
+// 重なっても割れないよう、出口に押さえ（コンプレッサー）を入れる
+const BOOST = 1.6;
 
 function ensure() {
   if (!enabled) return null;
@@ -11,8 +14,15 @@ function ensure() {
     if (!AC) return null;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = volume;
-    master.connect(ctx.destination);
+    master.gain.value = volume * BOOST;
+    const limit = ctx.createDynamicsCompressor();
+    limit.threshold.value = -6;
+    limit.knee.value = 4;
+    limit.ratio.value = 12;
+    limit.attack.value = 0.002;
+    limit.release.value = 0.15;
+    master.connect(limit);
+    limit.connect(ctx.destination);
   }
   if (ctx.state === 'suspended') ctx.resume();
   return ctx;
@@ -21,7 +31,7 @@ function ensure() {
 export function setSound(on, vol) {
   enabled = on;
   if (vol !== undefined) volume = vol;
-  if (master) master.gain.value = volume;
+  if (master) master.gain.value = volume * BOOST;
 }
 
 function tone(freq, start, dur, { type = 'sine', gain = 0.3, slide = 0, attack = 0.005 } = {}) {
@@ -65,6 +75,12 @@ const note = (base, step) => base * Math.pow(2, SCALE[Math.min(step, SCALE.lengt
 
 export const sfx = {
   click() { tone(880, 0, 0.05, { type: 'triangle', gain: 0.12 }); },
+  // 買った: 袋に詰める短い2音（買うときにクリックしか鳴らなかった。画面と音のテストの指摘）
+  // 期限切れ（失敗の画面が無音だった。画面と音のテストの指摘）: ゆっくり下がる短調の3音
+  defeat() { [0, -3, -7].forEach((st, i) => tone(392 * Math.pow(2, st / 12), i * 0.28, 0.6, { type: 'triangle', gain: 0.14, slide: i === 2 ? 0.85 : 1 })); },
+  buy() { tone(523, 0, 0.07, { type: 'triangle', gain: 0.13 }); tone(392, 0.06, 0.12, { type: 'triangle', gain: 0.11 }); },
+  // 定期便を始めた: 上がっていく3音（前はレベルアップの音で、意味がずれていた）
+  order() { [0, 4, 7].forEach((st, i) => tone(523 * Math.pow(2, st / 12), i * 0.07, 0.14, { type: 'triangle', gain: 0.1 })); },
   tick() { tone(1400, 0, 0.03, { type: 'square', gain: 0.03 }); },
   error() { tone(180, 0, 0.18, { type: 'sawtooth', gain: 0.12, slide: 0.7 }); },
   // 利益が大きいほど高く、粒の多い音
@@ -81,9 +97,10 @@ export const sfx = {
     [0, 4, 7, 12, 16].forEach((st, i) => tone(523 * Math.pow(2, st / 12), i * 0.06, 0.3, { type: 'square', gain: 0.09 }));
     noise(0.28, 0.4, { gain: 0.08, freq: 6000 });
   },
+  // 最後の和音は4音が重なるので、1音ずつは小さく（測るとピーク 0.43 で、ほかの大きな音の倍近くあった）
   levelUp() {
-    [0, 4, 7, 12].forEach((st, i) => tone(392 * Math.pow(2, st / 12), i * 0.1, 0.35, { type: 'triangle', gain: 0.22 }));
-    [12, 16, 19, 24].forEach((st) => tone(392 * Math.pow(2, st / 12), 0.42, 0.9, { type: 'sine', gain: 0.1 }));
+    [0, 4, 7, 12].forEach((st, i) => tone(392 * Math.pow(2, st / 12), i * 0.1, 0.35, { type: 'triangle', gain: 0.17 }));
+    [12, 16, 19, 24].forEach((st) => tone(392 * Math.pow(2, st / 12), 0.42, 0.9, { type: 'sine', gain: 0.05 }));
   },
   fanfare() {
     const seq = [[0, 0.12], [0, 0.12], [0, 0.12], [4, 0.35], [2, 0.12], [4, 0.12], [7, 0.8]];

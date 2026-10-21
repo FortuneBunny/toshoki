@@ -139,7 +139,7 @@ img { user-select: none; }
 .progress-bar { height: 4px; background: #3a2e22; border-radius: 2px; overflow: hidden; }
 .progress-bar i { display: block; height: 100%; background: var(--crystal-deep); }
 .mcard .acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.mcard.add { align-items: center; justify-content: center; color: var(--text-faint); border-style: dashed; width: 120px; }
+.mcard.add { flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; color: var(--text-faint); border-style: dashed; width: 120px; }
 
 /* ---------- 地図 ---------- */
 .city-node { cursor: pointer; }

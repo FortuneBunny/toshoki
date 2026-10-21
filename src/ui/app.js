@@ -162,14 +162,14 @@ app.afterTrade = (r, x, y, before) => {
     if (f.type === 'contract') setTimeout(() => { fx.banner('大口注文 達成！', `報酬 +${fmt(f.reward)} 銀`, 'ui/contract'); sfx.levelUp(); }, 700);
     if (f.type === 'streakBroken') fx.toast(`連続黒字が途切れた（${f.was}連続）`, { kind: 'bad' });
   }
-  if (!r.fx.some((f) => f.type === 'profit' || f.type === 'loss')) sfx.click();
+  if (!r.fx.some((f) => f.type === 'profit' || f.type === 'loss')) (r.rows?.some((x) => x.qty > 0) ? sfx.buy() : sfx.click());
   flushEvents({ skipTrade: true });
   app.save();
   app.render();
 };
 
 app.afterOrder = (mid) => {
-  sfx.levelUp();
+  sfx.order();
   fx.banner('定期便 開始！', 'あとは自動で回る。次の一手を考えよう', 'ui/route');
   flushEvents({ quiet: true });
   app.save();
@@ -466,7 +466,15 @@ function renderMerchants() {
     add(el, card);
   }
   const max = G.merchantCap(w);
-  if (w.player.merchants.length < max) add(el, h('div', { class: 'mcard add', title: '商人がいる町の画面から雇える' }, `＋ 商人 ${w.player.merchants.length}/${max}`));
+  // 押すと、商人がいる町で雇う画面を開く（押しても何も起きず、雇えない理由も分からなかった。画面だけのテストの指摘）
+  if (w.player.merchants.length < max) add(el, h('div', { class: 'mcard add', role: 'button', style: { cursor: 'pointer' }, title: '商人を雇う', onclick: () => {
+    const sel = w.player.merchants.find((x) => x.id === app.state.selMerchant && !x.travel);
+    const at = sel?.city || w.player.merchants.find((x) => !x.travel)?.city || Object.keys(w.cities).find((id) => G.hasPresence(w, id));
+    if (!at || !G.hasPresence(w, at)) return app.error('雇えるのは、商人が滞在している町か、定期便が回っている町。今は全員が移動中');
+    const cost = G.hireCost(w);
+    if (w.player.silver < cost) return app.error(`雇うには ${cost} 銀いる（今 ${Math.floor(w.player.silver)} 銀）`);
+    hireDialog(app, at, cost, max);
+  } }, `＋ 商人 ${w.player.merchants.length}/${max}`, h('small', { class: 'dim', style: { display: 'block', fontSize: '11px' } }, `${w.cities[w.player.merchants.find((x) => !x.travel)?.city]?.name || ''}で ${G.hireCost(w)} 銀`)));
 }
 
 function transportButton(m) {
@@ -573,6 +581,7 @@ function finish() {
     w.unlockedHeirloom = app.unlockHeirloom(w.scenarioId);
   }
   app.save();
+  if (!w.finished.win) sfx.defeat();
   setTimeout(() => { app.state.modals++; resultDialog(app); }, 900);
 }
 app.checkFinish = () => { if (app.world.finished && !app.world.resultShown) { app.world.resultShown = true; finish(); } };
