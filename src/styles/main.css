@@ -117,8 +117,8 @@ img { user-select: none; }
 .minimap { position: absolute; right: 10px; bottom: 10px; width: 200px; height: 120px; border: 2px solid #6b5223; border-radius: 6px; box-shadow: var(--shadow); cursor: pointer; image-rendering: pixelated; }
 .mapctl { position: absolute; right: 216px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
 .side { width: 340px; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--line); min-height: 0; }
-.side-scroll { flex: 1; overflow: auto; padding: 10px; }
-.feed { height: 210px; overflow: auto; border-top: 1px solid var(--line); padding: 6px 10px; font-size: 12px; background: #1a140f; }
+.side-scroll { flex: 1; overflow: auto; padding: 10px 10px 28px; mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent); } /* 下が続くことが分かるように薄くする */
+.feed { height: 150px; overflow: auto; border-top: 1px solid var(--line); padding: 6px 10px; font-size: 12px; background: #1a140f; }
 .feed .ev { padding: 3px 0; border-bottom: 1px dashed #2f261c; display: flex; gap: 6px; }
 .feed .ev .d { color: var(--text-faint); min-width: 38px; }
 .feed .ev.big { color: var(--honey); font-weight: 700; }
@@ -222,6 +222,7 @@ img { user-select: none; }
 .pbar em.down { color: var(--good); }
 .trade-hint { margin: 8px 4px 0; padding: 6px 10px; border-left: 3px solid var(--amber-deep); background: #261e17; font-size: 12px; color: var(--text-dim); }
 .trow .r { text-align: right; }
+.trow .price .steep { display: block; font-size: 10px; line-height: 1.1; color: #ffb26b; white-space: nowrap; }
 .trow .arrows { display: flex; gap: 2px; }
 .trow .arrows.l { justify-content: flex-end; }
 .trow .arrows.r { justify-content: flex-start; }

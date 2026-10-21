@@ -43,6 +43,7 @@ async function connect() {
         await cdp('Runtime.enable');
         await cdp('Page.enable');
         await cdp('Log.enable');
+        await cdp('Page.addScriptToEvaluateOnNewDocument', { source: AUDIO_TAP });
         return;
       }
     } catch { /* まだ起動していない */ }
@@ -56,6 +57,97 @@ function cdp(method, params = {}) {
   return new Promise((ok, no) => waiting.set(id, { ok, no }));
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ---------- 音の記録 ----------
+// ゲームの音はブラウザの中で合成している。ミュートでも合成は動くので、出口の手前で波形を拾い、
+// 音の大きさ（ピーク・RMS）、音割れ、鳴った音の数を記録する。最後の120秒は録音として取り出せる（WAV）
+const AUDIO_TAP = `(() => {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC || window.__audio) return;
+  const A = window.__audio = { ctxs: [], starts: [], blocks: [], sfx: [], pcm: new Int16Array(24000 * 120), stamp: new Float64Array(120).fill(-1) };
+  const realDest = Object.getOwnPropertyDescriptor(BaseAudioContext.prototype, 'destination').get;
+  class Tap extends AC {
+    constructor(...args) {
+      super(...args);
+      const id = A.ctxs.length;
+      A.ctxs.push({ id, created: performance.now() });
+      this.__id = id;
+      const tap = super.createGain();
+      const proc = super.createScriptProcessor(4096, 2, 1);
+      const sink = super.createGain();
+      sink.gain.value = 0;
+      tap.connect(realDest.call(this));
+      tap.connect(proc);
+      proc.connect(sink);
+      sink.connect(realDest.call(this));
+      const step = Math.max(1, Math.round(this.sampleRate / 24000));
+      proc.onaudioprocess = (e) => {
+        const a = e.inputBuffer.getChannelData(0);
+        const b = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : a;
+        let peak = 0, sum = 0, clip = 0;
+        for (let i = 0; i < a.length; i++) {
+          const v = (a[i] + b[i]) / 2;
+          const av = Math.max(Math.abs(a[i]), Math.abs(b[i]));
+          if (av > peak) peak = av;
+          if (av >= 0.99) clip++;
+          sum += v * v;
+          if (i % step === 0) {
+            // 2つの音の出口（効果音と BGM）を同じ録音に足し合わせる。書く位置は時刻から決める
+            const at = Math.floor((performance.now() / 1000) * 24000 + i / step);
+            const k = at % A.pcm.length;
+            // 1秒ごとの区切りに、いつの音かを覚える。120秒前の古い音が残っていたら先に消す
+            const sec = Math.floor(at / 24000), slot = sec % 120;
+            if (A.stamp[slot] !== sec) { A.pcm.fill(0, slot * 24000, slot * 24000 + 24000); A.stamp[slot] = sec; }
+            A.pcm[k] = Math.max(-32767, Math.min(32767, A.pcm[k] + v * 32767));
+          }
+        }
+        A.blocks.push({ t: performance.now(), ctx: id, peak, rms: Math.sqrt(sum / a.length), clip });
+        if (A.blocks.length > 4000) A.blocks.splice(0, 1000);
+      };
+      this.__tap = tap;
+    }
+    get destination() { return this.__tap || realDest.call(this); }
+  }
+  window.AudioContext = Tap;
+  if (window.webkitAudioContext) window.webkitAudioContext = Tap;
+  for (const C of [OscillatorNode, AudioBufferSourceNode]) {
+    const start = C.prototype.start;
+    C.prototype.start = function (...a) {
+      A.starts.push({ t: performance.now(), ctx: this.context.__id, kind: C === OscillatorNode ? this.type : 'buffer' });
+      if (A.starts.length > 20000) A.starts.splice(0, 5000);
+      return start.apply(this, a);
+    };
+  }
+  // 効果音の名前（ゲームが開発用に出している窓口の sfx を包む）
+  setInterval(() => {
+    const sfx = window.__toshoki && window.__toshoki.sfx;
+    if (!sfx || sfx.__wrapped) return;
+    for (const k of Object.keys(sfx)) {
+      if (typeof sfx[k] !== 'function') continue;
+      const f = sfx[k];
+      sfx[k] = (...x) => { A.sfx.push({ t: performance.now(), name: k }); return f(...x); };
+    }
+    sfx.__wrapped = true;
+  }, 300);
+})()`;
+// t0（ページの時刻）からあとの音のまとめ
+const AUDIO_SINCE = (t0) => `(() => {
+  const A = window.__audio;
+  if (!A) return null;
+  const t0 = ${t0};
+  const by = {};
+  for (const b of A.blocks) {
+    if (b.t < t0) continue;
+    const x = by[b.ctx] = by[b.ctx] || { blocks: 0, peak: 0, rmsSum: 0, clip: 0, loud: 0 };
+    x.blocks++; x.peak = Math.max(x.peak, b.peak); x.rmsSum += b.rms; x.clip += b.clip; if (b.rms > 0.003) x.loud++;
+  }
+  const starts = {};
+  for (const s of A.starts) if (s.t >= t0) starts[s.ctx] = (starts[s.ctx] || 0) + 1;
+  const ctxs = Object.entries(by).map(([id, x]) => ({ ctx: +id, peak: +x.peak.toFixed(3), rmsAvg: +(x.rmsSum / x.blocks).toFixed(4), soundingShare: +(x.loud / x.blocks).toFixed(2), clippedSamples: x.clip, voices: starts[id] || 0 }));
+  const sfx = A.sfx.filter((s) => s.t >= t0).map((s) => s.name);
+  return { contexts: A.ctxs.length, ctxs, sfx };
+})()`;
+
 async function evaluate(expr) {
   const r = await cdp('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
@@ -193,6 +285,7 @@ async function shot(name) {
 // ---------- 指示 ----------
 async function handle(c) {
   const out = {};
+  const cmdStart = await evaluate('performance.now()').catch(() => 0);
   switch (c.cmd) {
     case 'open': {
       const [w, h] = c.mobile ? [390, 844] : [c.w || 1440, c.h || 900];
@@ -234,10 +327,47 @@ async function handle(c) {
       break;
     }
     case 'console': out.console = consoleLog.splice(0); break;
+    case 'audio': { // ここ ms ミリ秒の音のまとめ（既定は全部）
+      const now = await evaluate('performance.now()');
+      out.audio = await evaluate(AUDIO_SINCE(c.ms ? now - c.ms : 0));
+      break;
+    }
+    case 'wav': { // 最後の secs 秒（最大120）を WAV に書き出す（24kHz・モノラル）
+      const secs = Math.min(120, c.secs || 60);
+      const b64 = await evaluate(`(() => {
+        const A = window.__audio;
+        if (!A) return null;
+        const n = 24000 * ${secs};
+        const end = Math.floor((performance.now() / 1000) * 24000) - 24000 * 0.3;
+        const out = new Int16Array(n);
+        for (let i = 0; i < n; i++) out[i] = A.pcm[((end - n + i) % A.pcm.length + A.pcm.length) % A.pcm.length];
+        let s = '';
+        const u = new Uint8Array(out.buffer);
+        for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+        return btoa(s);
+      })()`);
+      if (!b64) throw new Error('音の記録がない');
+      const pcm = Buffer.from(b64, 'base64');
+      const hdr = Buffer.alloc(44);
+      hdr.write('RIFF', 0); hdr.writeUInt32LE(36 + pcm.length, 4); hdr.write('WAVEfmt ', 8);
+      hdr.writeUInt32LE(16, 16); hdr.writeUInt16LE(1, 20); hdr.writeUInt16LE(1, 22);
+      hdr.writeUInt32LE(24000, 24); hdr.writeUInt32LE(48000, 28); hdr.writeUInt16LE(2, 32); hdr.writeUInt16LE(16, 34);
+      hdr.write('data', 36); hdr.writeUInt32LE(pcm.length, 40);
+      mkdirSync(shotDir, { recursive: true });
+      out.wav = join(shotDir, c.file || `audio-${Date.now()}.wav`);
+      writeFileSync(out.wav, Buffer.concat([hdr, pcm]));
+      out.seconds = +(pcm.length / 48000).toFixed(1);
+      break;
+    }
     case 'quit': setTimeout(() => process.exit(0), 100); break;
     default: throw new Error(`不明な指示: ${c.cmd}`);
   }
-  if (c.shot !== false && !['list', 'eval', 'console', 'quit', 'fps'].includes(c.cmd)) out.shot = await shot(c.name || c.cmd);
+  if (c.shot !== false && !['list', 'eval', 'console', 'quit', 'fps', 'audio', 'wav'].includes(c.cmd)) out.shot = await shot(c.name || c.cmd);
+  // 操作のあいだに鳴った効果音と、音割れがあれば添える
+  if (!['audio', 'wav', 'list', 'eval', 'console', 'quit'].includes(c.cmd)) {
+    const a = await evaluate(AUDIO_SINCE(cmdStart)).catch(() => null);
+    if (a && (a.sfx.length || a.ctxs.some((x) => x.clippedSamples))) out.audio = a;
+  }
   if (consoleLog.length) out.newConsole = consoleLog.splice(0);
   return out;
 }

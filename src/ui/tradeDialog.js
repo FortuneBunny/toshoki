@@ -47,6 +47,15 @@ export function openTrade(app, merchantId) {
     return G.preview(world, m.id, lines());
   }
 
+  // 在庫が少なく、買うほど急に値上がりする品には、10個買ったときの平均を添える
+  // （表示の 9.7 を見て13個買うと268銀かかった。数量を入れる前に分かるように。画面だけのテストの指摘）
+  function steepNote(id, buy, stock) {
+    if (!buy) return null;
+    const n = Math.min(10, stock);
+    if (n < 2) return null;
+    const avg = (G.quote(world, city, id, n) * G.talentPrice(m, id, true)) / n;
+    return avg >= buy * 1.2 ? h('small', { class: 'steep', title: '在庫が少ないので、買うほど値上がりする' }, `${n}個で平均${fmt(avg, 1)}`) : null;
+  }
   let refocus = null; // 打っている途中の数量欄（描き直したあとも、そこに戻す）
   function setQty(id, q, e) {
     const { maxBuy, maxSell } = limits(id);
@@ -182,7 +191,7 @@ export function openTrade(app, merchantId) {
         h('span', { class: 'r num' }, have ? fmt(have) : ''),
         h('span', { class: `r num price ${sell ? cheapness(sell) : ''}`, onmousemove: (e) => sell && showTip(e, priceTip(id, 'sell')), onmouseleave: hideTip }, sell ? fmt(sell, 1) : '—'),
         left, input, right,
-        h('span', { class: `r num price ${buy ? cheapness(buy) : ''}`, onmousemove: (e) => buy && showTip(e, priceTip(id, 'buy')), onmouseleave: hideTip }, buy ? fmt(buy, 1) : '—'),
+        h('span', { class: `r num price ${buy ? cheapness(buy) : ''}`, onmousemove: (e) => buy && showTip(e, priceTip(id, 'buy')), onmouseleave: hideTip }, buy ? fmt(buy, 1) : '—', steepNote(id, buy, stock)),
         h('span', { class: 'r num' }, stock ? fmt(stock) : ''),
         sp);
       return r;
@@ -225,9 +234,9 @@ export function openTrade(app, merchantId) {
     const over = pv.cargoAfter > cap;
     const summary = h('div', { class: 'trade-summary' },
       h('h4', {}, h('span', {}, `買う`), h('span', { class: 'bad num' }, buys.length ? fmt(buys.reduce((s, l) => s + rowTotal(l.good), 0)) : '')),
-      buys.length ? buys.map((l) => h('div', { class: 'line' }, goodIcon(l.good, 'icon-sm'), GOODS[l.good].name, h('span', { class: 'num' }, `×${l.qty}`))) : h('div', { class: 'faint' }, 'なし'),
+      buys.length ? buys.map((l) => h('div', { class: 'line' }, goodIcon(l.good, 'icon-sm'), GOODS[l.good].name, h('span', { class: 'num' }, `×${l.qty}（平均${fmt(-rowTotal(l.good) / l.qty, 1)}）`))) : h('div', { class: 'faint' }, 'なし'),
       h('h4', {}, h('span', {}, `売る`), h('span', { class: 'good num' }, sells.length ? `+${fmt(sells.reduce((s, l) => s + rowTotal(l.good), 0))}` : '')),
-      sells.length ? sells.map((l) => h('div', { class: 'line' }, goodIcon(l.good, 'icon-sm'), GOODS[l.good].name, h('span', { class: 'num' }, `×${-l.qty}`))) : h('div', { class: 'faint' }, 'なし'),
+      sells.length ? sells.map((l) => h('div', { class: 'line' }, goodIcon(l.good, 'icon-sm'), GOODS[l.good].name, h('span', { class: 'num' }, `×${-l.qty}（平均${fmt(rowTotal(l.good) / -l.qty, 1)}）`))) : h('div', { class: 'faint' }, 'なし'),
       sells.length ? h('div', { class: expectProfit >= 0 ? 'good' : 'bad' }, `見込み利益 ${expectProfit >= 0 ? '+' : ''}${fmt(expectProfit)} 銀`) : null,
       h('h4', {}, h('span', {}, '積載'), h('span', { class: 'num' }, `${pv.cargoAfter} / ${cap}`)),
       h('div', { class: `capacity ${over ? 'over' : ''}` }, h('i', { style: { width: `${Math.min(100, (pv.cargoAfter / cap) * 100)}%` } })),
@@ -271,7 +280,12 @@ export function openTrade(app, merchantId) {
     const before = world.player.silver;
     const r = G.trade(world, m.id, lines());
     if (!r.ok) { app.error(r.error); return; }
-    app.afterTrade(r, btn.left + btn.width / 2, btn.top, before);
+    // 演出は地図の上の町から出す（閉じたダイアログのボタンの位置だと、右の欄の文字に重なった）
+    const c = world.cities[m.city];
+    const [tx, ty] = app.map?.screenPos ? app.map.screenPos(c.x, c.y) : [btn.left + btn.width / 2, btn.top];
+    const mapBox = app.map?.canvas?.getBoundingClientRect();
+    const inMap = mapBox && tx > mapBox.left && tx < mapBox.right && ty > mapBox.top && ty < mapBox.bottom;
+    app.afterTrade(r, inMap ? tx : mapBox ? mapBox.left + mapBox.width / 2 : btn.left + btn.width / 2, inMap ? ty - 30 : mapBox ? mapBox.top + mapBox.height / 2 : btn.top, before);
     close();
     if (thenDepart) app.pickDestination(m.id);
   }
