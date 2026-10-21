@@ -86,8 +86,15 @@ function cityPanel(app, id) {
     }
     add(box, t);
   }
-  const prod = Object.entries(c.produces);
-  if (prod.length) add(box, h('div', { class: 'section' }, '特産'), h('div', { class: 'chips' }, prod.map(([g, r]) => h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${fmt(r, 1)}/日`))));
+  const prod = Object.entries(c.produces).filter(([, r]) => r > 0);
+  // 作る量・食べる量・余り。特産でも町が自分で食べ切ると、買える在庫は残らない
+  // （「蜂蜜 1.4/日」と出ている町で在庫が0のまま、なぜ買えないのか分からなかった。画面だけのテスト（Sol）の指摘）
+  if (prod.length) add(box, h('div', { class: 'section' }, '特産（1日に作る量・町が食べる量・余り）'), h('div', { class: 'chips', style: { flexDirection: 'column', alignItems: 'flex-start' } }, prod.map(([g, r]) => {
+    const eat = G.dailyDemand(c, g, false);
+    const spare = r - eat;
+    return h('span', { class: `chip ${spare > 0.3 ? 'good' : spare < 0 ? 'bad' : ''}`, title: spare > 0.3 ? '余りが市場にたまり、買える' : '町が自分で食べ切るので、買える在庫はほとんど残らない' },
+      goodIcon(g, 'icon-sm'), `${GOODS[g].name} 作る${fmt(r, 1)}・食べる${fmt(eat, 1)} → 余り ${spare >= 0 ? '+' : ''}${fmt(spare, 1)}/日`);
+  })));
   // この町でできること
   const acts = h('div', { class: 'chips', style: { gap: '6px' } });
   add(acts, h('button', { class: 'btn small primary', onclick: () => app.openDistrict(id) }, '区画を見る'));
@@ -99,7 +106,8 @@ function cityPanel(app, id) {
       if (!world.scenario.goods.includes(p.good)) continue;
       if (['food', 'sweet'].includes(GOODS[p.good].kind) && !(c.district.native || []).includes(p.good)) continue;
       if (!G.placeableTiles(c, tier, k).length) continue;
-      opts.push(h('button', { class: 'btn tiny', title: `${p.name}: ${GOODS[p.good].name} +${p.rate}/日、働き手${p.workers}人`, onclick: () => app.startBuild(id, 'producer', k) }, goodIcon(p.good, 'icon-sm'), ` ${p.name} ${G.producerCost(world, k)}`));
+      const spareNow = (c.produces[p.good] || 0) - G.dailyDemand(c, p.good, false);
+      opts.push(h('button', { class: 'btn tiny', title: `${p.name}: ${GOODS[p.good].name} +${p.rate}/日、働き手${p.workers}人。建てると余りが ${spareNow >= 0 ? '+' : ''}${fmt(spareNow, 1)} → ${spareNow + p.rate >= 0 ? '+' : ''}${fmt(spareNow + p.rate, 1)}/日（働き手が足りれば。今の人口での目安）`, onclick: () => app.startBuild(id, 'producer', k) }, goodIcon(p.good, 'icon-sm'), ` ${p.name} ${G.producerCost(world, k)}`));
     }
     for (const k of Object.keys(G.CIVICS)) {
       if (G.civicCheck(world, id, k)) continue;
@@ -361,9 +369,20 @@ export function orderDialog(app, mid) {
 export function ledgerDialog(app) {
   const world = app.world;
   const s = world.stats;
+  const parts = G.netWorthParts(world);
+  // 定期便ごとの採算: 取引の利益から、始めてからの給金・輸送手段の維持費・護衛代を引く
+  // （売ったときの利益の知らせだけでは、給金を引いた本当の儲けが分からなかった。画面だけのテスト（Sol）の指摘）
+  const orderRows = world.player.merchants.filter((m) => m.order).map((m) => {
+    const days = Math.max(1, world.day - (m.order.since ?? world.day));
+    const perDay = G.BALANCE.merchantWage + G.TRANSPORTS[m.transport].upkeep + (m.order.guards || 0) * G.BALANCE.guardWage;
+    const net = (m.order.profit || 0) - perDay * days;
+    return h('div', {}, `${m.name}（${m.order.stops.map((x) => world.cities[x.city].name).join('→')}、${days}日）: 取引の利益 ${fmt(m.order.profit || 0)} − 給金と維持費 ${fmt(perDay * days)} = `, h('span', { class: net >= 0 ? 'good' : 'bad' }, `${net >= 0 ? '+' : ''}${fmt(net)} 銀`), h('span', { class: 'dim' }, `（1日 ${net >= 0 ? '+' : ''}${fmt(net / days, 1)}）`));
+  });
   const body = h('div', {},
     h('dl', { class: 'kv' },
-      h('dt', {}, '資産'), h('dd', { class: 'num' }, `${fmt(G.netWorth(world))} 銀`),
+      h('dt', {}, '資産'), h('dd', { class: 'num' }, `${fmt(parts.total)} 銀`,
+        h('div', { class: 'dim', style: { fontSize: '12px' } }, [['銀', parts.silver], ['積荷', parts.cargo], ['倉庫の品', parts.warehouses], ['輸送手段', parts.transports], ['工房', parts.workshops], ['商館', parts.branches]].filter(([, v]) => v >= 1).map(([n, v]) => `${n} ${fmt(v)}`).join(' ＋ '),
+          h('br'), '品はその町で売った値の8割、輸送手段・工房・商館は払った額の半分。区画の施設・道・交易所・技術・寄進は入らない')),
       h('dt', {}, '売上'), h('dd', { class: 'num' }, `${fmt(s.revenue)} 銀`),
       h('dt', {}, '仕入れ'), h('dd', { class: 'num' }, `${fmt(s.spent)} 銀`),
       h('dt', {}, '取引の利益'), h('dd', { class: 'num good' }, `${fmt(s.profit)} 銀`),
@@ -374,6 +393,7 @@ export function ledgerDialog(app) {
       h('dt', {}, 'シュガーラッシュ'), h('dd', {}, `${s.rushes}回`),
       s.banditLoss ? [h('dt', {}, '盗賊の被害'), h('dd', { class: 'bad' }, `約${fmt(s.banditLoss)}銀`)] : null),
     s.history.length > 2 ? h('div', {}, h('div', { class: 'section' }, '銀の推移'), sparkline(s.history.map((x) => x[1]), 560, 90)) : null,
+    orderRows.length ? [h('div', { class: 'section' }, '定期便の採算（給金・維持費を引いたあと）'), orderRows] : null,
     h('div', { class: 'section' }, '商人ごとの累計損益'),
     world.player.merchants.map((m) => h('div', {}, `${m.name}: `, h('span', { class: m.lifetime >= 0 ? 'good' : 'bad' }, `${fmt(m.lifetime)} 銀`))));
   modal(app, '帳簿', body);

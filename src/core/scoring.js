@@ -8,31 +8,34 @@ import { emit } from './events.js';
 import { BALANCE as B } from '../data/balance.js';
 import { GRID_W, GRID_H, T } from './grid.js';
 
-export function netWorth(world) {
+// 資産の内訳（帳簿に出す。所持金と資産の目標の差が、何から来ているか分からなかった。画面だけのテスト（Sol）の指摘）
+export function netWorthParts(world) {
   const pl = world.player;
-  let w = pl.silver;
-  for (const m of pl.merchants) {
-    // 積荷も倉庫と同じく、今いる町（移動中なら行き先）で売ったときの値の8割（積み替えるだけで資産が増えないように。12回目の Opus の指摘）
-    const city = world.cities[m.travel?.to || m.city];
-    for (const [id, q] of Object.entries(m.cargo)) {
+  const parts = { silver: pl.silver, cargo: 0, transports: 0, warehouses: 0, workshops: 0, branches: 0 };
+  // 品は、その町（積荷は移動中なら行き先）で売ったときの値の8割。買い取らない品は0
+  // （積み替えるだけで資産が増えないように。12回目の Opus の指摘）
+  const goodsValue = (city, stock) => {
+    let v = 0;
+    for (const [id, q] of Object.entries(stock)) {
       if (q <= 0 || !city || !cityWants(city, id)) continue;
-      w += Math.min(q * GOODS[id].base, quote(world, city, id, -Math.floor(q))) * 0.8;
+      v += Math.min(q * GOODS[id].base, quote(world, city, id, -Math.floor(q))) * 0.8;
     }
-    w += TRANSPORTS[m.transport].cost * 0.5;
+    return v;
+  };
+  for (const m of pl.merchants) {
+    parts.cargo += goodsValue(world.cities[m.travel?.to || m.city], m.cargo);
+    parts.transports += TRANSPORTS[m.transport].cost * 0.5;
   }
+  for (const [cid, wh] of Object.entries(pl.warehouses)) parts.warehouses += goodsValue(world.cities[cid], wh.stock);
+  for (const b of pl.buildings) parts.workshops += BUILDINGS[b.type].cost * 0.5;
   // 商館は、払った額の半分
-  for (let i = 0; i < (pl.branches?.length || 0); i++) w += B.branchCost * Math.pow(2, i) * 0.5;
-  // 倉庫の品は、その町で全部売ったときの値の8割（買い取らない品は0）。売れない在庫を積んで資産を増やせないように
-  for (const [cid, wh] of Object.entries(pl.warehouses)) {
-    const city = world.cities[cid];
-    for (const [id, q] of Object.entries(wh.stock)) {
-      if (q <= 0) continue;
-      if (!city || !cityWants(city, id)) continue;
-      w += Math.min(q * GOODS[id].base, quote(world, city, id, -Math.floor(q))) * 0.8;
-    }
-  }
-  for (const b of pl.buildings) w += BUILDINGS[b.type].cost * 0.5;
-  return w;
+  for (let i = 0; i < (pl.branches?.length || 0); i++) parts.branches += B.branchCost * Math.pow(2, i) * 0.5;
+  parts.total = Object.values(parts).reduce((x, y) => x + y, 0);
+  return parts;
+}
+
+export function netWorth(world) {
+  return netWorthParts(world).total;
 }
 
 // 指定した町が、1つ目の町から道（または水）だけでどれだけつながっているか

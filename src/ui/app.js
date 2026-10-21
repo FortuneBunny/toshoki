@@ -437,6 +437,8 @@ function renderGoals() {
     add(el, h('div', { class: `goal ${g.done ? 'done' : ''} ${g.p > 0.85 && !g.done ? 'near' : ''}` }, g.done ? '✔' : '◇', h('span', {}, g.text.split('（')[0]), h('div', { class: 'bar' }, h('i', { style: { width: `${Math.round(g.p * 100)}%` } })), h('span', { class: 'num dim' }, `${Math.round(g.p * 100)}%`)));
   }
   const left = w.scenario.deadline - w.day;
+  const hints = w.finished ? [] : G.goalHints(w);
+  if (hints.length) add(el, h('div', { class: 'goalhint' }, hints.map((x) => h('span', { role: 'button', title: 'この町の様子を見る', onclick: () => { app.state.selCity = x.city; app.render(); } }, '▸ ', x.text))));
   add(el, h('div', { class: `deadline ${left < 30 ? 'warn' : ''}` }, w.finished ? (w.finished.win ? `達成 ランク${w.finished.rank}` : '期限切れ') : `期限まで ${left} 日（S: ${Math.max(0, Math.floor(w.scenario.deadline * (w.scenario.rankS ?? 0.55)) - w.day)}日）`));
 }
 

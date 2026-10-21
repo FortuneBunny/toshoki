@@ -102,6 +102,10 @@ img { user-select: none; }
 
 .goalbar { display: flex; gap: 10px; padding: 4px 12px; background: #1a140f; border-bottom: 1px solid var(--line); flex-wrap: wrap; font-size: 12px; }
 .goal { display: flex; align-items: center; gap: 6px; }
+/* 目標の町の様子（押すと町の欄を開く）。バーの下に1行で出す */
+.goalhint { flex-basis: 100%; order: 10; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-dim, #c9b48f); }
+.goalhint span { cursor: pointer; }
+.goalhint span:hover { color: var(--honey); text-decoration: underline; }
 .goal .bar { width: 120px; height: 8px; background: #3a2e22; border-radius: 4px; overflow: hidden; }
 .goal .bar i { display: block; height: 100%; background: linear-gradient(90deg, #d9822b, #ffd166); border-radius: 4px; transition: width 0.4s; }
 .goal.done .bar i { background: linear-gradient(90deg, #6fbf4a, #b9f08a); }

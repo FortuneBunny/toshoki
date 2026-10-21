@@ -8,6 +8,7 @@ import { dailyCost } from './world.js';
 import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan } from './city.js';
 import { dwellingStatus } from './dwelling.js';
 import { goalsStatus } from './scoring.js';
+import { knowledgeAge } from './knowledge.js';
 import { cargoCap, cargoUsed, foodNeeded } from './caravan.js';
 
 export function suggestTrades(world, mid, limit = 3) {
@@ -183,5 +184,45 @@ export function silverAdvice(world) {
     const cost = donateCost(world, goal.city);
     if (!(c.donatedUntil > world.day) && (k?.glucose ?? 0) >= 60 && spare >= cost) out.push({ kind: 'donate', text: `${name(goal.city)}に寄進（${cost}銀）すると、90日間成長が速まる（糖度が足りているときだけ効く。食べ物を届ける代わりにはならない）` });
   }
+  return out;
+}
+
+// 目標の町の案内: 目標のバーの下に出す一言。人口・成長の速さ・止めているもの・このままだと何日かを、
+// 自分が知っている範囲（最後に商人がいたときの様子）で示す。正解は決めつけず、何が足りないかを見せる
+// （s2 で「麦の里を町に育てる」の手の打ち方が分からず、2人の画面だけのテストが迷った）
+export function goalHints(world) {
+  const st = goalsStatus(world);
+  const out = [];
+  const seen = new Set();
+  world.scenario.goals.forEach((g, i) => {
+    if (st[i]?.done) return;
+    let id = null;
+    let target = null;
+    if (g.type === 'cityTier') { id = g.city; target = B.tierPops[g.tier]; }
+    else if (g.type === 'cityPop') { id = g.city; target = g.pop; }
+    else if (g.type === 'rushes' && g.city) id = g.city;
+    else if (g.type === 'postTier') {
+      const post = Object.values(world.cities).filter((c) => c.founded).sort((a, b) => b.pop - a.pop)[0];
+      if (post) { id = post.id; target = g.pop || B.tierPops[g.tier]; }
+    }
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    const c = world.cities[id];
+    const k = world.player.knowledge[id];
+    const age = knowledgeAge(world, id);
+    if (!k || age === null) { out.push({ city: id, text: `${c.name}: まだ様子を知らない。商人を送って確かめる` }); return; }
+    const when = age === 0 ? '今' : `${age}日前`;
+    const r = k.growth ?? 0;
+    const parts = [];
+    if (target) parts.push(`人口 ${Math.floor(k.pop)}/${target}`);
+    parts.push(`成長 ${(r * 100).toFixed(2)}%/日`);
+    if (target && k.pop < target) {
+      if (r > 0) { const days = Math.ceil(Math.log(target / k.pop) / Math.log(1 + r)); parts.push(days > 2000 ? 'このままではほとんど育たない' : `このままだと約${days}日`); }
+      else parts.push('このままでは育たない');
+    }
+    if (g.type === 'rushes') parts.push(`糖度 ${Math.round(k.glucose)}（ラッシュは ${B.rushLine} 以上）`);
+    const block = k.blocker ? `止めているもの: ${k.blocker}` : '順調。届け続ける';
+    out.push({ city: id, text: `${c.name}（${when}）: ${parts.join('・')}。${block}` });
+  });
   return out;
 }
