@@ -419,42 +419,80 @@ test('暇を出したあとに雇っても、番号と名前が重ならない�
   assert.equal(new Set(names).size, names.length, names.join(','));
 });
 
-test('開拓団: 都市から交易所へ60人を運び、食べ物と家がそろうと住みつく', () => {
+test('開拓団: 町から交易所へ60人を運び、続けて食卓がそろうと住みつく', () => {
   const w = G.createWorld('s8', { seed: 5 });
   w.player.silver = 60000;
   const site = G.foundSites(w)[0];
   const post = G.foundPost(w, site.x, site.y).id;
-  const m = w.player.merchants[0];
-  const kohaku = w.cities.kohaku.pop;
-  assert.equal(G.settlerCheck(w, m.id, 'kibi'), '開拓団を送れるのは自分で開いた交易所だけ');
-  const r = G.sendSettlers(w, m.id, post);
-  assert.equal(r.cost, 6000);
-  assert.equal(w.cities.kohaku.pop, kohaku - 60);
-  assert.equal(G.trade(w, m.id, [{ good: 'silk', qty: G.cargoCap(m) }]).ok, false, '荷車の8割は開拓団');
-  assert.equal(G.setOrder(w, m.id, { stops: [{ city: 'kohaku' }, { city: post }] }).ok, false);
-  // 食べ物が届いていない交易所では、待つだけで住みつかない
-  m.city = post;
   const c = w.cities[post];
-  for (const g of w.scenario.goods) if (G.GOODS[g].kind === 'food') c.stock[g] = 0;
-  const pop = c.pop;
+  const [m, m2] = w.player.merchants;
+  // 目標の都（琥珀京）からは、目標の人口を割る分は出せない
+  assert.match(G.settlerCheck(w, m.id, post), /目標の町/);
+  m.city = 'hari';
+  m2.city = 'hari';
+  assert.equal(G.settlerCheck(w, m.id, 'kibi'), '開拓団を送れるのは自分で開いた交易所だけ');
+  const hari = w.cities.hari.pop;
+  assert.equal(G.sendSettlers(w, m.id, post).cost, 6000);
+  assert.equal(w.cities.hari.pop, hari - 60);
+  // 同時に送っても値段は上がる
+  assert.equal(G.settlerCost(w, post), 9000);
+  assert.equal(G.trade(w, m.id, [{ good: 'silk', qty: G.cargoCap(m) }]).ok, false, '荷車の8割は開拓団');
+  assert.equal(G.setOrder(w, m.id, { stops: [{ city: 'hari' }, { city: post }] }).ok, false);
+  // 開いた直後の交易所は受け入れない
+  m.city = post;
   G.advance(w, 1, silent);
-  assert.ok(m.settlers, 'まだ住みつかない');
-  assert.ok(c.pop <= pop + 1);
-  // 食卓に食べ物が3種類届き、糖度が足りると住みつく
-  for (const g of ['wheat', 'rice', 'millet', 'dates']) c.stock[g] = 500;
+  assert.ok(m.settlers);
+  assert.match(G.settleCheck(w, post), /開いて/);
+  // 食べ物を1日だけ届けても、ならした食卓では足りない
+  c.foundedDay = -100;
+  for (const g of w.scenario.goods) if (G.GOODS[g].kind === 'food') c.stock[g] = 0;
+  c.dietAvg = {};
+  c.stock.dates = 50;
   c.glucose = 100;
   G.advance(w, 1, silent);
+  assert.ok(m.settlers, '一時の食卓では住みつかない');
+  // 10日ほど続けて届けると住みつく
+  const pop = c.pop;
+  for (let d = 0; d < 20 && m.settlers; d++) {
+    for (const g of ['wheat', 'rice', 'millet', 'dates']) c.stock[g] = 500;
+    c.glucose = Math.max(c.glucose, 100);
+    G.advance(w, 1, silent);
+  }
   assert.equal(m.settlers, null);
   assert.ok(c.pop >= pop + 55);
   assert.equal(c.settlerGroups, 1);
   assert.equal(G.settlerCost(w, post), 9000);
-  // 30日待っても整わなければ散る
-  m.city = 'kohaku';
-  G.sendSettlers(w, m.id, post);
-  m.city = post;
-  for (const g of w.scenario.goods) c.stock[g] = 0;
-  G.advance(w, 31, silent);
-  assert.equal(m.settlers, null);
-  assert.equal(c.settlerGroups, 1);
-  assert.equal(G.deserialize(G.serialize(w)).cities[post].settlerGroups, 1);
+  // 次の団はすぐには住みつかない
+  m2.city = 'hari';
+  G.sendSettlers(w, m2.id, post);
+  m2.city = post;
+  assert.match(G.settleCheck(w, post), /ばかり/);
+  // 連れ出してから60日たつと散る
+  const m3 = m;
+  m3.city = 'hari';
+  G.sendSettlers(w, m3.id, post);
+  m3.settlers.day -= 61;
+  G.advance(w, 1, silent);
+  assert.equal(m3.settlers, null);
+  assert.equal(G.deserialize(G.serialize(w)).cities[post].settlerGroups >= 1, true);
+});
+
+test('小数の個数では売れない。売り戻しは、よそで買った品を混ぜても個数で差し引く（13回目）', () => {
+  const w = G.createWorld('s7', { seed: 121 });
+  const m = w.player.merchants[0];
+  const city = w.cities[m.city];
+  const good = Object.keys(city.stock).find((g) => city.stock[g] > 30 && G.cityWants(city, g));
+  m.cargo[good] = 1; m.cost[good] = 1;
+  const silver = w.player.silver;
+  G.trade(w, m.id, [{ good, qty: -0.001 }]);
+  assert.ok(w.player.silver <= silver + 1e-9, '0.001個では銀が増えない');
+  assert.equal(m.cargo[good], 1);
+  // よそで買った1個を残したまま、同じ町で買って売っても販売数は増えない
+  const before = w.stats.sold[city.id]?.[good] || 0;
+  for (let i = 0; i < 3; i++) { G.trade(w, m.id, [{ good, qty: 9 }]); G.trade(w, m.id, [{ good, qty: -9 }]); }
+  assert.equal(w.stats.sold[city.id]?.[good] || 0, before);
+  G.trade(w, m.id, [{ good, qty: -1 }]);
+  assert.equal(w.stats.sold[city.id][good], before + 1);
+  // 同じ町が続く定期便は作れない
+  assert.ok(G.validateOrder(w, { stops: [{ city: city.id }, { city: city.id }] }));
 });

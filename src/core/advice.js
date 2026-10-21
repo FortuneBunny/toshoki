@@ -2,7 +2,7 @@
 import { GOODS, PROVISIONS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
 import { quote, cityWants } from './market.js';
-import { settlersAllowed, settlerCost, settleCheck } from './settlers.js';
+import { settlersAllowed, settlerCost, settleCheck, settlerSourceCheck } from './settlers.js';
 import { routeInfo, merchantCap, hireCost, branchesAllowed, branchCost, branchCheck, donateCost, hasPresence } from './actions.js';
 import { dailyCost } from './world.js';
 import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan } from './city.js';
@@ -152,13 +152,14 @@ export function silverAdvice(world) {
     if (spare >= cost && spots.length) out.push({ kind: 'branch', text: `商人が上限（${cap}人）。商館（${cost}銀）を開くと、もう1人雇える。候補: ${spots.map(name).join('・')}（定期便が回っている町）${lack ? `。${lack}と目標に効く` : ''}` });
     else if (lack) out.push({ kind: 'route', text: `商人は上限。今の定期便を組み替えて、${lack}と目標に効く${spots.length ? `（商館は${cost}銀で、もう1人雇える）` : ''}` });
   }
-  // 交易所の目標なら、開拓団（都市以上の町から60人）
-  if (goal?.type === 'postTier' && settlersAllowed(world)) {
-    const c = world.cities[goal.city];
-    const cost = settlerCost(world, c.id);
-    const src = Object.values(world.cities).filter((x) => !x.founded && cityTier(x) >= B.settlerMinTier).map((x) => x.name);
-    const why = settleCheck(world, c.id);
-    if ((c.settlerGroups || 0) < B.settlerMax && src.length && spare >= cost) out.push({ kind: 'settlers', text: `${name(c.id)}へ開拓団（${cost}銀、${B.settlerGroup}人。${src.join('・')}から）を送れる。${why ? `受け入れの準備がまだ: ${why}` : '今なら住みつける'}` });
+  // 交易所の目標がまだなら、開拓団（目標の町が別にあっても出す。13回目の Opus の指摘）
+  const postGoal = world.scenario.goals.findIndex((g, i) => g.type === 'postTier' && !st[i]?.done);
+  const bigPost = Object.values(world.cities).filter((c) => c.founded).sort((a, b) => b.pop - a.pop)[0];
+  if (postGoal >= 0 && bigPost && settlersAllowed(world) && (bigPost.settlerGroups || 0) < B.settlerMax) {
+    const cost = settlerCost(world, bigPost.id);
+    const src = Object.values(world.cities).filter((x) => !x.founded && cityTier(x) >= B.settlerMinTier && !settlerSourceCheck(world, x)).sort((a, b) => b.pop - a.pop).slice(0, 3).map((x) => x.name);
+    const why = settleCheck(world, bigPost.id);
+    if (src.length && spare >= cost) out.push({ kind: 'settlers', text: `${name(bigPost.id)}へ開拓団（${cost}銀、${B.settlerGroup}人。${src.join('・')}から）を送れる。${why ? `受け入れの準備がまだ: ${why}` : '今なら住みつける'}` });
   }
   if (goal) {
     const c = world.cities[goal.city];

@@ -404,6 +404,7 @@ export function setOrder(world, mid, order) {
 export function resumeOrder(world, mid) {
   const m = getMerchant(world, mid);
   if (!m?.order) return fail('定期便がない');
+  if (m.settlers) return fail(`${m.name}は開拓団を連れている（交易所に住みつかせてから）`);
   m.order.paused = false;
   m.order.pauseNext = false; // 止める予約も消す
   if (!m.travel) runOrder(world, m);

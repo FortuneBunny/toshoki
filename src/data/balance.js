@@ -70,7 +70,12 @@ export const BALANCE = {
   settlerCost: 6000,          // 1団目の費用。交易所ごとに settlerCostStep ずつ高くなる
   settlerCostStep: 3000,
   settlerMax: 3,              // 1つの交易所に送れる団の数
-  settlerMinTier: 3,          // 開拓団を出せる町の段階（都市以上）
+  settlerMinTier: 2,          // 開拓団を出せる町の段階（町以上。目標の町は目標の人口を割らない分だけ）
+  settlerPostAge: 30,         // 交易所を開いてから受け入れられるまでの日数
+  settlerGap: 10,             // 同じ交易所に次の団が住みつけるまでの日数
+  settlerCarry: 60,           // 連れ出してから住みつくまでの期限（日）
+  settlerDietFollow: 0.1,     // 受け入れの判定に使う食卓のならし（1日に今の食卓へ寄る割合。約10日）
+  settlerDietLine: 0.05,      // ならした食卓で「届いている」とみなす量
   settlerGlucose: 90,         // 受け入れる交易所に要る糖度（食卓には食べ物3種類も要る）
   settlerWait: 30,            // 交易所に着いてから住みつけないまま待てる日数
   settlerLoad: 0.8,           // 開拓団が使う荷車の割合（残りに道中の食料を積める）

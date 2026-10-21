@@ -17,9 +17,10 @@ export function talentPrice(m, good, buying) {
 }
 
 // 同じ品の行はまとめる（同じ売りの行を何度も書くと、1個を何個にも数えられたため。12回目の Sol の指摘）
+// 数量は整数に切り捨てる（定期便の小数の「残す数」で 0.001個を1個分の値で売れたため。13回目の Sol の指摘）
 function mergeLines(lines) {
   const by = new Map();
-  for (const { good, qty } of lines) if (qty) by.set(good, (by.get(good) || 0) + qty);
+  for (const { good, qty } of lines) { const q = Number.isFinite(qty) ? Math.trunc(qty) : qty; if (q) by.set(good, (by.get(good) || 0) + q); }
   return [...by].map(([good, qty]) => ({ good, qty })).filter((l) => l.qty);
 }
 
@@ -101,9 +102,6 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       const have = m.cargo[good] || 0;
       m.cost[good] = ((m.cost[good] || 0) * have + cost) / (have + qty);
       m.cargo[good] = have + qty;
-      // どこで仕入れたか（同じ町での売り戻しを目標に数えないため）
-      m.boughtAt = m.boughtAt || {};
-      m.boughtAt[good] = have > 0 && m.boughtAt[good] !== city.id ? 'mixed' : city.id;
       city.stock[good] -= qty;
       noteBought(world, city, good, qty);
       world.player.silver -= cost;
@@ -116,20 +114,23 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       const actualMid = midPrice(city, good);
       const gain = sellValue(world, m, city, good, n);
       const basis = (m.cost[good] || 0) * n;
-      // 同じ町で仕入れた品を売り戻した分は、目標の取引量には数えない（全部売ると仕入れ先の記録が消えるので、先に判定する）
-      const resold = m.boughtAt?.[good] === city.id;
+      // この町で最近自分が買った分の売り戻しは、目標の取引量と大口注文に数えない。
+      // 個数で差し引く（よそで買った品を少し混ぜると、売り戻しが数えられたため。13回目の Opus の指摘）
+      const back = Math.min(n, Math.floor(recentBought(world, city, good)));
+      const counted = n - back;
+      if (back > 0) city.playerBought[good] = { q: recentBought(world, city, good) - back, day: world.day };
       const p = gain - basis;
       profit += p;
       sold += n;
       m.cargo[good] -= n;
-      if (!m.cargo[good]) { delete m.cargo[good]; delete m.cost[good]; if (m.boughtAt) delete m.boughtAt[good]; }
+      if (!m.cargo[good]) { delete m.cargo[good]; delete m.cost[good]; }
       city.stock[good] = (city.stock[good] || 0) + n;
       world.player.silver += gain;
       world.stats.revenue += gain;
-      if (!resold) {
+      if (counted > 0) {
         world.stats.sold[city.id] = world.stats.sold[city.id] || {};
-        world.stats.sold[city.id][good] = (world.stats.sold[city.id][good] || 0) + n;
-        world.stats.soldTotal[good] = (world.stats.soldTotal[good] || 0) + n;
+        world.stats.sold[city.id][good] = (world.stats.sold[city.id][good] || 0) + counted;
+        world.stats.soldTotal[good] = (world.stats.soldTotal[good] || 0) + counted;
       }
       m.lifetime += p;
       if (!auto && expected !== undefined && actualMid > expected * 1.15 && p > 0) {
@@ -138,7 +139,7 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       }
       fx.push({ type: 'sale', good, qty: n, gain, profit: p });
       if (auto && m.order) { m.order.profit = (m.order.profit || 0) + p; }
-      contractProgress(world, city, good, n, fx);
+      if (counted > 0) contractProgress(world, city, good, counted, fx);
     }
   }
   if (sold > 0) {
@@ -217,6 +218,8 @@ export function moveWarehouse(world, m, good, qty) {
   if (!Number.isInteger(qty) || qty === 0) return { ok: false, error: '数量は1以上の整数で指定する' };
   const wh = world.player.warehouses[m.city];
   if (!wh) return { ok: false, error: 'この町に倉庫（工房）がない' };
+  qty = Number.isFinite(qty) ? Math.trunc(qty) : 0;
+  if (!qty) return { ok: false, error: '数量は1以上の整数' };
   const g = GOODS[good];
   if (qty > 0) {
     const have = Math.floor(wh.stock[good] || 0);
@@ -225,8 +228,6 @@ export function moveWarehouse(world, m, good, qty) {
     const cur = m.cargo[good] || 0;
     m.cost[good] = ((m.cost[good] || 0) * cur + (wh.basis[good] || 0) * qty) / (cur + qty);
     m.cargo[good] = cur + qty;
-    m.boughtAt = m.boughtAt || {};
-    m.boughtAt[good] = cur > 0 && m.boughtAt[good] !== 'warehouse' ? 'mixed' : 'warehouse';
     wh.stock[good] -= qty;
   } else {
     const n = -qty;

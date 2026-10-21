@@ -175,6 +175,13 @@ export function validateOrder(world, order) {
   for (const s of order.stops) {
     if (!world.cities[s.city]) return `不明な町: ${s.city}`;
     for (const x of [...(s.sell || []), ...(s.buy || [])]) if (!GOODS[x.good]) return `不明な品物: ${x.good}`;
+    // 個数は整数にそろえる（小数の「残す数」で、ごくわずかずつ売れたため。13回目の Sol の指摘）
+    for (const x of s.sell || []) if (x.keep !== undefined) { if (!(x.keep >= 0)) return '残す数は0以上'; x.keep = Math.ceil(x.keep); }
+    for (const x of s.buy || []) { if (!(x.qty > 0)) return '買う数は1以上'; x.qty = Math.floor(x.qty) || 1; }
+    if (s.waitFor) { if (!(s.waitFor.qty > 0)) return '待つ数は1以上'; s.waitFor.qty = Math.ceil(s.waitFor.qty); }
   }
+  // 同じ町が続くと便が先へ進まない（order edit で作れたため。13回目の Sol の指摘）
+  const n = order.stops.length;
+  for (let i = 0; i < n; i++) if (order.stops[i].city === order.stops[(i + 1) % n].city) return `停泊地${i + 1}と${((i + 1) % n) + 1}が同じ町（${world.cities[order.stops[i].city].name}）。続く停泊地は別の町にする`;
   return null;
 }

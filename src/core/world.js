@@ -18,7 +18,7 @@ import { generateDistrict, districtProduction, updateHousing } from './district.
 import { buildGrid, GRID_W, GRID_H, gridKey } from './grid.js';
 import { rivalTechs } from './techs.js';
 import { runOrder } from './orders.js';
-import { trySettle } from './settlers.js';
+import { trySettle, trackPosts } from './settlers.js';
 import { PRODUCERS } from '../data/district.js';
 import { BUILDINGS } from '../data/buildings.js';
 
@@ -222,8 +222,8 @@ export function dailyCost(world, { guards = false } = {}) {
   const pl = world.player;
   let cost = 0;
   for (const m of pl.merchants) cost += B.merchantWage + TRANSPORTS[m.transport].upkeep;
-  // 表示用: 工房の維持費（稼働中のもの）と、移動中の護衛代（定期便は次も同じ人数を雇う）
-  if (guards) for (const b of pl.buildings) if (b.active) cost += BUILDINGS[b.type]?.upkeep || 0;
+  // 表示用: 工房の維持費（止めていてもかかる。13回目の Sol の指摘）と、移動中の護衛代（定期便は次も同じ人数を雇う）
+  if (guards) for (const b of pl.buildings) cost += BUILDINGS[b.type]?.upkeep || 0;
   if (guards) for (const m of pl.merchants) cost += (m.travel ? m.guards : m.order?.guards || 0) * B.guardWage;
   // 自分が置いた生産施設の維持費
   for (const c of Object.values(world.cities)) for (const b of c.district?.buildings || []) if (b.placed && PRODUCERS[b.type]) cost += B.producerUpkeep;
@@ -265,6 +265,7 @@ export function tick(world) {
   rivalTechs(world);
   updateEvents(world);
   for (const c of Object.values(world.cities)) updateCity(world, c);
+  trackPosts(world);
   diffuse(world);
   updateProduction(world);
   world.passing = [];

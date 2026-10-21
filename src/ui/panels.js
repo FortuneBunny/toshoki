@@ -59,7 +59,7 @@ function cityPanel(app, id) {
         h('dt', {}, '人口'), h('dd', {}, `${fmt(c.pop)}${next ? ` / 次の段階 ${fmt(next)}` : ''}`),
         h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`, G.growthBlocker(world, c) ? h('div', { class: 'dim', style: { fontSize: '11px' } }, `止めているもの: ${G.growthBlocker(world, c)}`) : null),
         c.founded && G.settlersAllowed(world) ? h('dt', {}, '開拓団') : null,
-        c.founded && G.settlersAllowed(world) ? h('dd', {}, `${c.settlerGroups || 0}/${G.BALANCE.settlerMax}団 住みついた`, h('div', { class: 'dim', style: { fontSize: '11px' } }, G.settleCheck(world, id) ? `受け入れ ✖ ${G.settleCheck(world, id)}` : '受け入れ ○ 今なら住みつける')) : null,
+        c.founded && G.settlersAllowed(world) ? h('dd', {}, `${c.settlerGroups || 0}/${G.BALANCE.settlerMax}団 住みついた${world.player.merchants.some((m) => m.settlers?.to === id) ? `（運んでいる途中 ${world.player.merchants.filter((m) => m.settlers?.to === id).length}団）` : ''}`, h('div', { class: 'dim', style: { fontSize: '11px' } }, G.settleCheck(world, id) ? `受け入れ ✖ ${G.settleCheck(world, id)}` : '受け入れ ○ 今なら住みつける')) : null,
         h('dt', {}, '住居'), h('dd', {}, `家 ${G.houseCount(c)}軒・住める人数 ${fmt(G.housingCap(c, tier))}${c.pop >= G.housingCap(c, tier) * 0.98 ? '（頭打ち）' : ''}`),
         h('dt', { title: '町が育つほど求める品が増える。1つ欠けまでそろえば新しい家が建つ' }, '住居の求め'), h('dd', {}, dwellingEl(c, tier)),
         h('dt', {}, '働き手'), h('dd', { class: G.staffing(c) < 1 ? 'bad' : '' }, `${fmt(G.workersAvailable(c))}人（必要 ${fmt(G.workersNeeded(c))}）${G.staffing(c) < 1 ? ` 生産 ${Math.round(G.staffing(c) * 100)}%` : ''}`)),
@@ -137,7 +137,7 @@ function cityPanel(app, id) {
         const cost = G.settlerCost(world, post.id);
         const ready = G.settleCheck(world, post.id);
         add(acts, h('button', { class: 'btn small', disabled: why || undefined, title: why || `${G.BALANCE.settlerGroup}人を${post.name}へ運ぶ。${ready ? `今のままでは住みつけない: ${ready}` : '今なら住みつける'}`,
-          onclick: () => app.confirm(`開拓団を${post.name}へ（${cost}銀）`, `${G.spendWarning(world, cost) ? `⚠ ${G.spendWarning(world, cost)}。` : ''}${m.name}が${c.name}から${G.BALANCE.settlerGroup}人を連れ出し、${post.name}へ運びます（人はこの町から減り、荷車の${Math.round(G.BALANCE.settlerLoad * 100)}%を使います）。着いた交易所に、家を建てる空き地があり、食卓に食べ物が3種類届いて糖度が${G.BALANCE.settlerGlucose}以上なら住みつきます（増えた人で食べ物を分けるので、糖度は少し下がります）。そろわなければ${G.BALANCE.settlerWait}日待って散ります。${ready ? `
+          onclick: () => app.confirm(`開拓団を${post.name}へ（${cost}銀）`, `${G.spendWarning(world, cost) ? `⚠ ${G.spendWarning(world, cost)}。` : ''}${m.name}が${c.name}から${G.BALANCE.settlerGroup}人を連れ出し、${post.name}へ運びます（人はこの町から減り、荷車の${Math.round(G.BALANCE.settlerLoad * 100)}%を使います）。着いた交易所に、家を建てる空き地があり、食卓に食べ物が3種類届いて糖度が${G.BALANCE.settlerGlucose}以上なら住みつきます（増えた人で食べ物を分けるので、糖度は少し下がります）。そろわなければ${G.BALANCE.settlerWait}日待って散ります（連れ出してから${G.BALANCE.settlerCarry}日でも散ります）。${ready ? `
 今の${post.name}: ${ready}` : `
 今の${post.name}なら住みつけます。`}
 連れ出したら、${m.name}を${post.name}へ向かわせてください。`, () => app.run(() => G.sendSettlers(world, m.id, post.id), 'build')) }, `開拓団→${post.name} ${cost}銀`));

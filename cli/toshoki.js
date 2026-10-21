@@ -560,7 +560,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   expand [confirm]                     市場の圏を1マス広げる（置ける場所が増える）
   civic <種類> [座標] [confirm]        需要施設を建てる（teahouse 茶館 / temple 寺院 / academy 学問所 / palace 宮殿）
   branch [confirm]                     今いる町に商館を開く（雇える商人 +1、その町の倉庫と相場。2つ目からは倍々に高い）
-  settle <交易所> [-m 番号] [confirm]  都市以上の町から開拓団（60人）を連れ出し、自分の交易所へ運ぶ（着いたら go で連れていく）
+  settle <交易所> [-m 番号] [confirm]  町以上の町から開拓団（60人）を連れ出し、自分の交易所へ運ぶ（着いたら go で連れていく）
   donate [confirm]                     今いる町に寄進する（費用は人口に比例。90日間、成長が早まる）
   order add "<町> sell:品@最低値 keep:品*残す数 buy:品*数@上限値 unload:品 load:品" "<町> ..." [--guards n]
                                        定期便を設定（停泊地を2つ以上）。例:
@@ -928,9 +928,10 @@ function run(world, cmd, pos, opts) {
         const next = parseStop(pos[2], world);
         // 停泊地の町を変える書き換えは、取り違えを防ぐため --force が要る
         if (next.city !== m.order.stops[i].city && !opts.force) throw new Error(`停泊地${i + 1}は${world.cities[m.order.stops[i].city].name}。別の町（${world.cities[next.city]?.name || next.city}）に変えるなら --force を付ける（番号は停泊地の順: ${m.order.stops.map((s, j) => `${j + 1}=${world.cities[s.city].name}`).join(' ')}）`);
-        m.order.stops[i] = next;
-        const problem = G.validateOrder(world, m.order);
+        const stops = m.order.stops.map((x, j) => (j === i ? next : x));
+        const problem = G.validateOrder(world, { ...m.order, stops });
         if (problem) throw new Error(problem);
+        m.order.stops = stops;
         out.push(`停泊地${i + 1}を書き直した: ${world.cities[m.order.stops[i].city].name}`);
         break;
       }
@@ -967,7 +968,7 @@ function run(world, cmd, pos, opts) {
       out.push(`道の整備（road <番号> confirm）: ${(sc.buildings || []).includes('road') ? `小道を街道にする。距離×${BUILDINGS.road.costPerLength}銀` : 'このシナリオではできない'}`);
       out.push(`商館（branch confirm [--at 町]）: ${G.branchesAllowed(world) ? `次は ${G.branchCost(world)}銀（2つ目からは倍々）＋維持費${G.BALANCE.branchUpkeep}/日。「${G.BALANCE.tierNames[G.BALANCE.branchMinTier]}」以上の町に1つずつ。雇える商人 +1、その町の倉庫が使え、相場がいつでも分かる。今あるもの: ${(pl.branches || []).map((id) => world.cities[id].name).join('・') || 'なし'}` : 'このシナリオでは建てられない'}`);
       if (G.settlersAllowed(world)) out.push(`開拓団（settle <交易所> confirm [-m 番号]）: 「${G.BALANCE.tierNames[G.BALANCE.settlerMinTier]}」以上の町から${G.BALANCE.settlerGroup}人を交易所へ運ぶ。1団目 ${G.BALANCE.settlerCost}銀、交易所ごとに${G.BALANCE.settlerCostStep}ずつ高くなり${G.BALANCE.settlerMax}団まで。受け入れる交易所に、家の空き地と、食べ物3種類が届いて糖度${G.BALANCE.settlerGlucose}以上の食卓が要る${Object.values(world.cities).filter((c) => c.founded).map((c) => `
-  ${c.name}(${c.id}): 送った${c.settlerGroups || 0}団 次 ${G.settlerCost(world, c.id)}銀  ${G.settleCheck(world, c.id) ? `✖ ${G.settleCheck(world, c.id)}` : '○ 今なら住みつける'}`).join('')}`);
+  ${c.name}(${c.id}): 住みついた${c.settlerGroups || 0}団${world.player.merchants.filter((m) => m.settlers?.to === c.id).length ? `・運んでいる途中${world.player.merchants.filter((m) => m.settlers?.to === c.id).length}団` : ''} 次 ${G.settlerCost(world, c.id)}銀  ${G.settleCheck(world, c.id) ? `✖ ${G.settleCheck(world, c.id)}` : '○ 今なら住みつける'}`).join('')}`);
       out.push(`護衛: 1人1日${G.BALANCE.guardWage}銀（travel <町> --guards n）`);
       break;
     }
@@ -1051,7 +1052,7 @@ function run(world, cmd, pos, opts) {
       const warn = G.spendWarning(world, cost);
       const ready = G.settleCheck(world, to);
       if (pos[1] !== 'confirm') { out.push(`${warn ? `⚠ ${warn}
-` : ''}${m.name}が${world.cities[m.city].name}から${G.BALANCE.settlerGroup}人の開拓団を連れ出し、${world.cities[to].name}へ運ぶ: ${cost}銀（人は今の町から減る。荷車の${Math.round(G.BALANCE.settlerLoad * 100)}%を使う）。着いた交易所に、家を建てる空き地があり、食卓に食べ物が3種類届いて糖度が${G.BALANCE.settlerGlucose}以上なら住みつく。そろわなければ${G.BALANCE.settlerWait}日待って散る。
+` : ''}${m.name}が${world.cities[m.city].name}から${G.BALANCE.settlerGroup}人の開拓団を連れ出し、${world.cities[to].name}へ運ぶ: ${cost}銀（人は今の町から減る。荷車の${Math.round(G.BALANCE.settlerLoad * 100)}%を使う）。着いた交易所に、家を建てる空き地があり、食卓に食べ物が3種類届いて糖度が${G.BALANCE.settlerGlucose}以上なら住みつく。そろわなければ${G.BALANCE.settlerWait}日待って散る（連れ出してから${G.BALANCE.settlerCarry}日でも散る）。
 今の${world.cities[to].name}: ${ready ? `✖ ${ready}` : '○ 住みつける'}
 確定するには: settle ${pos[0]} confirm（そのあと travel ${to}）`); break; }
       out.push(`開拓団を連れ出した（${after(G.sendSettlers(world, m.id, to)).cost}銀）。travel ${to} で連れていく`);
