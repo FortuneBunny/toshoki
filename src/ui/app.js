@@ -516,6 +516,10 @@ function renderTutorial() {
   if (!el.dataset.bound) { el.dataset.bound = '1'; el.addEventListener('click', () => { el.classList.toggle('mini'); renderTutorial(); }); }
 }
 
+// 数の入力欄は、押したら中身を全部選ぶ。打てば置き換わる
+// （定期便の個数の欄で、13 のあとに 20 と打つと「132020」になった。画面だけのテスト（Sonnet）の指摘）
+document.addEventListener('focusin', (e) => { if (e.target.matches?.('input[type=number]')) setTimeout(() => e.target.select(), 0); });
+
 app.render = () => {
   if (!app.state.pick && app.pickToast) { app.pickToast.remove(); app.pickToast = null; }
   // 音楽: 選んだ商人のいる地域。ラッシュの町にいれば変奏

@@ -97,6 +97,11 @@ function cityPanel(app, id) {
   })));
   // この町でできること
   const acts = h('div', { class: 'chips', style: { gap: '6px' } });
+  const selM = world.player.merchants.find((x) => x.id === app.state.selMerchant);
+  if (selM && !selM.travel && selM.city !== id) {
+    const r = G.findPath(world, selM.city, id, selM.transport);
+    add(acts, h('button', { class: 'btn small primary', disabled: !r || undefined, title: r ? '' : `${G.TRANSPORTS[selM.transport].name}では行けない`, onclick: () => { app.pickDestination(selM.id); app.clickCity(id); } }, r ? `${selM.name}をここへ出発（約${r.days}日）` : `${selM.name}はここへ行けない`));
+  }
   add(acts, h('button', { class: 'btn small primary', onclick: () => app.openDistrict(id) }, '区画を見る'));
   // 地図の上で建てる: 置ける生産施設と需要施設
   if (G.hasPresence(world, id) && G.districtEnabled(world)) {

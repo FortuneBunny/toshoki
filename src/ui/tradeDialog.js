@@ -18,7 +18,7 @@ export function openTrade(app, merchantId) {
   let onlyTradeable = false;
 
   const back = h('div', { class: 'modal-back', onclick: (e) => { if (e.target === back) close(); } });
-  const modal = h('div', { class: 'modal', role: 'dialog', 'aria-label': '交易' });
+  const modal = h('div', { class: 'modal trade-modal', role: 'dialog', 'aria-label': '交易' });
   add(back, modal);
 
   const tip = h('div', { class: 'tip hidden' });
