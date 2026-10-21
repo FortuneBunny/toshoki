@@ -244,7 +244,7 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'harvest': case 'windfall': fx.toast(e.text, { kind: 'rare', icon: e.type === 'windfall' ? 'ui/sugar-crystal' : 'terrain/field' }); sfx.rare(); break;
       case 'rumor': break;
       case 'arrive': sfx.arrive(); break;
-      case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': case 'place': case 'civic': case 'expand': case 'branch': fx.toast(e.text, { icon: 'ui/star' }); break;
+      case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': case 'place': case 'civic': case 'expand': case 'branch': case 'settlers': case 'settled': fx.toast(e.text, { icon: 'ui/star' }); break;
       case 'orderStuck': case 'debt': fx.toast(e.text, { kind: 'bad' }); sfx.bad(); break;
       case 'milestone': fx.toast(e.text, { icon: 'ui/star' }); sfx.rare(); break;
       case 'victory': setTimeout(() => { sfx.victory(); fx.flash(); fx.burst(innerWidth / 2, innerHeight / 3, 60, { size: 24 }); }, 100); break;
@@ -447,7 +447,7 @@ function renderMerchants() {
       h('img', { class: 'portrait', src: `assets/svg/transport/${m.portrait}.svg`, alt: '' }),
       h('div', { class: 'info' },
         h('div', { class: 'name' }, h('span', { title: m.talent ? G.TALENTS[m.talent].text : '' }, `${m.id}. ${m.name}`, m.talent ? h('small', { class: 'talent' }, ` ${G.TALENTS[m.talent].name}`) : null), h('span', { class: 'dim', style: { fontWeight: 500, fontSize: '12px' } }, icon(`transport/${m.transport}`, 'icon-sm'), ` ${used}/${cap}`)),
-        h('div', { class: 'where' }, where, m.order ? (m.order.paused ? ' ・定期便(停止)' : ' ・定期便') : ''),
+        h('div', { class: 'where' }, where, m.order ? (m.order.paused ? ' ・定期便(停止)' : ' ・定期便') : '', m.settlers ? ` ・開拓団${m.settlers.n}人→${w.cities[m.settlers.to].name}` : ''),
         h('div', { class: 'cargo-bar' }, h('i', { style: { width: `${(used / cap) * 100}%` } })),
         m.travel ? h('div', { class: 'progress-bar' }, h('i', { style: { width: `${Math.min(100, (m.travel.elapsed / Math.max(1, m.travel.totalDays)) * 100)}%` } })) : null,
         h('div', { style: { display: 'flex', gap: '2px', flexWrap: 'wrap', minHeight: '18px' } }, cargo.slice(0, 6).map(([g, q]) => h('span', { title: `${GOODS[g].name} ${q}` }, goodIcon(g, 'icon-sm'), h('small', { class: 'num' }, q)))),

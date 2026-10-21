@@ -72,6 +72,12 @@ save('s7-mid', play('s7', 200));
   G.buildBranch(w, cap);
   w.player.silver = 30000;
   save('s8-branch', w);
+  // 開拓団（都にいる商人が1団を連れている）
+  const ms = w.player.merchants.slice(0, 2);
+  for (const m of ms) { m.order = null; m.travel = null; m.city = cap; m.cargo = {}; }
+  const post = Object.values(w.cities).find((c) => c.founded);
+  if (post) G.sendSettlers(w, ms[0].id, post.id);
+  save('s8-settlers', w);
 }
 {
   const w = play('free', 300);

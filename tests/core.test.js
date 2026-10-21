@@ -418,3 +418,43 @@ test('暇を出したあとに雇っても、番号と名前が重ならない�
   assert.equal(new Set(ids).size, ids.length);
   assert.equal(new Set(names).size, names.length, names.join(','));
 });
+
+test('開拓団: 都市から交易所へ60人を運び、食べ物と家がそろうと住みつく', () => {
+  const w = G.createWorld('s8', { seed: 5 });
+  w.player.silver = 60000;
+  const site = G.foundSites(w)[0];
+  const post = G.foundPost(w, site.x, site.y).id;
+  const m = w.player.merchants[0];
+  const kohaku = w.cities.kohaku.pop;
+  assert.equal(G.settlerCheck(w, m.id, 'kibi'), '開拓団を送れるのは自分で開いた交易所だけ');
+  const r = G.sendSettlers(w, m.id, post);
+  assert.equal(r.cost, 6000);
+  assert.equal(w.cities.kohaku.pop, kohaku - 60);
+  assert.equal(G.trade(w, m.id, [{ good: 'silk', qty: G.cargoCap(m) }]).ok, false, '荷車の8割は開拓団');
+  assert.equal(G.setOrder(w, m.id, { stops: [{ city: 'kohaku' }, { city: post }] }).ok, false);
+  // 食べ物が届いていない交易所では、待つだけで住みつかない
+  m.city = post;
+  const c = w.cities[post];
+  for (const g of w.scenario.goods) if (G.GOODS[g].kind === 'food') c.stock[g] = 0;
+  const pop = c.pop;
+  G.advance(w, 1, silent);
+  assert.ok(m.settlers, 'まだ住みつかない');
+  assert.ok(c.pop <= pop + 1);
+  // 食卓に食べ物が3種類届き、糖度が足りると住みつく
+  for (const g of ['wheat', 'rice', 'millet', 'dates']) c.stock[g] = 500;
+  c.glucose = 100;
+  G.advance(w, 1, silent);
+  assert.equal(m.settlers, null);
+  assert.ok(c.pop >= pop + 55);
+  assert.equal(c.settlerGroups, 1);
+  assert.equal(G.settlerCost(w, post), 9000);
+  // 30日待っても整わなければ散る
+  m.city = 'kohaku';
+  G.sendSettlers(w, m.id, post);
+  m.city = post;
+  for (const g of w.scenario.goods) c.stock[g] = 0;
+  G.advance(w, 31, silent);
+  assert.equal(m.settlers, null);
+  assert.equal(c.settlerGroups, 1);
+  assert.equal(G.deserialize(G.serialize(w)).cities[post].settlerGroups, 1);
+});

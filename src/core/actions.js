@@ -89,6 +89,7 @@ export function dismissMerchant(world, mid) {
   const [m, err] = idle(world, mid);
   if (err) return err;
   if (world.player.merchants.length <= 1) return fail('最後の1人には暇を出せない');
+  if (m.settlers) return fail(`${m.name}は開拓団を連れている（交易所に住みつかせてから）`);
   let gain = TRANSPORTS[m.transport].cost * 0.5;
   const city = world.cities[m.city];
   for (const [g, q] of Object.entries(m.cargo)) {
@@ -364,6 +365,7 @@ export function warehouse(world, mid, good, qty) {
 export function setOrder(world, mid, order) {
   const m = getMerchant(world, mid);
   if (!m) return fail('その商人はいない');
+  if (m.settlers) return fail(`${m.name}は開拓団を連れている（交易所に住みつかせてから）`);
   // 続く停泊地が同じ町（最後と最初が同じも）なら1つにまとめる。同じ町が続くと便が先へ進まないため
   const merged = [];
   for (const s of order.stops) {
@@ -444,7 +446,7 @@ export function upgradeRoad(world, edgeId) {
 
 // 日を進める。重要な出来事が起きたら途中で止まる（CLI と自動進行の停止用）
 // 銀が底をついたこと（debt）では止めない（status と記録で分かる。止まりすぎて操作が増えるため）
-const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck']);
+const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'settled', 'settlersLost']);
 export function advance(world, days, { stopOn = STOP_TYPES } = {}) {
   const collected = [];
   for (let i = 0; i < days; i++) {

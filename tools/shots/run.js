@@ -52,6 +52,8 @@ export const SCENES = [
   ['s8-fit', `${F('s8-built')}&cam=fit`, ...DESK],
   ['s8-branch', `${F('s8-branch')}&cam=kohaku@1.4`, ...DESK],
   ['s8-branch-city', `${F('s8-branch')}&city=kohaku&open=city&cam=kohaku@1.4`, ...DESK],
+  ['s8-settlers-city', `${F('s8-settlers')}&city=kohaku&open=city&cam=kohaku@1.4`, ...DESK],
+  ['s8-settlers-post', `${F('s8-settlers')}&city=post1&open=city&cam=fit`, ...DESK],
   ['free-post', F('free-post'), ...DESK],
   ['free-post-fit', `${F('free-post')}&cam=fit`, ...DESK],
   ['m-title', '', ...PHONE],

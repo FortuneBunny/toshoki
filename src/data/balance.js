@@ -65,6 +65,15 @@ export const BALANCE = {
   branchCost: 3000,           // 商館の費用（2つ目からは倍々: 3000, 6000, 12000…）
   branchUpkeep: 5,            // 商館1つの1日の維持費
   branchMinTier: 2,           // 商館を建てられる町の段階（町以上）
+  // 開拓団（大きな町から交易所へ人を移す。src/core/settlers.js）
+  settlerGroup: 60,           // 1団の人数
+  settlerCost: 6000,          // 1団目の費用。交易所ごとに settlerCostStep ずつ高くなる
+  settlerCostStep: 3000,
+  settlerMax: 3,              // 1つの交易所に送れる団の数
+  settlerMinTier: 3,          // 開拓団を出せる町の段階（都市以上）
+  settlerGlucose: 90,         // 受け入れる交易所に要る糖度（食卓には食べ物3種類も要る）
+  settlerWait: 30,            // 交易所に着いてから住みつけないまま待てる日数
+  settlerLoad: 0.8,           // 開拓団が使う荷車の割合（残りに道中の食料を積める）
   autoBuyReserve: 100,        // 工房の自動仕入れは、手元の銀がこれを下回るなら止める
   dwellingFullGrowth: 1.15,   // 住居の求める品が全部そろった町の成長倍率
   postGrowth: 1.6,            // 交易所に食べ物を3種類以上届けているときの成長倍率

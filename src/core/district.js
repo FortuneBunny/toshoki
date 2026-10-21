@@ -237,6 +237,14 @@ function houseSpots(city, tier) {
   return out.sort((a, b) => a.key - b.key);
 }
 
+// 人口が extra 人増えても住めるか（足りない家を建てる空き地があるか）
+export function canHouse(city, tier, extra) {
+  const pop = city.pop + extra;
+  const cap = houseCap(tier, { ...city, pop });
+  const need = Math.ceil(pop / cap) - houseCount(city);
+  return need <= 0 || houseSpots(city, tier).length >= need;
+}
+
 // 人口に合わせて家を建てる（1日に最大 max 軒）か、空き家を壊す。乱数は使わない
 export function updateHousing(city, tier, max = 1) {
   const cap = houseCap(tier, city);

@@ -131,9 +131,12 @@ export function canDepart(world, cityId, transportId) {
 }
 
 export function cargoUsed(m) {
-  let used = 0;
+  let used = m.settlers ? settlerLoad(m) : 0; // 開拓団は荷車の8割を使う（残りは道中の食料用）
   for (const [id, q] of Object.entries(m.cargo)) used += q * GOODS[id].weight;
   return used;
+}
+export function settlerLoad(m) {
+  return Math.floor(cargoCap(m) * B.settlerLoad);
 }
 export function cargoCap(m) {
   return Math.floor(TRANSPORTS[m.transport].cap * (m.capMult ?? 1) * (m.transport === 'cart' ? (m.cartCap ?? 1) : 1));

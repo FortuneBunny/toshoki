@@ -18,6 +18,7 @@ import { generateDistrict, districtProduction, updateHousing } from './district.
 import { buildGrid, GRID_W, GRID_H, gridKey } from './grid.js';
 import { rivalTechs } from './techs.js';
 import { runOrder } from './orders.js';
+import { trySettle } from './settlers.js';
 import { PRODUCERS } from '../data/district.js';
 import { BUILDINGS } from '../data/buildings.js';
 
@@ -270,6 +271,7 @@ export function tick(world) {
   for (const m of world.player.merchants) stepTravel(world, m);
   // 定期便で荷を待っている商人は、毎日もう一度積む・買うを試す
   for (const m of world.player.merchants) if (!m.travel && m.order?.holding && !m.order.paused) runOrder(world, m);
+  for (const m of world.player.merchants) if (m.settlers) trySettle(world, m);
   for (const id of world.passing) observe(world, id);
   updateRivals(world);
   observePresent(world);
