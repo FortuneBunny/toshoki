@@ -21,7 +21,7 @@ export function emit(world, ev) {
 export function applyModifiers(world) {
   for (const c of Object.values(world.cities)) {
     c.prodMods = {};
-    c.demandMods = {};
+    c.demandMods = { ...(world.scenario.demandScale || {}) }; // シナリオごとの需要の倍率（s7 の白糖など）
     c.priceMods = {};
     c.growthMod = 1;
   }

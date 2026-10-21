@@ -126,6 +126,14 @@ export function goalProgress(world, g) {
       return { p: v / g.pop, text: `全ての町の人口の合計を ${g.pop} にする（今 ${Math.floor(v)}）` };
     }
     case 'share': {
+      // 売った額で比べる（個数だと、安売りしても同じ1個なので相場を読む意味がなかった。13回目の Opus・Sol の指摘）
+      if (g.by === 'value') {
+        const mine = Math.max(0, (s.soldValue?.[g.good] || 0) - (s.boughtValue?.[g.good] || 0));
+        const theirs = world.rivals.reduce((a, r) => a + (r.soldValue?.[g.good] || 0), 0);
+        const total = mine + theirs;
+        const p = Math.min(mine / g.min, (total ? mine / total : 0) / g.share);
+        return { p, text: `${GOODS[g.good].name}を売った額でライバルを上回る（自分 ${Math.floor(mine)} 銀 / ライバル ${Math.floor(theirs)} 銀、最低 ${g.min} 銀。市場で買った分の代金は差し引く＝数えるのは自分の工房で作った分）` };
+      }
       // 市場で買った分は差し引く（買って売る循環で数を稼げないように。数えるのは自分で作った分）
       const mine = Math.max(0, (s.soldTotal[g.good] || 0) - (s.bought[g.good] || 0));
       const theirs = world.rivals.reduce((a, r) => a + (r.sold[g.good] || 0), 0);

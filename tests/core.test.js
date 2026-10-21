@@ -496,3 +496,12 @@ test('小数の個数では売れない。売り戻しは、よそで買った�
   // 同じ町が続く定期便は作れない
   assert.ok(G.validateOrder(w, { stops: [{ city: city.id }, { city: city.id }] }));
 });
+
+test('前に遊んだ世界の状態が、次に作る世界に漏れない（ライバルの工房・町の印）', () => {
+  const play = () => { const w = G.createWorld('s7', { seed: 1 }); G.advance(w, 150, silent); return [Math.round(w.rivals[0].silver), w.rivals[0].sold.whitesugar]; };
+  const first = play();
+  const other = G.createWorld('s7', { seed: 2 });
+  G.advance(other, 300, silent);
+  assert.deepEqual(play(), first);
+  assert.ok(!G.SCENARIOS.s7.cities.some((c) => c.tags?.includes('port')));
+});

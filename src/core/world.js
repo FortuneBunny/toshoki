@@ -89,7 +89,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
 
   for (const c of sc.cities) {
     world.cities[c.id] = {
-      id: c.id, name: c.name, x: c.x, y: c.y, tags: c.tags || [],
+      id: c.id, name: c.name, x: c.x, y: c.y, tags: [...(c.tags || [])], // 複製する（港を開くと印が足され、シナリオの定義まで変わっていた）
       pop: c.pop, basePop: c.pop, glucose: c.glucose ?? 75, glucoseTarget: 75, luxury: 1,
       produces: { ...(c.produces || {}) }, stock: {}, rush: 0, crash: 0, rushCount: 0,
       prodMods: {}, demandMods: {}, priceMods: {}, growthMod: 1,
@@ -134,7 +134,8 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   for (const md of sc.start.merchants) addMerchant(world, md);
   for (const rd of sc.rivals || []) {
     world.rivals.push({
-      name: rd.name, silver: rd.silver, skill: rd.skill, goods: rd.goods, sold: {}, workshop: rd.workshop || null, store: {},
+      // 工房は複製する（技術で処理量を増やすと、シナリオの定義まで変わり、次に遊ぶ世界のライバルが最初から強くなっていた）
+      name: rd.name, silver: rd.silver, skill: rd.skill, goods: rd.goods, sold: {}, workshop: rd.workshop ? { ...rd.workshop } : null, store: {},
       merchants: rd.merchants.map((rm) => ({ city: rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home })),
     });
   }

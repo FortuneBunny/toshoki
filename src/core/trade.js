@@ -107,6 +107,8 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       world.player.silver -= cost;
       world.stats.spent += cost;
       world.stats.bought[good] = (world.stats.bought[good] || 0) + qty;
+      world.stats.boughtValue = world.stats.boughtValue || {};
+      world.stats.boughtValue[good] = (world.stats.boughtValue[good] || 0) + cost;
     } else {
       const n = -qty;
       // 読み的中: 出発時に知っていた相場より高く売れたか
@@ -131,6 +133,8 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
         world.stats.sold[city.id] = world.stats.sold[city.id] || {};
         world.stats.sold[city.id][good] = (world.stats.sold[city.id][good] || 0) + counted;
         world.stats.soldTotal[good] = (world.stats.soldTotal[good] || 0) + counted;
+        world.stats.soldValue = world.stats.soldValue || {};
+        world.stats.soldValue[good] = (world.stats.soldValue[good] || 0) + (gain * counted) / n;
       }
       m.lifetime += p;
       if (!auto && expected !== undefined && actualMid > expected * 1.15 && p > 0) {

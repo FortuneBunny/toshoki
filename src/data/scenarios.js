@@ -190,7 +190,7 @@ const s6 = {
 
 const s7 = {
   id: 's7', no: 7, title: '白い黄金',
-  intro: '白糖は「白い黄金」と呼ばれる。紫衣のサルマン商会は南キビ村に製糖所を持ち、白糖を各地へ運んで値を崩していく。工房と定期便を整え、白糖を売った数でサルマン商会を上回れ（市場で買った白糖は差し引く＝自分で作った分の勝負）。精製の技術は先に買った方が独占できる（上の「技術」/ CLI: techs）。',
+  intro: '白糖は「白い黄金」と呼ばれる。紫衣のサルマン商会は南キビ村に製糖所を持ち、白糖を各地へ運んで値を崩していく。工房と定期便を整え、白糖を売った額でサルマン商会を上回れ（1万銀以上。市場で買った白糖の代金は差し引く＝自分で作った分の勝負。安く売り崩せば額は伸びない）。精製の技術は先に買った方が独占できる（上の「技術」/ CLI: techs）。',
   goods: ['wheat', 'dates', 'honey', 'cane', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'salt'],
   start: { silver: 900, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'hakuto' }] },
   cities: [
@@ -217,7 +217,9 @@ const s7 = {
     workshop: { city: 'kibi2', input: 'cane', output: 'whitesugar', inputPerDay: 8, ratio: 4 },
     merchants: [{ city: 'kibi2', transport: 'donkey', wait: 12, home: true }, { city: 'kibi2', transport: 'donkey', wait: 30, home: true }, { city: 'kanmi', transport: 'donkey', wait: 8 }],
   }],
-  goals: [{ type: 'share', good: 'whitesugar', share: 0.5, min: 300 }],
+  goals: [{ type: 'share', good: 'whitesugar', share: 0.5, min: 10000, by: 'value' }],
+  // 白糖を食べる町は2つだけ。需要を抑えて、売り先と売る時機で値が変わるようにする（13回目の Sol の案）
+  demandScale: { whitesugar: 0.6 },
   deadline: 480, rankS: 0.45,
   transports: ['donkey', 'cart'],
   techs: { refinery: { from: 0 }, wheel: { from: 20 } },
@@ -229,7 +231,7 @@ const s7 = {
 
 const s8 = {
   id: 's8', no: 8, title: 'グルコース・ロード',
-  intro: '西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げよ。さらに、地図の空き地に交易所を開き人口600まで育てて、一族の新しい拠点とせよ（上の「交易所」/ CLI: sites）。駅伝制や大型帆船は技術として買える。一族の名を歴史に刻め。',
+  intro: '西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げよ。さらに、地図の空き地に交易所を開き「町」（人口1000）まで育てて、一族の新しい拠点とせよ（上の「交易所」/ CLI: sites）。駅伝制や大型帆船は技術として買える。一族の名を歴史に刻め。',
   goods: ['wheat', 'rice', 'millet', 'dates', 'grapes', 'raisins', 'cane', 'honey', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'sugarart', 'wine', 'silk', 'spice', 'tea', 'pottery', 'salt'],
   start: { silver: 1200, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'kohaku' }, { name: 'ライラ', portrait: 'merchant-2', city: 'kohaku' }] },
   cities: [
@@ -269,7 +271,7 @@ const s8 = {
     name: 'サルマン商会', silver: 1500, skill: 0.8, goods: ['wheat', 'rice', 'dates', 'rawsugar', 'whitesugar', 'silk', 'spice', 'tea', 'salt'],
     merchants: [{ city: 'hari', transport: 'camel', wait: 5 }, { city: 'seikai', transport: 'donkey', wait: 10 }],
   }],
-  goals: [{ type: 'cityTier', city: 'kohaku', tier: 4 }, { type: 'networth', amount: 25000 }, { type: 'postTier', tier: 2, pop: 600 }],
+  goals: [{ type: 'cityTier', city: 'kohaku', tier: 4 }, { type: 'networth', amount: 25000 }, { type: 'postTier', tier: 2, pop: 1000 }],
   deadline: 900, rankS: 0.45,
   transports: ['donkey', 'camel', 'cart', 'dhow'],
   buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],

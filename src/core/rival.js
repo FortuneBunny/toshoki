@@ -66,6 +66,8 @@ export function updateRivals(world) {
             city.stock[id] = (city.stock[id] || 0) + n;
             r.silver += gain;
             r.sold[id] = (r.sold[id] || 0) + n;
+            r.soldValue = r.soldValue || {};
+            r.soldValue[id] = (r.soldValue[id] || 0) + gain;
           }
         }
         m.cargo = {};
