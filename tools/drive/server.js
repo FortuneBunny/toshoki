@@ -16,7 +16,7 @@ const CDP_PORT = PORT + 1000;
 const browser = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome'].find((b) => existsSync(b));
 const prof = join(tmpdir(), `toshoki-drive-${PORT}`);
 rmSync(prof, { recursive: true, force: true });
-const chrome = spawn(browser, ['--headless=new', '--hide-scrollbars', '--autoplay-policy=no-user-gesture-required', `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${prof}`, '--window-size=1440,900', 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn(browser, ['--headless=new', '--hide-scrollbars', '--autoplay-policy=no-user-gesture-required', '--mute-audio', `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${prof}`, '--window-size=1440,900', 'about:blank'], { stdio: 'ignore' });
 process.on('exit', () => chrome.kill());
 process.on('SIGINT', () => process.exit());
 
