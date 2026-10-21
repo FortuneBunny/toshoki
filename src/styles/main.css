@@ -263,7 +263,7 @@ img { user-select: none; }
 @keyframes flash { to { opacity: 0; } }
 #toasts { position: fixed; top: 108px; left: 50%; transform: translateX(-50%); z-index: 75; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
 /* ダイアログを開いている間は、知らせを下に出す（見出しや「買う」欄の上に重なって読めなかった） */
-body:has(.modal-back) #toasts { top: auto; bottom: 24px; }
+body:has(.modal-back) #toasts { display: none; } /* 出来事の欄には残る。ダイアログのボタンに重なっていた */
 .toast { background: linear-gradient(#3b2d18, #241a10); border: 1px solid #c79a42; border-radius: 30px; padding: 8px 18px 8px 8px; display: flex; align-items: center; gap: 10px; font-weight: 900; box-shadow: var(--shadow); animation: toastIn 0.35s cubic-bezier(0.2, 1.5, 0.4, 1), toastOut 0.4s 3.2s forwards; }
 .toast.bad { border-color: #c75a42; background: linear-gradient(#3b1c18, #24100c); }
 .toast.rare { border-color: var(--crystal-deep); }
@@ -358,6 +358,7 @@ input[type=number] { width: 70px; }
   .topbar { gap: 6px; }
   .date { min-width: 0; }
 }
+.trade-brief { display: none; }
 /* 触って操作する画面では、キーとカーソルの説明は出さない */
 @media (hover: none) { .kbd-hint { display: none; } }
 @media (max-width: 600px) {
@@ -366,6 +367,9 @@ input[type=number] { width: 70px; }
   .trow > :nth-child(9), .trow > :nth-child(10) { display: none; }
   .trow .arrows .btn.tiny { min-width: 24px; padding: 2px 4px; }
   .trade-head { grid-template-columns: 1fr; gap: 2px; }
+  /* 目標の一言は1つ2行まで（スマホで地図が押し下げられた）。押せば町の欄で全部読める */
+  .goalhint span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .trade-brief { display: block; padding: 6px 14px; border-top: 1px solid var(--line); font-size: 12px; font-weight: 700; }
   .trade-head .side-r, .trade-head .hint { text-align: left; }
   .trade-main { overflow-x: auto; }
   .minimap { width: 120px; height: 72px; }

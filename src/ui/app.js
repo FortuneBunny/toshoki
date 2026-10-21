@@ -176,11 +176,11 @@ app.afterOrder = (mid) => {
   app.render();
 };
 
-app.pickDestination = (mid) => {
+app.pickDestination = (mid, { toggle = true } = {}) => {
   const m = G.getMerchant(app.world, mid);
   if (!m || m.travel) return;
-  // 選んでいる最中にもう一度押すとやめる（触って操作する画面には Esc がないため）
-  if (app.state.pick?.mid === mid) { app.state.pick = null; app.state.hoverRoute = null; app.render(); return; }
+  // 選んでいる最中にもう一度「出発」を押すとやめる（触って操作する画面には Esc がないため）。交易の画面などから来たときはやめない
+  if (toggle && app.state.pick?.mid === mid) { endPick(); app.render(); return; }
   const days = {};
   for (const id of Object.keys(app.world.cities)) {
     if (id === m.city) continue;
@@ -196,6 +196,24 @@ app.pickDestination = (mid) => {
   app.pickToast = fx.toast(`${m.name}の行き先を地図で選ぶ（${how}）`, { icon: `transport/${m.transport}`, sticky: true });
   app.render();
 };
+
+// 行き先を選ぶのを終える（案内も一緒に消す。確かめの画面の上に「地図で選ぶ」が残っていた。Sol の指摘）
+function endPick() {
+  app.state.pick = null;
+  app.state.hoverRoute = null;
+  app.pickToast?.remove();
+  app.pickToast = null;
+}
+// 出発の確かめを開く。開けなかったときに、開いた数だけが残らないようにする
+function openDepart(mid, to) {
+  endPick();
+  const m = G.getMerchant(app.world, mid);
+  if (!m || m.travel || !G.findPath(app.world, m.city, to, m.transport)) return app.error('今はその町へ出発できない');
+  setSpeed(0);
+  app.state.modals++;
+  try { departDialog(app, mid, to); } catch (e) { app.state.modals = Math.max(0, app.state.modals - 1); throw e; }
+}
+app.openDepart = openDepart;
 
 app.depart = (mid, to, guards) => {
   const r = G.travel(app.world, mid, to, { guards });
@@ -376,13 +394,14 @@ function onCityClick(id) {
   const st = app.state;
   if (st.roadPick) return finishPath(id);
   if (st.pick) {
+    // 選んでいる間に、その商人が定期便で出た・暇を出された・移動を始めたなら、選ぶのをやめる
+    // （そのまま確かめの画面を開こうとして落ち、開いた数だけが残って時間が二度と進まなかった。画面での敵対的評価（Opus）の指摘）
+    const pm = G.getMerchant(app.world, st.pick.mid);
+    if (!pm || pm.travel || (pm.order && !pm.order.paused)) { endPick(); st.selCity = id; app.render(); return; }
     if (st.pick.days[id] === undefined) return app.error('その町へは行けない');
     const mid = st.pick.mid;
-    st.pick = null;
-    st.hoverRoute = null;
-    app.state.modals++;
-    setSpeed(0);
-    departDialog(app, mid, id);
+    endPick();
+    openDepart(mid, id);
     return;
   }
   st.selCity = st.selCity === id ? null : id;
@@ -438,7 +457,7 @@ function renderGoals() {
   }
   const left = w.scenario.deadline - w.day;
   const hints = w.finished ? [] : G.goalHints(w);
-  if (hints.length) add(el, h('div', { class: 'goalhint' }, hints.map((x) => h('span', { role: 'button', title: 'この町の様子を見る', onclick: () => { app.state.selCity = x.city; app.render(); } }, '▸ ', x.text))));
+  if (hints.length) add(el, h('div', { class: 'goalhint' }, hints.map((x) => h('span', { role: 'button', class: x.warn ? 'bad' : '', title: 'この町の様子を見る', onclick: () => { app.state.selCity = x.city; app.render(); } }, '▸ ', x.text))));
   add(el, h('div', { class: `deadline ${left < 30 ? 'warn' : ''}` }, w.finished ? (w.finished.win ? `達成 ランク${w.finished.rank}` : '期限切れ') : `期限まで ${left} 日（S: ${Math.max(0, Math.floor(w.scenario.deadline * (w.scenario.rankS ?? 0.55)) - w.day)}日）`));
 }
 
@@ -464,7 +483,7 @@ function renderMerchants() {
           h('button', { class: 'btn small', disabled: !!m.travel || undefined, onclick: (e) => { e.stopPropagation(); app.pickDestination(m.id); } }, '出発'),
           h('button', { class: 'btn small', onclick: (e) => { e.stopPropagation(); app.state.modals++; setSpeed(0); orderDialog(app, m.id); } }, '定期便'),
           !m.travel ? transportButton(m) : null,
-          !m.travel && w.player.merchants.length > 1 ? h('button', { class: 'btn small ghost', title: '輸送手段を半額で下取りし、積荷は今の町で売る。給金と維持費がかからなくなる', onclick: (e) => { e.stopPropagation(); app.confirm(`${m.name}に暇を出す`, `${TRANSPORTS[m.transport].name}を${TRANSPORTS[m.transport].cost * 0.5}銀で下取りし、積荷は${w.cities[m.city].name}で売り払います。`, () => app.run(() => G.dismissMerchant(w, m.id))); } }, '暇') : null)));
+          !m.travel && w.player.merchants.length > 1 ? h('button', { class: 'btn small ghost', disabled: m.settlers ? true : undefined, title: m.settlers ? '開拓団を連れている間は暇を出せない（交易所に住みつかせてから）' : '輸送手段を半額で下取りし、積荷は今の町で売る。給金と維持費がかからなくなる', onclick: (e) => { e.stopPropagation(); app.confirm(`${m.name}に暇を出す`, `${TRANSPORTS[m.transport].name}を${TRANSPORTS[m.transport].cost * 0.5}銀で下取りし、積荷は${w.cities[m.city].name}で売り払います。`, () => app.run(() => G.dismissMerchant(w, m.id))); } }, '暇') : null)));
     add(el, card);
   }
   const max = G.merchantCap(w);
@@ -516,11 +535,21 @@ function renderTutorial() {
   if (!el.dataset.bound) { el.dataset.bound = '1'; el.addEventListener('click', () => { el.classList.toggle('mini'); renderTutorial(); }); }
 }
 
+// 画面（ダイアログ）を開いた直後の 0.4 秒は、その上のクリックを受けない。
+// スマホでは、地図をタップして開いた画面に、同じタップのクリックが届き、「決定」を押して銀を使ったり、画面を閉じたりした（画面での敵対的評価（Sol）の指摘）
+new MutationObserver((list) => { for (const r of list) for (const n of r.addedNodes) if (n.classList?.contains('modal-back')) n.__openedAt = performance.now(); }).observe(document.body, { childList: true, subtree: true });
+document.addEventListener('click', (e) => {
+  const back = e.target.closest?.('.modal-back');
+  if (back && performance.now() - (back.__openedAt || 0) < 400) { e.stopPropagation(); e.preventDefault(); }
+}, true);
+
 // 数の入力欄は、押したら中身を全部選ぶ。打てば置き換わる
 // （定期便の個数の欄で、13 のあとに 20 と打つと「132020」になった。画面だけのテスト（Sonnet）の指摘）
 document.addEventListener('focusin', (e) => { if (e.target.matches?.('input[type=number]')) setTimeout(() => e.target.select(), 0); });
 
 app.render = () => {
+  const pm = app.state.pick && app.world ? G.getMerchant(app.world, app.state.pick.mid) : null;
+  if (app.state.pick && (!pm || pm.travel || (pm.order && !pm.order.paused))) endPick();
   if (!app.state.pick && app.pickToast) { app.pickToast.remove(); app.pickToast = null; }
   // 音楽: 選んだ商人のいる地域。ラッシュの町にいれば変奏
   if (app.world) {
@@ -558,7 +587,7 @@ function loop() {
       if (evs.some((e) => e.type === 'victory' || e.type === 'defeat')) { finish(); break; }
       // 町で待っているだけの商人がいたら知らせる（行き先を選び損ねたまま35日が過ぎた。画面だけのテストの指摘）
       for (const m of w.player.merchants) {
-        if (m.travel || (m.order && !m.order.paused)) { m.idleSince = null; continue; }
+        if (m.travel || (m.order && !m.order.paused) || w.player.buildings.some((b) => b.city === m.city)) { m.idleSince = null; continue; } // 工房の町で待つのは、手引きどおりのことがある
         m.idleSince = m.idleSince ?? w.day;
         if ((w.day - m.idleSince) % 10 === 0 && w.day > m.idleSince) fx.toast(`${m.name}は${w.cities[m.city].name}で${w.day - m.idleSince}日待っている。「出発」で行き先を選ぶか、定期便を組む`, { icon: `transport/${m.transport}` });
       }
@@ -617,7 +646,7 @@ function hoverRouteTo(id) {
   }
   if (!st.pick || !app.world) return;
   const m = G.getMerchant(app.world, st.pick.mid);
-  st.hoverRoute = id && m && id !== m.city ? G.findPath(app.world, m.city, id, m.transport) : null;
+  st.hoverRoute = id && m && !m.travel && id !== m.city ? G.findPath(app.world, m.city, id, m.transport) : null;
   app.map.update(app.world, st);
 }
 

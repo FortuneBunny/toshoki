@@ -194,8 +194,16 @@ export function goalHints(world) {
   const st = goalsStatus(world);
   const out = [];
   const seen = new Set();
+  const left = world.scenario.deadline - world.day;
   world.scenario.goals.forEach((g, i) => {
-    if (st[i]?.done) return;
+    // 一度届いた目標でも、その町が縮んでいれば知らせる（全部がそろう瞬間に満たしている必要がある。都が飢えて大都市を割っていくのに、何も出なかった。Opus の指摘）
+    if (st[i]?.done) {
+      if (!['cityTier', 'cityPop'].includes(g.type)) return;
+      const k = world.player.knowledge[g.city];
+      if (!k || !((k.growth ?? 0) < 0)) return;
+      out.push({ city: g.city, warn: true, text: `⚠ ${world.cities[g.city].name}が縮んでいる（成長 ${((k.growth ?? 0) * 100).toFixed(2)}%/日）。目標を割ると達成にならない。${k.blocker ? `止めているもの: ${k.blocker}` : ''}` });
+      return;
+    }
     let id = null;
     let target = null;
     if (g.type === 'cityTier') { id = g.city; target = B.tierPops[g.tier]; }
@@ -212,16 +220,21 @@ export function goalHints(world) {
     const age = knowledgeAge(world, id);
     if (!k || age === null) { out.push({ city: id, text: `${c.name}: まだ様子を知らない。商人を送って確かめる` }); return; }
     const when = age === 0 ? '今' : `${age}日前`;
+    let late = false;
     const r = k.growth ?? 0;
     const parts = [];
     if (target) parts.push(`人口 ${Math.floor(k.pop)}/${target}`);
     parts.push(`成長 ${(r * 100).toFixed(2)}%/日`);
     if (target && k.pop < target) {
-      if (r > 0) { const days = Math.ceil(Math.log(target / k.pop) / Math.log(1 + r)); parts.push(days > 2000 ? 'このままではほとんど育たない' : `このままだと約${days}日`); }
-      else parts.push('このままでは育たない');
+      if (r > 0) {
+        const days = Math.ceil(Math.log(target / k.pop) / Math.log(1 + r));
+        parts.push(days > 2000 ? 'このままではほとんど育たない' : `このままだと約${days}日`);
+        // 期限に間に合わないなら、そう言う（「順調」と出て、何もしなくてよいように読めた。Opus の指摘）
+        if (days <= 2000 && days > left) late = true;
+      } else parts.push('このままでは育たない');
     }
     if (g.type === 'rushes') parts.push(`糖度 ${Math.round(k.glucose)}（ラッシュは ${B.rushLine} 以上）`);
-    const block = k.blocker ? `止めているもの: ${k.blocker}` : '順調。届け続ける';
+    const block = k.blocker ? `止めているもの: ${k.blocker}` : late ? `このままでは期限（残り${left}日）に間に合わない。食べ物の種類と量を増やす${settlersAllowed(world) && c.founded ? '・開拓団を送る' : ''}` : '順調。届け続ける';
     out.push({ city: id, text: `${c.name}（${when}）: ${parts.join('・')}。${block}` });
   });
   return out;

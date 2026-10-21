@@ -100,7 +100,7 @@ function cityPanel(app, id) {
   const selM = world.player.merchants.find((x) => x.id === app.state.selMerchant);
   if (selM && !selM.travel && selM.city !== id) {
     const r = G.findPath(world, selM.city, id, selM.transport);
-    add(acts, h('button', { class: 'btn small primary', disabled: !r || undefined, title: r ? '' : `${G.TRANSPORTS[selM.transport].name}では行けない`, onclick: () => { app.pickDestination(selM.id); app.clickCity(id); } }, r ? `${selM.name}をここへ出発（約${r.days}日）` : `${selM.name}はここへ行けない`));
+    add(acts, h('button', { class: 'btn small primary', disabled: !r || undefined, title: r ? '' : `${G.TRANSPORTS[selM.transport].name}では行けない`, onclick: () => app.openDepart(selM.id, id) }, r ? `${selM.name}をここへ出発（約${r.days}日）` : `${selM.name}はここへ行けない`));
   }
   add(acts, h('button', { class: 'btn small primary', onclick: () => app.openDistrict(id) }, '区画を見る'));
   // 地図の上で建てる: 置ける生産施設と需要施設
@@ -344,7 +344,7 @@ export function orderDialog(app, mid) {
     add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。'));
     stops.forEach((st, i) => {
       const box = h('div', { class: 'order-stop' });
-      add(box, h('div', { class: 'row' }, h('b', {}, `${i + 1}.`), h('select', { onchange: (e) => { st.city = e.target.value; } }, cityOpts(st.city)),
+      add(box, h('div', { class: 'row' }, h('b', {}, `${i + 1}.`), h('select', { onchange: (e) => { st.city = e.target.value; if (!world.player.warehouses[st.city]) { st.unload = []; st.load = []; } draw(); } }, cityOpts(st.city)),
         h('span', { style: { flex: 1 } }), stops.length > 2 ? h('button', { class: 'btn tiny danger', onclick: () => { stops.splice(i, 1); draw(); } }, '削除') : null));
       (st.sell ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '売る', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), '最低', h('input', { type: 'number', step: '0.1', value: x.min, onchange: (e) => { x.min = Number(e.target.value); } }), '銀', ' 残す', h('input', { type: 'number', value: x.keep || 0, title: '売らずに手元に残す数（砂漠の食料など）', onchange: (e) => { x.keep = Number(e.target.value) || 0; } }), '個', h('button', { class: 'btn tiny ghost', onclick: () => { st.sell.splice(j, 1); draw(); } }, '✕'))));
       (st.buy ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '買う', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), h('input', { type: 'number', value: x.qty, onchange: (e) => { x.qty = Number(e.target.value); } }), '個まで、上限', h('input', { type: 'number', step: '0.1', value: x.max === Infinity ? '' : x.max, onchange: (e) => { x.max = e.target.value === '' ? Infinity : Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.buy.splice(j, 1); draw(); } }, '✕'))));
@@ -366,7 +366,7 @@ export function orderDialog(app, mid) {
     m.order?.paused ? h('button', { class: 'btn', onclick: () => { app.run(() => G.resumeOrder(world, mid)); close(); } }, '再開') : null,
     h('span', { style: { flex: 1 } }),
     h('button', { class: 'btn ghost', onclick: close }, 'キャンセル'),
-    h('button', { class: 'btn primary', onclick: () => { const r = G.setOrder(world, mid, { stops }); if (!r.ok) return app.error(r.error); close(); app.afterOrder(mid); } }, '定期便を開始'),
+    h('button', { class: 'btn primary', onclick: () => { const r = G.setOrder(world, mid, { stops, guards: m.order?.guards, reserve: m.order?.reserve }); if (!r.ok) return app.error(r.error); close(); app.afterOrder(mid); } }, '定期便を開始'),
   ], { wide: true });
 }
 
@@ -378,10 +378,10 @@ export function ledgerDialog(app) {
   // 定期便ごとの採算: 取引の利益から、始めてからの給金・輸送手段の維持費・護衛代を引く
   // （売ったときの利益の知らせだけでは、給金を引いた本当の儲けが分からなかった。画面だけのテスト（Sol）の指摘）
   const orderRows = world.player.merchants.filter((m) => m.order).map((m) => {
-    const days = Math.max(1, world.day - (m.order.since ?? world.day));
+    const days = Math.max(0, world.day - (m.order.since ?? world.day));
     const perDay = G.BALANCE.merchantWage + G.TRANSPORTS[m.transport].upkeep + (m.order.guards || 0) * G.BALANCE.guardWage;
     const net = (m.order.profit || 0) - perDay * days;
-    return h('div', {}, `${m.name}（${m.order.stops.map((x) => world.cities[x.city].name).join('→')}、${days}日）: 取引の利益 ${fmt(m.order.profit || 0)} − 給金と維持費 ${fmt(perDay * days)} = `, h('span', { class: net >= 0 ? 'good' : 'bad' }, `${net >= 0 ? '+' : ''}${fmt(net)} 銀`), h('span', { class: 'dim' }, `（1日 ${net >= 0 ? '+' : ''}${fmt(net / days, 1)}）`));
+    return h('div', {}, `${m.name}（${m.order.stops.map((x) => world.cities[x.city].name).join('→')}、${days}日）: 取引の利益 ${fmt(m.order.profit || 0)} − 給金と維持費 ${fmt(perDay * days)} = `, h('span', { class: net >= 0 ? 'good' : 'bad' }, `${net >= 0 ? '+' : ''}${fmt(net)} 銀`), h('span', { class: 'dim' }, days ? `（1日 ${net >= 0 ? '+' : ''}${fmt(net / days, 1)}）` : '（今日始めた。まだ集計前）'));
   });
   const body = h('div', {},
     h('dl', { class: 'kv' },

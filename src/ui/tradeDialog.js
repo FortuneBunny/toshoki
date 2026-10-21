@@ -254,15 +254,17 @@ export function openTrade(app, merchantId) {
       pv.ok ? null : h('div', { class: 'bad', style: { fontSize: '12px' } }, pv.errors.join(' / ')),
       contractsHere());
 
+    // スマホでは集計が下に隠れるので、ボタンの上に要点だけ出す（Sol の指摘）
+    const brief = h('div', { class: 'trade-brief' }, `取引後の銀 ${fmt(world.player.silver + pv.silverDelta)}（${pv.silverDelta >= 0 ? '+' : ''}${fmt(pv.silverDelta)}）・積載 ${pv.cargoAfter}/${cap}`, pv.ok ? null : h('div', { class: 'bad' }, pv.errors.join(' / ')));
     const footer = h('footer', {},
       h('button', { class: 'btn ghost', onclick: () => { for (const k of Object.keys(qty)) qty[k] = 0; render(); } }, 'リセット'),
       h('button', { class: 'btn ghost', onclick: close }, 'キャンセル'),
       h('span', { style: { flex: 1 } }),
-      h('button', { class: 'btn', onclick: () => { close(); app.pickDestination(m.id); } }, '取引せずに出発…'),
+      h('button', { class: 'btn', onclick: () => { close(); app.pickDestination(m.id, { toggle: false }); } }, '取引せずに出発…'),
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, true) }, '確定して出発…'),
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, false) }, '取引を確定'));
 
-    add(modal, header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, table, whBox), summary)), footer);
+    add(modal, header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, table, whBox), summary)), brief, footer);
     if (refocus) {
       const el = modal.querySelector(`input[aria-label="${GOODS[refocus].name}の数量"]`);
       if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
@@ -295,7 +297,7 @@ export function openTrade(app, merchantId) {
     const inMap = mapBox && tx > mapBox.left && tx < mapBox.right && ty > mapBox.top && ty < mapBox.bottom;
     app.afterTrade(r, inMap ? tx : mapBox ? mapBox.left + mapBox.width / 2 : btn.left + btn.width / 2, inMap ? ty - 30 : mapBox ? mapBox.top + mapBox.height / 2 : btn.top, before);
     close();
-    if (thenDepart) app.pickDestination(m.id);
+    if (thenDepart) app.pickDestination(m.id, { toggle: false });
   }
 
   function onKey(e) {
