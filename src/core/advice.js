@@ -88,6 +88,22 @@ export function adviceText(world, mid) {
     const carry = local && qty2 >= 2 ? `ここの特産の${GOODS[local].name}を${qty2}個（約${Math.round(quote(world, here, local, qty2))}銀）積んで、` : '';
     lines.push(`${carry}まだ相場を知らない${name(u.to)}へ行ってみる（約${u.days}日）。相場が分からないので赤字の恐れもある。少なめに試し、着いたら market で確かめて売る${food ? `。砂漠を渡るので食料を${food}個積む` : ''}`);
   }
+  // 積んでいる品の売り先（買ったあとに「見込みのある取引がない」とだけ出て、どこへ行けばよいか分からなかったため）
+  if (!ss.length) {
+    const m = world.player.merchants.find((x) => x.id === Number(mid));
+    for (const [good, q] of Object.entries(m?.cargo || {})) {
+      if (!(q > 0)) continue;
+      let best = null;
+      for (const [cid, k] of Object.entries(world.player.knowledge)) {
+        if (cid === m.city || !k?.prices?.[good] || !cityWants(world.cities[cid], good)) continue;
+        const r = routeInfo(world, m.id, cid);
+        if (!r) continue;
+        const gain = k.prices[good] * 0.9 * q - (m.cost[good] || 0) * q;
+        if (gain > 0 && (!best || gain / Math.max(1, r.days) > best.gain / Math.max(1, best.days))) best = { cid, days: r.days, gain, age: world.day - k.day };
+      }
+      if (best) lines.push(`積んでいる${GOODS[good].name}${q}個は、${name(best.cid)}（約${best.days}日）で売ると見込み +${Math.round(best.gain)}銀（${best.age}日前の相場）。「出発」で地図の${name(best.cid)}を選ぶ`);
+    }
+  }
   if (!lines.length) lines.push('今いる町で見込みのある取引が見つからない。積荷を売るか、別の町へ行って相場を確かめよう');
   return lines;
 }

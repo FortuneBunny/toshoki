@@ -189,7 +189,8 @@ img { user-select: none; }
 .contract { background: #2d2416; border: 1px solid #6b5223; border-radius: 8px; padding: 6px 8px; margin: 4px 0; font-size: 12px; display: flex; gap: 6px; align-items: center; }
 
 /* ---------- モーダル ---------- */
-.modal-back { position: fixed; inset: 0; background: rgba(10, 7, 4, 0.72); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 12px; animation: fadeIn 0.15s; }
+/* 上に寄せて置く（真ん中に置くと、中身の高さが変わるたびにダイアログが上下に動き、押そうとしたボタンがずれた） */
+.modal-back { position: fixed; inset: 0; background: rgba(10, 7, 4, 0.72); display: flex; align-items: flex-start; justify-content: center; z-index: 50; padding: min(9vh, 72px) 12px 12px; animation: fadeIn 0.15s; }
 @keyframes fadeIn { from { opacity: 0; } }
 .modal { background: var(--panel); border: 1px solid #6b5223; border-radius: 14px; box-shadow: var(--shadow); max-width: 1100px; width: 100%; max-height: 100%; display: flex; flex-direction: column; animation: popIn 0.2s cubic-bezier(0.2, 1.4, 0.4, 1); }
 @keyframes popIn { from { transform: scale(0.94); opacity: 0; } }
@@ -333,6 +334,8 @@ input[type=number] { width: 70px; }
   .deadline { margin-left: 0; }
   .tutorial { max-width: calc(100% - 24px); font-size: 12px; }
   .mcard { width: 240px; }
+  /* 商人の札は画面の下に貼り付ける（縦に並べると、長い町の欄の下に隠れて、交易も出発も見つからなかった） */
+  .merchants { position: sticky; bottom: 0; z-index: 30; min-height: 0; padding: 6px 8px; box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.45); }
   #app { height: auto; min-height: 100%; }
   .main { flex-direction: column; }
   .mapwrap { height: 56vh; flex: none; }
@@ -345,7 +348,13 @@ input[type=number] { width: 70px; }
   .topbar { gap: 6px; }
   .date { min-width: 0; }
 }
+/* 触って操作する画面では、キーとカーソルの説明は出さない */
+@media (hover: none) { .kbd-hint { display: none; } }
 @media (max-width: 600px) {
+  /* 交易の表は、在庫と推移を外して横にはみ出さないようにする（売りの › » が画面の外に出ていた） */
+  .trow { grid-template-columns: 20px minmax(52px, 1fr) 28px 36px 50px 46px 50px 36px; gap: 2px; padding: 3px 2px; }
+  .trow > :nth-child(9), .trow > :nth-child(10) { display: none; }
+  .trow .arrows .btn.tiny { min-width: 24px; padding: 2px 4px; }
   .trade-head { grid-template-columns: 1fr; gap: 2px; }
   .trade-head .side-r, .trade-head .hint { text-align: left; }
   .trade-main { overflow-x: auto; }

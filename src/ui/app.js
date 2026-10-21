@@ -126,7 +126,7 @@ app.showTitle = () => {
 app.confirm = (title, text, onOk) => {
   app.state.modals++;
   setSpeed(0);
-  modal(app, title, h('div', {}, text), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, 'やめる'), h('button', { class: 'btn primary', onclick: () => { close(); onOk(); } }, '決定')]);
+  modal(app, title, h('div', { style: { whiteSpace: 'pre-line', lineHeight: 1.7 } }, text), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, 'やめる'), h('button', { class: 'btn primary', onclick: () => { close(); onOk(); } }, '決定')]);
 };
 
 // アクションを実行し、結果の出来事を演出につなぐ
@@ -179,6 +179,8 @@ app.afterOrder = (mid) => {
 app.pickDestination = (mid) => {
   const m = G.getMerchant(app.world, mid);
   if (!m || m.travel) return;
+  // 選んでいる最中にもう一度押すとやめる（触って操作する画面には Esc がないため）
+  if (app.state.pick?.mid === mid) { app.state.pick = null; app.state.hoverRoute = null; app.render(); return; }
   const days = {};
   for (const id of Object.keys(app.world.cities)) {
     if (id === m.city) continue;
@@ -187,7 +189,11 @@ app.pickDestination = (mid) => {
   }
   app.state.selMerchant = mid;
   app.state.pick = { mid, days };
-  fx.toast(`${m.name}の行き先を地図で選ぶ（Esc でやめる）`, { icon: `transport/${m.transport}` });
+  app.map?.frameCities([m.city, ...Object.keys(days)], m.city);
+  // 選んでいる間は案内を残し、選び終えたら消す（すぐ消えると何をする場面か分からず、出発後も残ると紛らわしかった）
+  app.pickToast?.remove();
+  const how = window.matchMedia?.('(hover: none)').matches ? 'もう一度「出発」でやめる' : 'Esc でやめる';
+  app.pickToast = fx.toast(`${m.name}の行き先を地図で選ぶ（${how}）`, { icon: `transport/${m.transport}`, sticky: true });
   app.render();
 };
 
@@ -501,6 +507,7 @@ function renderTutorial() {
 }
 
 app.render = () => {
+  if (!app.state.pick && app.pickToast) { app.pickToast.remove(); app.pickToast = null; }
   // 音楽: 選んだ商人のいる地域。ラッシュの町にいれば変奏
   if (app.world) {
     const m = G.getMerchant(app.world, app.state.selMerchant) || app.world.player.merchants[0];

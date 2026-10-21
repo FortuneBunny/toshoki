@@ -54,9 +54,10 @@ export function createWorldView(container, world, handlers) {
   const canvas = h('canvas', { class: 'worldview' });
   const mini = h('canvas', { class: 'minimap', width: 200, height: 120 });
   const ctl = h('div', { class: 'mapctl' },
-    h('button', { class: 'btn small', title: '拡大', onclick: () => zoomAt(1.25) }, '＋'),
-    h('button', { class: 'btn small', title: '縮小', onclick: () => zoomAt(0.8) }, '－'),
-    h('button', { class: 'btn small', title: '全体を見る', onclick: () => fitAll() }, '全体'));
+    // 押したらすぐ描き直す（止めているときは描き直しの合図だけでは画面が変わらなかった）
+    h('button', { class: 'btn small', title: '拡大', onclick: () => { zoomAt(1.25); draw(); } }, '＋'),
+    h('button', { class: 'btn small', title: '縮小', onclick: () => { zoomAt(0.8); draw(); } }, '－'),
+    h('button', { class: 'btn small', title: '全体を見る', onclick: () => { fitAll(); draw(); } }, '全体'));
   add(container, canvas, mini, ctl);
   const ctx = canvas.getContext('2d');
   const W = G.GRID_W;
@@ -672,6 +673,22 @@ export function createWorldView(container, world, handlers) {
     },
     unitPos,
     centerOn(px, py) { [cam.x, cam.y] = pxToWorld(px, py); invalidate(); draw(); },
+    // 町がどれも画面に見えていなければ、全部が入るように寄せる（行き先を選ぶとき、行き先が画面の外にあって選べなかったため）
+    frameCities(ids, keep = null) {
+      const pts = ids.map((id) => world.grid.cityTiles[id]).filter(Boolean).map((t) => iso(t[0], t[1]));
+      if (!pts.length) return;
+      const cw = canvas.clientWidth, ch = canvas.clientHeight;
+      const visible = (p) => { const [sx, sy] = toScreen(p[0], p[1]); return sx > 40 && sx < cw - 40 && sy > 60 && sy < ch - 40; };
+      const others = keep ? pts.filter((_, i) => ids[i] !== keep) : pts;
+      if (others.some(visible)) return;
+      const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+      cam.x = (Math.min(...xs) + Math.max(...xs)) / 2;
+      cam.y = (Math.min(...ys) + Math.max(...ys)) / 2;
+      // 左上の手引きと右下の小さな地図に隠れないよう、余白を広めに取る
+      cam.zoom = Math.max(0.18, Math.min(cam.zoom, (cw - 2 * Math.min(260, cw * 0.25)) / Math.max(1, Math.max(...xs) - Math.min(...xs)), (ch - 2 * Math.min(170, ch * 0.22)) / Math.max(1, Math.max(...ys) - Math.min(...ys))));
+      invalidate();
+      draw();
+    },
     // 開発用（撮影）: 町か "x,y" のマス、"fit" で全体。zoom は倍率
     camTo(target, zoom) {
       requestAnimationFrame(() => {

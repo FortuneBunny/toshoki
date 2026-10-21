@@ -137,10 +137,14 @@ function cityPanel(app, id) {
         const cost = G.settlerCost(world, post.id);
         const ready = G.settleCheck(world, post.id);
         add(acts, h('button', { class: 'btn small', disabled: why || undefined, title: why || `${G.BALANCE.settlerGroup}人を${post.name}へ運ぶ。${ready ? `今のままでは住みつけない: ${ready}` : '今なら住みつける'}`,
-          onclick: () => app.confirm(`開拓団を${post.name}へ（${cost}銀）`, `${G.spendWarning(world, cost) ? `⚠ ${G.spendWarning(world, cost)}。` : ''}${m.name}が${c.name}から${G.BALANCE.settlerGroup}人を連れ出し、${post.name}へ運びます（人はこの町から減り、荷車の${Math.round(G.BALANCE.settlerLoad * 100)}%を使います）。着いた交易所に、家を建てる空き地があり、食卓に食べ物が3種類届いて糖度が${G.BALANCE.settlerGlucose}以上なら住みつきます（増えた人で食べ物を分けるので、糖度は少し下がります）。そろわなければ${G.BALANCE.settlerWait}日待って散ります（連れ出してから${G.BALANCE.settlerCarry}日でも散ります）。${ready ? `
-今の${post.name}: ${ready}` : `
-今の${post.name}なら住みつけます。`}
-連れ出したら、${m.name}を${post.name}へ向かわせてください。`, () => app.run(() => G.sendSettlers(world, m.id, post.id), 'build')) }, `開拓団→${post.name} ${cost}銀`));
+          onclick: () => app.confirm(`開拓団を${post.name}へ（${cost}銀）`, [
+            G.spendWarning(world, cost) ? `⚠ ${G.spendWarning(world, cost)}` : null,
+            `${m.name}が${c.name}から${G.BALANCE.settlerGroup}人を連れ出し、${post.name}へ運びます。人はこの町から減り、荷車の${Math.round(G.BALANCE.settlerLoad * 100)}%を使います。`,
+            `住みつく条件: 家を建てる空き地・食卓に食べ物3種類（10日ほど続けて）・糖度${G.BALANCE.settlerGlucose}以上。増えた人で食べ物を分けるので、糖度は少し下がります。`,
+            `そろわなければ、着いてから${G.BALANCE.settlerWait}日（連れ出してから${G.BALANCE.settlerCarry}日）で散ります。銀は戻りません。`,
+            ready ? `今の${post.name}: ✖ ${ready}` : `今の${post.name}: ○ 住みつけます`,
+            `連れ出したら、${m.name}を${post.name}へ向かわせてください。`,
+          ].filter(Boolean).join('\n'), () => app.run(() => G.sendSettlers(world, m.id, post.id), 'build')) }, `開拓団→${post.name} ${cost}銀`));
       }
     }
     if (!(c.donatedUntil > world.day)) {

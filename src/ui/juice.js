@@ -92,12 +92,14 @@ export function flash() {
   setTimeout(() => el.remove(), 520);
 }
 
-export function toast(text, { icon, kind = '' } = {}) {
+// sticky: 自分で消すまで残す（行き先を選んでいる間の案内など）。消すときは返した要素を remove する
+export function toast(text, { icon, kind = '', sticky = false } = {}) {
   const box = document.getElementById('toasts');
   while (box.children.length >= 4) box.firstChild.remove();
   const el = h('div', { class: `toast ${kind}` }, icon ? h('img', { src: `assets/svg/${icon}.svg`, alt: '' }) : null, text);
   box.append(el);
-  setTimeout(() => el.remove(), 3700);
+  if (!sticky) setTimeout(() => el.remove(), 3700);
+  return el;
 }
 
 export function banner(title, sub, img) {
