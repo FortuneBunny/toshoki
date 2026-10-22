@@ -124,7 +124,8 @@ export function linkPostHops(world, id) {
   const [x, y] = grid.cityTiles[id];
   let near = null;
   let best = Infinity;
-  for (const [oid, [cx, cy]] of Object.entries(grid.cityTiles)) { if (oid === id) continue; const d = Math.hypot(cx - x, cy - y); if (d < best) { best = d; near = oid; } }
+  // つなぐ先は、この交易所より前からある町だけ（読み込み直したときも同じ表になるように）
+  for (const [oid, [cx, cy]] of Object.entries(grid.cityTiles)) { if (oid === id || !hop[oid]) continue; const d = Math.hypot(cx - x, cy - y); if (d < best) { best = d; near = oid; } }
   hop[id] = { [id]: 0 };
   if (!near) return; // 町のないシナリオの最初の交易所
   for (const [oid, d] of Object.entries(hop[near] || {})) { if (oid === id) continue; hop[id][oid] = d + 1; if (hop[oid]) hop[oid][id] = d + 1; }

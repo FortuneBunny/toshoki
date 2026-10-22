@@ -5,6 +5,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { SCENARIOS } from '../data/scenarios.js';
 import { HEIRLOOMS } from '../data/heirlooms.js';
 import { generateFreeplay } from '../data/freeplay.js';
+import { generateFreeplayV3 } from '../data/freeplay-v3.js';
 import { hashSeed } from './rng.js';
 import { updateCity, dailyDemand, cityTier } from './city.js';
 import { targetStock, midPrice } from './market.js';
@@ -48,8 +49,9 @@ function hopTable(cities, edges) {
 }
 
 // シナリオの定義を引く。フリープレイはシードから生成する
-export function resolveScenario(id, seed) {
-  if (id === 'free') return generateFreeplay(seed);
+// v3: 版3までのフリープレイのセーブ（町のある地図）
+export function resolveScenario(id, seed, { v3 = false } = {}) {
+  if (id === 'free') return v3 ? generateFreeplayV3(seed) : generateFreeplay(seed);
   return SCENARIOS[id];
 }
 
@@ -87,6 +89,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
     stats: { spent: 0, revenue: 0, profit: 0, sales: 0, lossSales: 0, hits: 0, trips: 0, contracts: 0, bought: {}, sold: {}, soldTotal: {}, produced: {}, rushes: 0, history: [] },
     nextId: 1,
     finished: null,
+    freeVersion: 4, // フリープレイの地図の作り方の版（版4から町のない地図）
   };
   Object.defineProperty(world, 'scenario', { value: sc, enumerable: false, writable: true });
 

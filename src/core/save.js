@@ -8,13 +8,14 @@ import { BALANCE } from '../data/balance.js';
 const tierOf = (pop) => BALANCE.tierPops.reduce((t, p, i) => (pop >= p ? i : t), 0);
 
 export function serialize(world) {
-  const base = resolveScenario(world.scenarioId, world.seed);
+  const base = resolveScenario(world.scenarioId, world.seed, { v3: world.freeVersion !== 4 });
   return JSON.stringify({ ...world, scenarioOverrides: world.scenario.infoNetwork !== base.infoNetwork ? { infoNetwork: world.scenario.infoNetwork } : null });
 }
 
 function hopTable(world) {
   const table = {};
-  for (const s of Object.keys(world.cities)) {
+  // 交易所（あとから開いた町）は、開いた順に linkPostHops でつなぐ
+  for (const s of Object.keys(world.cities).filter((id) => world.cities[id].grade === undefined)) {
     const d = { [s]: 0 };
     const q = [s];
     while (q.length) {
@@ -31,7 +32,7 @@ function hopTable(world) {
 
 // 版1 → 版2: 区画がないので、今の生産量から区画を作る
 function migrateV1(data) {
-  const sc = resolveScenario(data.scenarioId, data.seed);
+  const sc = resolveScenario(data.scenarioId, data.seed, { v3: data.freeVersion !== 4 });
   for (const c of Object.values(data.cities)) {
     if (!c.district) {
       c.district = generateDistrict(c, { seed: data.seed, scenarioGoods: sc?.goods || [] });
@@ -52,7 +53,7 @@ export function deserialize(json) {
   if (data.version === 1) migrateV1(data);
   if (data.version !== SAVE_VERSION) throw new Error(`セーブデータの版が違う（${data.version}）`);
   ensureNative(data);
-  const sc = resolveScenario(data.scenarioId, data.seed);
+  const sc = resolveScenario(data.scenarioId, data.seed, { v3: data.freeVersion !== 4 });
   if (!sc) throw new Error(`不明なシナリオ: ${data.scenarioId}`);
   const overrides = data.scenarioOverrides;
   delete data.scenarioOverrides;
@@ -62,7 +63,7 @@ export function deserialize(json) {
   data.storms = data.storms || [];
   Object.defineProperty(data, 'grid', { value: buildGrid(data), enumerable: false, writable: true });
   Object.defineProperty(data, 'routeCache', { value: new Map(), enumerable: false, writable: true });
-  for (const c of Object.values(data.cities)) if (c.founded) linkPostHops(data, c.id);
+  for (const c of Object.values(data.cities)) if (c.grade !== undefined || c.founded) linkPostHops(data, c.id);
   // 古い版で暇を出したあとに雇うと、同じ番号の商人が2人いることがある。後の方に新しい番号を付ける
   const seen = new Set();
   for (const m of data.player.merchants) {
