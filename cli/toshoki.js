@@ -566,6 +566,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   path <町> <町> trail|road|canal [confirm]  2つの町を結ぶ道を敷く（小道・街道・運河。経路は自動で一番安い所を通る）
   port [confirm]                       水辺の町に港を開く（船が着ける）
   sites                                交易所を開ける場所の候補（座標と、採れそうな品。町のない土地では圏に入る集落）
+  copyorder <元> <先>                  定期便を別の商人に写す（番号か名前）
   families / family <id>               町のない土地: 一族の一覧 / 一族を選ぶ（館の立つ地域が決まる）
   wild                                 町のない土地: まだ交易所の圏にない集落と古い建物（近い順）
   techs                                買える技術の一覧（ライバルが先に買うと独占され、使用料がかかる）
@@ -622,6 +623,12 @@ function run(world, cmd, pos, opts) {
   if (world.setup && !['status', 'families', 'family', 'sites', 'found', 'wild', 'look', 'overview', 'goals', 'help', 'rules', 'save', 'techs'].includes(cmd)) throw new Error(`まだ始まっていない。${G.setupStage(world) === 'family' ? 'families → family <id> で一族を選ぶ' : 'sites → found <x,y> confirm で最初の交易所を置く'}`);
   switch (cmd) {
     case 'status': out.push(statusText(world)); break;
+    case 'copyorder': {
+      if (!pos[0] || !pos[1]) throw new Error('copyorder <写す元の商人> <写す先の商人>（番号か名前）');
+      after(G.copyOrder(world, pos[0], pos[1]));
+      out.push(`${G.getMerchant(world, pos[0]).name}の定期便を${G.getMerchant(world, pos[1]).name}に写した`);
+      break;
+    }
     case 'families': {
       if (!G.familyList(world).length) { out.push('このシナリオでは一族を選ばない'); break; }
       out.push('■ 一族（館の立つ地域が決まる。ライバルは選ばなかった一族の館から始める）');

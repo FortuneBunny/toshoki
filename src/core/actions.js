@@ -341,7 +341,7 @@ export function build(world, cityId, type, at = null) {
   const cost = buildCost(world, type);
   if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
   world.player.silver -= cost;
-  const b = { id: world.player.buildings.length + 1, type, city: cityId, active: true, autoBuy: true, recipe: null, inputs: buildingInputs(type), made: {}, lastMade: 0 };
+  const b = { id: world.player.buildings.length + 1, type, city: cityId, active: true, autoBuy: true, recipe: null, inputs: buildingInputs(type, world), made: {}, lastMade: 0 };
   if (spot) { b.x = spot[0]; b.y = spot[1]; addBuilding(city, { type, x: spot[0], y: spot[1], owner: 'player', ref: b.id }); }
   world.player.buildings.push(b);
   city.buildings = world.player.buildings.filter((x) => x.city === cityId);
@@ -420,6 +420,19 @@ export function setOrder(world, mid, order) {
   if (order.hold) { m.order.paused = true; return { ok: true }; }
   if (!m.travel) runOrder(world, m);
   return { ok: true };
+}
+
+// 定期便を別の商人に写す（版4 H5。原作の「路線の一覧」の良い所だけ取る。同じ往復に2人目を足すとき、一から組まなくてよい）
+export function copyOrder(world, fromMid, toMid) {
+  const from = getMerchant(world, fromMid);
+  const to = getMerchant(world, toMid);
+  if (!from?.order) return fail('写す元の商人に定期便がない');
+  if (!to) return fail('写す先の商人がいない');
+  if (from === to) return fail('同じ商人には写せない');
+  const stops = JSON.parse(JSON.stringify(from.order.stops)).map(({ city, sell, buy, unload, load, waitFor, keep }) => ({ city, sell, buy, unload, load, waitFor, keep }));
+  const r = setOrder(world, to.id, { stops, guards: from.order.guards, reserve: from.order.reserve });
+  if (r.ok) emit(world, { type: 'order', merchant: to.id, text: `${from.name}の定期便を${to.name}に写した` });
+  return r;
 }
 
 export function resumeOrder(world, mid) {

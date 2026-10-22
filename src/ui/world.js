@@ -252,7 +252,30 @@ export function createWorldView(container, world, handlers) {
       const path = `cities/${G.CIVICS[b.type]?.img || b.type}`;
       const im = img(path);
       const s = 40 * cam.zoom;
+      // 自分の工房: 動いていれば煙が上がり、止まっていればくすむ（版4 H5。止まっているのが地図で分かるように）
+      const pb = b.owner === 'player' ? world.player.buildings.find((x) => x.id === b.ref) : null;
+      const working = pb && pb.active && (pb.lastMade || 0) > 0;
+      if (pb && !working) c.filter = 'saturate(0.2) brightness(0.8)';
       if (ready(im)) c.drawImage(im, sx - s / 2, sy - s * 0.8, s, s);
+      c.filter = 'none';
+      if (working) {
+        const t = Date.now() / 1000;
+        for (let i = 0; i < 3; i++) {
+          const f = (t * 0.6 + i / 3) % 1;
+          c.fillStyle = `rgba(245,240,230,${0.55 * (1 - f)})`;
+          c.beginPath();
+          c.arc(sx + s * 0.18 + Math.sin(t + i) * 3 * cam.zoom, sy - s * 0.85 - f * 22 * cam.zoom, (3 + f * 5) * cam.zoom, 0, Math.PI * 2);
+          c.fill();
+        }
+      } else if (pb) {
+        c.font = `800 ${Math.max(9, 11 * cam.zoom)}px "Zen Maru Gothic", sans-serif`;
+        c.textAlign = 'center';
+        c.lineWidth = 3;
+        c.strokeStyle = 'rgba(40,25,15,0.85)';
+        c.fillStyle = '#ffb4a6';
+        c.strokeText('止まっている', sx, sy - s * 0.85);
+        c.fillText('止まっている', sx, sy - s * 0.85);
+      }
     }
     return true;
   }
@@ -741,6 +764,8 @@ export function createWorldView(container, world, handlers) {
   });
   // ラッシュ中の町があれば、光を動かすために描き直す
   setInterval(() => { if (Object.values(world.cities).some((c) => c.rush > 0) && !document.hidden) draw(); }, 80);
+  // 動いている工房の煙
+  setInterval(() => { if (cam.zoom >= 0.45 && world.player.buildings.some((b) => b.active && b.lastMade > 0) && !document.hidden && !Object.values(world.cities).some((c) => c.rush > 0)) draw(); }, 160);
   // 画像が読み込まれたら描き直す
   setInterval(() => { if ([...IMG.values()].some((im) => !im.__drawn && ready(im))) { IMG.forEach((im) => { if (ready(im)) im.__drawn = true; }); invalidate(); draw(); } }, 300);
 

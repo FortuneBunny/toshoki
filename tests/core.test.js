@@ -623,3 +623,18 @@ test('町のない土地: 野の需要施設は決まった量を買い、ライ
   G.advance(g2, 30, silent);
   assert.equal(G.serialize(f), G.serialize(g2));
 });
+
+test('定期便を別の商人に写せる（版4 H5）', () => {
+  const w = G.createWorld('s2', { seed: 2 });
+  w.player.silver = 5000;
+  const a = w.player.merchants[0];
+  const h = G.hireMerchant(w, a.city);
+  assert.ok(h.ok, h.error);
+  const stops = [{ city: a.city, buy: [{ good: 'wheat', qty: 10 }] }, { city: 'natsume', sell: [{ good: 'wheat' }] }];
+  assert.ok(G.setOrder(w, a.id, { stops }).ok);
+  const r = G.copyOrder(w, a.id, h.merchant);
+  assert.ok(r.ok, r.error);
+  const b = G.getMerchant(w, h.merchant);
+  assert.deepEqual(b.order.stops.map((s) => s.city), a.order.stops.map((s) => s.city));
+  assert.equal(G.copyOrder(w, a.id, a.id).ok, false);
+});

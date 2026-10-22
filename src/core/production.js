@@ -7,9 +7,10 @@ import { emit } from './events.js';
 import { recipeUsable, neededTech } from './techs.js';
 import { BALANCE as B } from '../data/balance.js';
 
-export function buildingInputs(type) {
+// world があれば、そのシナリオで使える作り方の材料だけ
+export function buildingInputs(type, world = null) {
   const ids = new Set();
-  for (const r of BUILDINGS[type].recipes || []) for (const id of Object.keys(r.in)) ids.add(id);
+  for (const r of world ? recipeList(world, type) : BUILDINGS[type].recipes || []) for (const id of Object.keys(r.in)) ids.add(id);
   return [...ids];
 }
 
@@ -89,7 +90,7 @@ export function updateProduction(world) {
     if (made === 0 && world.day - (b.idleDay ?? -99) >= 30) {
       b.idleWarned = b.why || 'none';
       b.idleDay = world.day;
-      emit(world, { type: 'idle', city: b.city, text: `${city.name}の${def.name}が止まっている: ${b.why || '材料がない'}（材料: ${buildingInputs(b.type).map((id) => GOODS[id].name).join('、')}。倉庫へ下ろせば動く）` });
+      emit(world, { type: 'idle', city: b.city, text: `${city.name}の${def.name}が止まっている: ${b.why || '材料がない'}（材料: ${buildingInputs(b.type, world).map((id) => GOODS[id].name).join('、')}。倉庫へ下ろせば動く）` });
     } else if (made > 0 && world.day - (b.idleDay ?? -99) >= 30) b.idleWarned = null;
   }
 }

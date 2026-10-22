@@ -377,10 +377,23 @@ export function orderDialog(app, mid) {
     m.order ? h('button', { class: 'btn danger', onclick: () => { G.clearOrder(world, mid); close(); app.render(); } }, '定期便を解除') : null,
     m.order && !m.order.paused ? h('button', { class: 'btn ghost', onclick: () => { const r = G.pauseOrderAtNext(world, mid); app.toast(r.now ? '定期便を止めた' : '次の町で止まる'); close(); app.render(); } }, '次の町で止める') : null,
     m.order?.paused ? h('button', { class: 'btn', onclick: () => { app.run(() => G.resumeOrder(world, mid)); close(); } }, '再開') : null,
+    // 同じ定期便を、ほかの商人にも走らせる
+    m.order && world.player.merchants.length > 1 ? h('button', { class: 'btn ghost', onclick: () => { close(); copyOrderDialog(app, mid); } }, 'ほかの商人に写す') : null,
     h('span', { style: { flex: 1 } }),
     h('button', { class: 'btn ghost', onclick: close }, 'キャンセル'),
     h('button', { class: 'btn primary', onclick: () => { const r = G.setOrder(world, mid, { stops, guards: m.order?.guards, reserve: m.order?.reserve }); if (!r.ok) return app.error(r.error); close(); app.afterOrder(mid); } }, '定期便を開始'),
   ], { wide: true });
+}
+
+function copyOrderDialog(app, mid) {
+  const world = app.world;
+  const m = G.getMerchant(world, mid);
+  app.state.modals++;
+  const rows = world.player.merchants.filter((x) => x.id !== mid).map((x) => h('div', { class: 'tech-row' },
+    h('div', {}, h('b', {}, x.name), h('div', { class: 'muted' }, `${TRANSPORTS[x.transport].name}・${x.travel ? `移動中→${world.cities[x.travel.to].name}` : `${world.cities[x.city].name}に滞在`}${x.order ? '・今の定期便は置き換わる' : ''}`)),
+    h('span'),
+    h('button', { class: 'btn primary small', disabled: x.settlers ? true : undefined, onclick: () => { const r = app.run(() => G.copyOrder(world, mid, x.id)); if (r.ok) { md.close(); app.afterOrder(x.id); } } }, 'この商人に写す')));
+  const md = modal(app, `${m.name}の定期便を写す（${m.order.stops.map((s) => world.cities[s.city].name).join('→')}）`, h('div', { class: 'tech-list' }, rows), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, 'やめる')]);
 }
 
 // ---------- 帳簿 ----------
