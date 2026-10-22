@@ -7,8 +7,9 @@ import { cityTier, dailyDemand } from './city.js';
 import { targetStock } from './market.js';
 import { emit } from './events.js';
 import { observe } from './knowledge.js';
+import { BALANCE as B } from '../data/balance.js';
 
-export const POST_COST = 1500;
+export const POST_COST = B.postCost;
 export const POST_POP = 160;
 const MIN_GAP = 14; // ほかの町からこのマス数以上離す
 const EDGE_MARGIN = 7; // 区画（12×12）が地図からはみ出さないように
@@ -23,7 +24,7 @@ const TERRAIN_GOODS = {
 };
 
 export function postsAllowed(world) {
-  return world.scenario.maxPosts ?? ((world.scenario.buildings || []).includes('road') ? 2 : 0);
+  return world.scenario.maxPosts ?? ((world.scenario.buildings || []).includes('road') ? B.postMax : 0);
 }
 export function postsFounded(world) {
   return Object.values(world.cities).filter((c) => c.founded).length;
@@ -113,8 +114,14 @@ export function linkPostHops(world, id) {
   if (hop[near]) hop[near][id] = 1;
 }
 
+// 交易所の格（0 交易所・1 市場・2 大市場）。古いセーブの交易所は格がないので、市場として扱う
+export function postGrade(city) {
+  return city.founded ? city.grade ?? 1 : 2;
+}
+export const gradeName = (g) => B.postGradeNames[g];
+
 export function postCost(world) {
-  return Math.round(POST_COST * (1 + postsFounded(world) * 0.5) * (world.player.mods?.buildCost ?? 1));
+  return Math.round((world.scenario.postCost ?? POST_COST) * (1 + postsFounded(world) * 0.5) * (world.player.mods?.buildCost ?? 1));
 }
 
 export function foundPost(world, x, y, name = null) {
@@ -138,7 +145,7 @@ export function foundPost(world, x, y, name = null) {
   const tags = [];
   if (grid.terrain[gridKey(x, y)] === T.SAND) tags.push('desert');
   const c = {
-    id, name: name || POST_NAMES[n % POST_NAMES.length], x: px, y: py, tags, founded: true, foundedDay: world.day,
+    id, name: name || POST_NAMES[n % POST_NAMES.length], x: px, y: py, tags, founded: true, foundedDay: world.day, grade: 0,
     pop: POST_POP, basePop: POST_POP, glucose: 70, glucoseTarget: 75, luxury: 1,
     produces, stock: {}, rush: 0, crash: 0, rushCount: 0,
     prodMods: {}, demandMods: {}, priceMods: {}, growthMod: 1,

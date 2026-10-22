@@ -46,7 +46,7 @@ function cityPanel(app, id) {
   const k = world.player.knowledge[id];
   const age = G.knowledgeAge(world, id);
   const box = h('div', {});
-  add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}${world.player.branches?.includes(id) ? '・自分の商館' : ''}`)),
+  add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.founded && c.grade !== undefined ? `・自分の${G.gradeName(c.grade)}` : ''}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}${world.player.branches?.includes(id) ? '・自分の商館' : ''}`)),
     h('button', { class: 'btn ghost small', style: { marginLeft: 'auto' }, onclick: () => { app.state.selCity = null; app.render(); } }, '✕')));
   if (here.length || c.founded || G.isVisited(world, id)) { // 一度訪れた町と自分の交易所は、いつでも今の様子が分かる
     const tier = G.cityTier(c);

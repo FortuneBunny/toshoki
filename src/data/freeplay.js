@@ -87,7 +87,6 @@ export function generateFreeplay(seed) {
     transports: ['donkey', 'camel', 'cart'],
     buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],
     techs: { refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 30 } },
-    maxPosts: 3,
     events: true, contracts: true, bandits: true, newsDaysPerHop: 4,
     maxMerchants: 6, branches: true,
     freeSeed: seed,

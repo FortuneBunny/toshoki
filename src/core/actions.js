@@ -19,6 +19,7 @@ import { PRODUCERS, CIVICS } from '../data/district.js';
 import { emit } from './events.js';
 import { checkGoals } from './scoring.js';
 import { gainRep as gainRepFromAction } from './trade.js';
+import { postGrade, gradeName } from './posts.js';
 
 const fail = (error) => ({ ok: false, error });
 
@@ -200,6 +201,9 @@ export function civicCheck(world, cityId, type) {
   if (!civicWants(type, world.scenario.goods).length) return `${c.name}が求める品を、このシナリオでは扱わない`;
   if (cityTier(city) < c.minTier) return `${c.name}は「${['集落', '村', '町', '都市', '大都市'][c.minTier]}」以上の町に建てられる`;
   if (civicsIn(city).some((b) => b.type === type)) return 'すでにある';
+  // 交易所の格: 需要施設は「市場」から、宮殿は「大市場」から
+  const need = type === 'palace' ? 2 : 1;
+  if (postGrade(city) < need) return `${c.name}は「${gradeName(need)}」に格上げした交易所に建てられる`;
   return null;
 }
 
@@ -236,6 +240,8 @@ export function demolish(world, cityId, x, y) {
 
 export function expandCost(world, cityId) {
   const c = world.cities[cityId];
+  // 交易所は、広げる代わりに格上げする（交易所 → 市場 → 大市場）
+  if (c.founded && c.grade !== undefined) return c.grade >= 2 ? null : Math.round(B.postUpgradeCost[c.grade + 1] * (world.player.mods?.buildCost ?? 1));
   return Math.round(600 * Math.pow(2, c.district.radiusBonus || 0) * (1 + cityTier(c) * 0.5));
 }
 
@@ -244,6 +250,16 @@ export function expandMarket(world, cityId) {
   if (!city) return fail('不明な町');
   if (!districtEnabled(world)) return fail('このシナリオでは区画を広げられない');
   if (!hasPresence(world, cityId)) return fail('広げるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
+  if (city.founded && city.grade !== undefined) {
+    if (city.grade >= 2) return fail('もう大市場になっている（いちばん上の格）');
+    const cost = expandCost(world, cityId);
+    if (world.player.silver < cost) return fail(`銀が足りない（${cost}必要）`);
+    world.player.silver -= cost;
+    city.grade += 1;
+    const what = city.grade === 1 ? '工房と需要施設を建てられるようになった' : '宮殿も建てられるようになった';
+    emit(world, { type: 'expand', city: cityId, big: true, text: `${city.name}を「${gradeName(city.grade)}」に格上げした！市場の圏が広がり、${what}` });
+    return { ok: true, cost, grade: city.grade };
+  }
   if ((city.district.radiusBonus || 0) >= 2) return fail('これ以上は広げられない（町が育つと自然に広がる）');
   if (cityRadius(city, cityTier(city)) >= 6) return fail('区画の端まで届いている');
   const cost = expandCost(world, cityId);
@@ -313,6 +329,7 @@ export function build(world, cityId, type, at = null) {
   if (!(world.scenario.buildings || []).includes(type)) return fail('このシナリオでは建てられない');
   if (!hasPresence(world, cityId)) return fail('建てるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   if (world.player.buildings.some((b) => b.city === cityId && b.type === type)) return fail('すでにある');
+  if (postGrade(city) < 1) return fail(`工房は「${gradeName(1)}」に格上げした交易所に建てられる`);
   // 区画に置く場所（指定がなければ、市場に近い空きマス）。費用を払う前に確かめる
   let spot = at;
   if (spot) { const why = placeCheck(city, cityTier(city), null, spot[0], spot[1]); if (why) return fail(why); }

@@ -60,7 +60,11 @@ export function openDistrict(app, cityId) {
     add(palette, h('div', { class: 'section' }, 'そのほか'));
     add(palette, h('button', { class: `btn small ${demolishMode ? 'danger' : 'ghost'}`, disabled: !canBuild || undefined, onclick: () => { demolishMode = !demolishMode; selected = null; render(); } }, demolishMode ? '取り壊しモード中' : '自分の施設を取り壊す'));
     const ec = G.expandCost(world, cityId);
-    add(palette, h('button', { class: 'btn small', disabled: !canBuild || (d.radiusBonus || 0) >= 2 || undefined, onclick: () => app.confirm(`市場の圏を広げる（${ec}銀）`, '建物を置ける範囲が1マス広がります（最大2回）。', () => { app.run(() => G.expandMarket(world, cityId), 'build'); render(); }) }, `市場の圏を広げる ${ec}銀`));
+    if (city.founded && city.grade !== undefined) {
+      // 交易所は格上げで広げる（交易所 → 市場 → 大市場）
+      const next = city.grade + 1;
+      add(palette, h('button', { class: 'btn small', disabled: !canBuild || next > 2 || undefined, onclick: () => app.confirm(`「${G.gradeName(next)}」に格上げ（${ec}銀）`, `市場の圏が${G.BALANCE.postGradeRadius[next]}マスに広がります。${next === 1 ? '工房と需要施設（宮殿のほか）を建てられるようになります。' : '宮殿も建てられるようになります。'}`, () => { app.run(() => G.expandMarket(world, cityId), 'build'); render(); }) }, next > 2 ? 'いちばん上の格（大市場）' : `「${G.gradeName(next)}」に格上げ ${ec}銀`));
+    } else add(palette, h('button', { class: 'btn small', disabled: !canBuild || (d.radiusBonus || 0) >= 2 || undefined, onclick: () => app.confirm(`市場の圏を広げる（${ec}銀）`, '建物を置ける範囲が1マス広がります（最大2回）。', () => { app.run(() => G.expandMarket(world, cityId), 'build'); render(); }) }, `市場の圏を広げる ${ec}銀`));
 
     // 右: 区画の絵
     const isCivic = selected?.startsWith('civic:');

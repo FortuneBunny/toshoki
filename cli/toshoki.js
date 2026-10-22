@@ -409,7 +409,9 @@ function buildableText(world, id) {
     const wants = G.civicWants(k, world.scenario.goods).map((g) => GOODS[g].name).join('・');
     out.push(`  ${k}（${cv.name}）: ${G.civicCost(world, k)}銀  求める品 ${wants || 'なし'}  成長 +${Math.round(cv.growth * 100)}%・${cv.effect}  ${why ? `✖ ${why}` : '建てられる（civic ' + k + ' confirm）'}`);
   }
-  out.push(`市場の圏を広げる: expand（${G.expandCost(world, id)}銀）`);
+  const cc = world.cities[id];
+  if (cc.founded && cc.grade !== undefined) out.push(cc.grade >= 2 ? '格: 大市場（いちばん上）' : `格: ${G.gradeName(cc.grade)}。「${G.gradeName(cc.grade + 1)}」に格上げ: expand confirm（${G.expandCost(world, id)}銀。圏が${G.BALANCE.postGradeRadius[cc.grade + 1]}マスに広がる${cc.grade === 0 ? '。工房と需要施設を建てられるようになる' : '。宮殿を建てられるようになる'}）`);
+  else out.push(`市場の圏を広げる: expand（${G.expandCost(world, id)}銀）`);
   if (G.branchesAllowed(world)) { const why = G.branchCheck(world, id); out.push(`商館: ${why ? `✖ ${why}` : `branch confirm（${G.branchCost(world)}銀。雇える商人 +1）`}`); }
   out.push('置く: place <種類> <座標> confirm（例: place wheat_farm C5 confirm）');
   return out.join('\n');
@@ -556,7 +558,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   found <x,y> [confirm]                その場所に交易所（新しい町）を開く
   place <種類> <座標> [confirm]        区画に生産施設を置く（例: place wheat_farm C5 confirm）。町の供給が増える
   demolish <座標> [confirm]            自分が置いた施設を取り壊す
-  expand [confirm]                     市場の圏を1マス広げる（置ける場所が増える）
+  expand [confirm]                     市場の圏を1マス広げる（置ける場所が増える）。自分の交易所では格上げ（交易所→市場→大市場）
   civic <種類> [座標] [confirm]        需要施設を建てる（teahouse 茶館 / temple 寺院 / academy 学問所 / palace 宮殿）
   branch [confirm]                     今いる町に商館を開く（雇える商人 +1、その町の倉庫と相場。2つ目からは倍々に高い）
   settle <交易所> [-m 番号] [confirm]  町以上の町から開拓団（60人）を連れ出し、自分の交易所へ運ぶ（着いたら go で連れていく）
@@ -1059,7 +1061,7 @@ function run(world, cmd, pos, opts) {
     }
     case 'expand': {
       const at = hereCity(world, opts);
-      if (pos[0] !== 'confirm') { out.push(`${world.cities[at].name}の市場の圏を1マス広げる: ${G.expandCost(world, at)}銀。確定するには: expand confirm`); break; }
+      if (pos[0] !== 'confirm') { const ca = world.cities[at]; out.push(ca.founded && ca.grade !== undefined ? (ca.grade >= 2 ? `${ca.name}はもう大市場` : `${ca.name}を「${G.gradeName(ca.grade + 1)}」に格上げする: ${G.expandCost(world, at)}銀。確定するには: expand confirm`) : `${ca.name}の市場の圏を1マス広げる: ${G.expandCost(world, at)}銀。確定するには: expand confirm`); break; }
       out.push(`広げた（${after(G.expandMarket(world, at)).cost}銀）`);
       break;
     }

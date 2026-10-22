@@ -279,6 +279,8 @@ export function worldToDistrict(city, wx, wy) {
 
 // その町の今の市場の圏
 export function cityRadius(city, tier) {
+  // 交易所は、格で圏が決まる（町の段階では広がらない。広げるには格上げする）
+  if (city.founded && city.grade !== undefined) return Math.min(C, B.postGradeRadius[city.grade] + (city.district.radiusBonus || 0));
   return marketRadius(tier, city.district.radiusBonus || 0);
 }
 
