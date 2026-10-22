@@ -14,7 +14,7 @@ import { applyModifiers, updateEvents, emit } from './events.js';
 import { observe, observePresent } from './knowledge.js';
 import { stepTravel } from './caravan.js';
 import { updateProduction } from './production.js';
-import { updateRivals } from './rival.js';
+import { updateRivals, rivalWorkshops } from './rival.js';
 import { checkGoals } from './scoring.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
 import { buildGrid, GRID_W, GRID_H, gridKey } from './grid.js';
@@ -291,6 +291,7 @@ export function tick(world) {
   rivalFound(world);
   trackPosts(world);
   diffuse(world);
+  rivalWorkshops(world);
   updateProduction(world);
   world.passing = [];
   for (const m of world.player.merchants) stepTravel(world, m);

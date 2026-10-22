@@ -36,6 +36,7 @@ function bestPlan(world, r, m) {
 function rivalWorkshop(world, r) {
   const w = r.workshop;
   if (!w) return;
+  if (w.everyDays && world.day % w.everyDays) return; // 何日かに1回だけ動く工房
   const city = world.cities[w.city];
   const have = Math.floor(city.stock[w.input] || 0);
   const n = Math.min(have, w.inputPerDay);
@@ -49,9 +50,14 @@ function rivalWorkshop(world, r) {
   r.store[w.output] = (r.store[w.output] || 0) + batches;
 }
 
+// ライバルの工房は、プレイヤーの工房より先に、その日の材料を仕入れる（自分の工房の町だから）。
+// 前はプレイヤーの工房が先に仕入れたので、本拠地に製糖所を建てるとサトウキビを奪えた（17回目の Sol）
+export function rivalWorkshops(world) {
+  for (const r of world.rivals) rivalWorkshop(world, r);
+}
+
 export function updateRivals(world) {
   for (const r of world.rivals) {
-    rivalWorkshop(world, r);
     if (r.silver < 150) {
       r.silver += 400;
       emit(world, { type: 'rivalAid', text: `${r.name}は一族から援助を受けて持ち直した` });

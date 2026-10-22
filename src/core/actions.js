@@ -333,6 +333,9 @@ export function build(world, cityId, type, at = null) {
   if (!buildingUsable(world, type)) return fail(`${def.name}を建てるには技術「${neededTech(world, 'buildings', type)}」が要る`);
   if (!hasPresence(world, cityId)) return fail('建てるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   if (world.player.buildings.some((b) => b.city === cityId && b.type === type)) return fail('すでにある');
+  // ライバルの工房がある町には建てられない（材料に先約がある。本拠地に製糖所を建てて原料を奪う手で、待つだけでSが取れた。17回目の Opus・Sol）
+  const owner = world.rivals.find((r) => r.workshop?.city === cityId);
+  if (owner) return fail(`${city.name}には${owner.name}の工房があり、材料に先約がある（ほかの町に建てる）`);
   if (postGrade(city) < 1) return fail(`工房は「${gradeName(1)}」に格上げした交易所に建てられる`);
   // 区画に置く場所（指定がなければ、市場に近い空きマス）。費用を払う前に確かめる
   let spot = at;

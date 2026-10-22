@@ -21,6 +21,7 @@ export function emit(world, ev) {
 
 // 期限付きの補正を町に反映する
 // 古い町の食べ物の入荷の波（版4のシナリオ。シナリオの町の定義の waves: { 品: { period, amp, phase } }）。
+// demand: true なら、入荷ではなく需要の波（祭りの季節など。s3 の白糖）。
 // 入荷が細ると、その食べ物が食卓から消えて高くなる。町の「これから」に、いつ細るかを出して読ませる（柱1）
 export function supplyWave(world, cityId, g, day = world.day) {
   const w = world.scenario.cities?.find((c) => c.id === cityId)?.waves?.[g];
@@ -38,12 +39,14 @@ export function waveTrough(world, cityId, g) {
 export function applyModifiers(world) {
   for (const c of Object.values(world.cities)) {
     c.prodMods = {};
-    for (const g of Object.keys(world.scenario.cities?.find((x) => x.id === c.id)?.waves || {})) c.prodMods[g] = supplyWave(world, c.id, g);
+    const waves = world.scenario.cities?.find((x) => x.id === c.id)?.waves || {};
+    for (const g of Object.keys(waves)) if (!waves[g].demand) c.prodMods[g] = supplyWave(world, c.id, g);
     c.demandMods = { ...(world.scenario.demandScale || {}) }; // シナリオごとの需要の倍率（s7 の白糖など）
     // 技術で開く品は、だれかが技術を買うまで、どの町でも求められない（版4 H3）
     for (const g of world.scenario.goods) if (goodLocked(world, g)) c.demandMods[g] = 0;
     c.priceMods = {};
     c.growthMod = 1;
+    for (const g of Object.keys(waves)) if (waves[g].demand) c.demandMods[g] = (c.demandMods[g] ?? 1) * supplyWave(world, c.id, g);
   }
   world.modifiers = world.modifiers.filter((m) => m.until > world.day);
   for (const m of world.modifiers) {

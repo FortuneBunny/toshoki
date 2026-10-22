@@ -43,12 +43,12 @@ const s2 = {
   id: 's2', no: 2, title: 'なつめやしの谷',
   // 版4: 谷の村は集落になった。東の琥珀京だけが古い町。琥珀京は麦となつめやしの入荷に波があり、細る時期を読んで運ぶ
   // 谷の集落は、食べ物を多めに作る（自分の食卓の倍の3倍。余りを琥珀京へ売る谷）
-  intro: '谷には集落が点々とある。東の砂漠の向こうには、古い大きな町・琥珀京。交易所を開いて谷の集落を町に育てよ。琥珀京は麦となつめやしを遠くから仕入れていて、入荷には波がある──町の欄の「これから」で細る時期を読み、高くなる頃に着くように運べ。交易所を「町」（人口1000）に育て、一族の資産を3000銀にせよ。',
+  intro: '谷には集落が点々とある。東の砂漠の向こうには、古い大きな町・琥珀京。交易所を開いて谷の集落を町に育てよ。琥珀京は麦となつめやしを遠くから仕入れていて、入荷には波がある──町の欄の「これから」で細る時期を読み、高くなる頃に着くように運べ。交易所を「町」（人口1000）に育て、琥珀京でなつめやしを150個売り、一族の資産を3000銀にせよ。なつめやしは自分の交易所の食卓にも要る──売る時機を読め。',
   goods: ['wheat', 'millet', 'dates', 'honey', 'rawsugar'],
   start: { silver: 500, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }] },
   cities: [
     // 入荷の波: 麦は90日、なつめやしは70日で一回り。いちばん細ると、ふだんの半分（麦）・4割（なつめやし）になる
-    { id: 'kohaku', name: '琥珀京', x: 640, y: 340, pop: 3300, produces: { wheat: 18, dates: 6, honey: 1.4 }, waves: { wheat: { period: 90, amp: 0.5 }, dates: { period: 70, amp: 0.6, phase: 30 } } },
+    { id: 'kohaku', name: '琥珀京', x: 640, y: 340, pop: 3300, steady: true, produces: { wheat: 18, dates: 14, honey: 1.4 }, waves: { wheat: { period: 90, amp: 0.5 }, dates: { period: 70, amp: 0.8, phase: 30 } } },
   ],
   edges: [],
   pioneer: {
@@ -65,7 +65,8 @@ const s2 = {
     rivalPosts: [],
   },
   shapes: [{ kind: 'desert', points: [[420, 60], [920, 80], [900, 240], [640, 260], [430, 250]] }],
-  goals: [{ type: 'postTier', tier: 2, pop: 1000 }, { type: 'networth', amount: 3000 }],
+  // 琥珀京へのなつめやしの目標（琥珀京に一度も売らず、谷の中の交換だけでSが取れた。17回目の Sol）。なつめやしは自分の食卓にも要るので、売るか食べさせるかを読む
+  goals: [{ type: 'postTier', tier: 2, pop: 1000 }, { type: 'networth', amount: 3000 }, { type: 'deliver', good: 'dates', city: 'kohaku', amount: 150 }],
   deadline: 400, rankS: 0.55,
   maxPosts: 4, postCost: 300, maxPaths: 3,
   knownAtStart: ['kohaku'], // 名の知れた古い町。相場は最初から聞こえてくる
@@ -78,12 +79,13 @@ const s2 = {
 const s3 = {
   id: 's3', no: 3, title: '糖蜜の煙',
   // 版4: サトウキビの村は集落になった。糖蜜町と翠糖京は古い町。製糖所は、自分の交易所を「市場」に格上げすると建てられる
-  intro: 'サトウキビは安いが、そのままでは価値が低い。甘蔗の集落のそばに交易所を開き、「市場」に格上げして製糖所を建てれば、市場のサトウキビを自動で仕入れて白糖に精製してくれる。できた白糖を大都市・翠糖京へ運んで売れ。白糖を運びすぎると値が崩れ、甘味の摂りすぎでクラッシュも来る──翠糖京の「これから」を見て間をあけよ。白糖を200個つくり、資産を5000銀にし、定期便で自分の交易所と翠糖京を3往復させよ。',
+  intro: 'サトウキビは安いが、そのままでは価値が低い。甘蔗の集落のそばに交易所を開き、「市場」に格上げして製糖所を建てれば、市場のサトウキビを自動で仕入れて白糖に精製してくれる。できた白糖を大都市・翠糖京へ運んで売れ。白糖を運びすぎると値が崩れ、甘味の摂りすぎでクラッシュも来る──翠糖京の「これから」を見て間をあけよ。白糖を売って9000銀を稼ぎ（翠糖京と糖蜜町は、白糖の需要の山がずれている）、資産を5000銀にし、定期便で自分の交易所と翠糖京を3往復させよ。',
   goods: ['wheat', 'dates', 'honey', 'cane', 'rawsugar', 'molasses', 'whitesugar', 'sweets'],
   start: { silver: 1600, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }] },
   cities: [
-    { id: 'toumitsu', name: '糖蜜町', x: 430, y: 300, pop: 1300, produces: { wheat: 7, honey: 0.8 } },
-    { id: 'suitou', name: '翠糖京', x: 810, y: 320, pop: 3600, produces: { wheat: 9, dates: 2, honey: 1.4 } },
+    // 白糖の需要の波（祭りの季節）: 80日で一回り。翠糖京と糖蜜町は山がずれている。片方へ流し続けると、谷の時期は安くしか売れない（17回目の Sol: 同じ便の増員だけで6シードすべてS）
+    { id: 'toumitsu', name: '糖蜜町', x: 430, y: 300, pop: 1300, produces: { wheat: 7, honey: 0.8 }, waves: { whitesugar: { period: 80, amp: 0.8, phase: 40, demand: true } } },
+    { id: 'suitou', name: '翠糖京', x: 810, y: 320, pop: 3600, produces: { wheat: 9, dates: 2, honey: 1.4 }, waves: { whitesugar: { period: 80, amp: 0.8, demand: true } } },
   ],
   edges: [{ a: 'toumitsu', b: 'suitou', kind: 'road' }],
   knownAtStart: ['toumitsu', 'suitou'],
@@ -100,7 +102,8 @@ const s3 = {
   },
   shapes: [{ kind: 'green', points: [[60, 340], [260, 330], [300, 520], [80, 560]] }],
   decor: ['field', 'cane-field', 'cane-field', 'forest', 'palm', 'dunes'],
-  goals: [{ type: 'produce', good: 'whitesugar', amount: 200 }, { type: 'networth', amount: 5000 }, { type: 'link', a: 'post', b: 'suitou', count: 3 }],
+  // 「白糖を200個つくる」は製糖所の速さだけで決まり、定期便を写して待つだけでSが取れた（17回目の Opus・Sol）。売った額にして、需要の山で売るほど早くする
+  goals: [{ type: 'sellValue', good: 'whitesugar', amount: 9000 }, { type: 'networth', amount: 5000 }, { type: 'link', a: 'post', b: 'suitou', count: 3 }],
   deadline: 420, rankS: 0.4,
   maxPosts: 3, postCost: 300, maxPaths: 3,
   tutorial: [
@@ -134,14 +137,15 @@ const s4 = {
   ],
   edges: [
     { a: 'ryokumon', b: 'yado', kind: 'trail' },
-    { a: 'yado', b: 'hari', kind: 'desert', danger: 2 }, // オアシスを通る古い隊商路
+    { a: 'yado', b: 'hari', kind: 'desert', danger: 1 }, // オアシスを通る古い隊商路（危険度2では、オアシスへ食べ物を運ぶほど赤字になった。17回目の Opus）
     { a: 'yado', b: 'shio', kind: 'desert', danger: 1 },
     { a: 'shio', b: 'hari', kind: 'desert', lenMul: 1.15 },
   ],
   knownAtStart: ['ryokumon', 'yado', 'hari', 'shio'],
   pioneer: {
     families: [{ id: 'hasan', name: 'ハサン家', x: 545, y: 365, text: '砂の海の真ん中、蜃気楼オアシスのそばに館がある。' }],
-    hamlets: [{ name: '蜃気楼オアシス', x: 580, y: 335, pop: 360, foods: { dates: 4, salt: 2 } }],
+    // 蜃気楼オアシスのそば（市場の圏）に、ぶどうの泉。格上げすると取り込める（オアシスが人口1000に届かなかった。17回目の Opus・Sol）
+    hamlets: [{ name: '蜃気楼オアシス', x: 580, y: 335, pop: 360, foods: { dates: 4, salt: 2 } }, { name: 'ぶどうの泉', x: 602, y: 357, pop: 120, foods: { grapes: 1.2 } }],
     wilds: [{ type: 'inn', x: 584, y: 315 }],
     rivalPosts: [],
   },
@@ -157,7 +161,7 @@ const s4 = {
   transports: ['donkey', 'camel'],
   techs: { caravanserai: { from: 0 } },
   events: true, contracts: true, bandits: true, newsDaysPerHop: 5,
-  maxMerchants: 3,
+  maxMerchants: 4,
 };
 
 const s5 = {
@@ -259,7 +263,8 @@ const s7 = {
   ],
   rivals: [{
     name: 'サルマン商会', silver: 900, skill: 0.85, goods: ['wheat', 'dates', 'honey', 'rawsugar', 'salt'],
-    workshop: { city: 'kibi2', input: 'cane', output: 'whitesugar', inputPerDay: 8, ratio: 4 },
+    // 2日に1回動く（毎日だと、ライバルの工房が先に仕入れるようにしたあと、手引きどおりに遊んでも売上の9割ほどで届かなかった。17回目）
+    workshop: { city: 'kibi2', input: 'cane', output: 'whitesugar', inputPerDay: 8, ratio: 4, everyDays: 2 },
     merchants: [{ city: 'kibi2', transport: 'donkey', wait: 12, home: true }, { city: 'kibi2', transport: 'donkey', wait: 30, home: true }, { city: 'kanmi', transport: 'donkey', wait: 8 }],
   }],
   knownAtStart: ['hakuto', 'kibi2', 'mitsu', 'kanmi', 'shio'],
@@ -273,7 +278,8 @@ const s7 = {
   goals: [{ type: 'share', good: 'whitesugar', share: 0.5, min: 10000, by: 'value' }],
   // 白糖を食べる町は2つだけ。需要を抑えて、売り先と売る時機で値が変わるようにする（13回目の Sol の案）
   demandScale: { whitesugar: 0.6 },
-  deadline: 480, rankS: 0.45,
+  // 白都だけへの固定の便で 195〜240日（S は 0.45 だと4シード中2つ）。ライバルの隊商の行き先を読んで売り先を分けると縮む線にする
+  deadline: 480, rankS: 0.4,
   transports: ['donkey', 'cart'],
   techs: { refinery: { from: 0 }, wheel: { from: 20 } },
   buildings: ['mill', 'confectionery', 'road'],
@@ -285,11 +291,12 @@ const s7 = {
 const s8 = {
   id: 's8', no: 8, title: 'グルコース・ロード',
   // 版4: 甘蔗平原とぶどう高原は集落になった。一族を2つから選ぶ（館の場所が違う）
-  intro: '一族を選べ。甘蔗平原の一族はサトウキビとキビ、ぶどう高原の一族はぶどうと蜂蜜から始める。西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げ、一族の資産を25000銀にせよ。さらに、自分の交易所のどれかを「都市」（人口3000）まで育てて、一族の拠点とせよ（交易所は上の「交易所」/ CLI: sites）。大型帆船や菓子の技は技術として買える。一族の名を歴史に刻め。',
+  intro: '一族を選べ。甘蔗平原の一族はサトウキビとキビ、ぶどう高原の一族はぶどうと蜂蜜から始める。西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げ、一族の資産を40000銀にせよ。琥珀京の食卓は、地図じゅうの食べ物でも足りない──古い町の区画にも畑を置ける（町の欄の「地図の上で建てる」）。さらに、自分の交易所のどれかを「都市」（人口3000）まで育てて、一族の拠点とせよ（交易所は上の「交易所」/ CLI: sites）。大型帆船や菓子の技は技術として買える。一族の名を歴史に刻め。',
   goods: ['wheat', 'rice', 'millet', 'dates', 'grapes', 'raisins', 'cane', 'honey', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'sugarart', 'wine', 'silk', 'spice', 'tea', 'pottery', 'salt', 'spicesugar', 'teacake'],
   start: { silver: 1400, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }, { name: 'ライラ', portrait: 'merchant-2' }] },
   cities: [
-    { id: 'kohaku', name: '琥珀京', x: 500, y: 300, pop: 4200, produces: { wheat: 10, pottery: 1.5 } },
+    // 甘蔗平原とぶどう高原を集落にした分、都の畑を広げた（そのままでは琥珀京が大都市に届かなかった。17回目）
+    { id: 'kohaku', name: '琥珀京', x: 500, y: 300, pop: 4200, produces: { wheat: 15, millet: 5, pottery: 1.5 } },
     { id: 'seikai', name: '西海港', x: 70, y: 260, pop: 1800, produces: { rice: 8, tea: 2, salt: 2 }, tags: ['port'] },
     { id: 'natsume', name: 'ナツメ泉', x: 680, y: 140, pop: 500, produces: { dates: 8 }, tags: ['desert'] },
     { id: 'hari', name: '玻璃の都', x: 940, y: 220, pop: 3800, produces: { silk: 2.5, spice: 1.2, wheat: 8 } },
@@ -334,8 +341,9 @@ const s8 = {
   },
   maxPosts: 4, postCost: 400, maxPaths: 8,
   // 交易所は集落を取り込んで大きく始まるので、目標は「都市」（町の段階では、取り込んだだけで届いた）
-  goals: [{ type: 'cityTier', city: 'kohaku', tier: 4 }, { type: 'networth', amount: 25000 }, { type: 'postTier', tier: 3, pop: 3000 }],
-  deadline: 900, rankS: 0.45,
+  // 資産25000は放っておいても届き、琥珀京8000が重かった（17回目の Opus）
+  goals: [{ type: 'cityTier', city: 'kohaku', tier: 4 }, { type: 'networth', amount: 40000 }, { type: 'postTier', tier: 3, pop: 3000 }],
+  deadline: 900, rankS: 0.55,
   transports: ['donkey', 'camel', 'cart', 'dhow'],
   buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],
   techs: { carrack: { from: 240 }, refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 60 }, sugarcraft: { from: 0 }, teaceremony: { from: 60 }, spicesugar: { from: 120 } },

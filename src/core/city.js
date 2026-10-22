@@ -199,7 +199,9 @@ export function updateCity(world, city) {
   if (!city.dwellWants) assignDwelling(world, city);
   updateDwellingSat(city, cityTier(city));
   rushCycle(world, city);
-  city.pop = Math.max(20, city.pop * (1 + growthRate(city)));
+  // 落ち着いた古い町（シナリオの定義の steady）は、人口が動かない。入荷の波がそのまま値の上下に出る
+  // （s2 の琥珀京は、届いた食べ物で人口7000まで膨らみ、そのあと飢えた）
+  if (!world.scenario.cities?.find((x) => x.id === city.id)?.steady) city.pop = Math.max(20, city.pop * (1 + growthRate(city)));
   // 住居の求める品が「1つ欠けまで」そろっていないと、新しい家は建たない（空き家は出る）
   const dw = dwellingStatus(city, cityTier(city));
   // 知らせるのは60日に1回まで（行ったり来たりで何度も出ないように）
@@ -276,10 +278,16 @@ export function cityOutlook(world, city) {
   const missing = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && dailyDemand(city, g, false) > 0 && !((city.diet?.[g] || 0) > 0.05) && !((city.produces?.[g] || 0) > 0));
   if (missing.length) out.push({ kind: 'hungry', text: `食卓にない: ${missing.slice(0, 3).map((g) => GOODS[g].name).join('・')}（高く売れ、糖度も伸びる）` });
   // 古い町の食べ物の入荷の波: これから細る品と、戻る品
-  for (const g of Object.keys(world.scenario.cities?.find((x) => x.id === city.id)?.waves || {})) {
+  const waves = world.scenario.cities?.find((x) => x.id === city.id)?.waves || {};
+  for (const g of Object.keys(waves)) {
     const now = supplyWave(world, city.id, g);
     const soon = supplyWave(world, city.id, g, world.day + 10);
     const t = waveTrough(world, city.id, g);
+    if (waves[g].demand) {
+      if (soon < now - 0.05) out.push({ kind: 'down', text: `${GOODS[g].name}の需要が落ちていく（いちばん少ないのは約${t}日後。そのころ${GOODS[g].name}は安くしか売れない）` });
+      else if (soon > now + 0.05) out.push({ kind: 'up', text: `${GOODS[g].name}の需要が戻ってくる（今${Math.round(now * 100)}%。これから${GOODS[g].name}が高く売れる）` });
+      continue;
+    }
     if (soon < now - 0.05) out.push({ kind: 'down', text: `${GOODS[g].name}の入荷が細っていく（いちばん少ないのは約${t}日後。そのころ${GOODS[g].name}が高くなる）` });
     else if (soon > now + 0.05) out.push({ kind: 'up', text: `${GOODS[g].name}の入荷が戻ってくる（今${Math.round(now * 100)}%。これから${GOODS[g].name}は安くなる）` });
   }

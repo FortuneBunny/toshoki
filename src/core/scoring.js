@@ -109,6 +109,11 @@ export function goalProgress(world, g) {
       const reached = g.pop ? best.pop >= g.pop : cityTier(best) >= g.tier;
       return { p: reached ? 1 : Math.min(0.99, best.pop / hi), text: `交易所を開いて${goal}に育てる（${best.name} 人口 ${Math.floor(best.pop)}/${hi}）` };
     }
+    case 'sellValue': {
+      // その品を売った額（市場で買った分の代金は差し引く＝自分の工房で作った分）。安く売り崩すと伸びない（s3）
+      const v = Math.max(0, (s.soldValue?.[g.good] || 0) - (s.boughtValue?.[g.good] || 0));
+      return { p: v / g.amount, text: `${GOODS[g.good].name}を売って ${g.amount} 銀を稼ぐ（今 ${Math.floor(v)} 銀。市場で買った分の代金は差し引く。高く売れる時機に売るほど早い）` };
+    }
     case 'hamletPost': {
       // その集落を取り込んだ交易所を育てる（版4のシナリオ。s4 の蜃気楼オアシス）
       const hm = (world.hamlets || []).find((x) => x.name === g.hamlet);
@@ -177,7 +182,7 @@ export function goalProgress(world, g) {
 
 // 積み上げ型の目標（つくった数・売った数・ラッシュの回数）は一度届けば達成のまま。
 // 状態の目標（銀・資産・人口・町の段階）は、すべての目標がそろう瞬間に満たしている必要がある。
-const CUMULATIVE = new Set(['produce', 'deliver', 'rushes', 'share']);
+const CUMULATIVE = new Set(['produce', 'deliver', 'rushes', 'share', 'sellValue']);
 export function goalsStatus(world) {
   world.goalsDone = world.goalsDone || [];
   world.goalsReached = world.goalsReached || [];

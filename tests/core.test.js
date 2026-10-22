@@ -684,3 +684,24 @@ test('古い町の入荷の波は、町の「これから」に出る', () => {
   assert.ok(notes.some((t) => t.includes('入荷が細っていく')));
   assert.ok(notes.some((t) => t.includes('入荷が戻ってくる')));
 });
+
+test('ライバルの工房がある町には、自分の工房を建てられない（s7 の南キビ村）', () => {
+  const w = G.createWorld('s7', { seed: 1 });
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const m = w.player.merchants[0];
+  m.city = 'kibi2'; // 南キビ村にいることにする（建てられるかだけを見る）
+  w.player.silver = 5000;
+  const r = G.build(w, 'kibi2', 'mill');
+  assert.equal(r.ok, false);
+  assert.match(r.error, /先約/);
+});
+
+test('s3 の目標「白糖を売った額」は、市場で買った白糖の代金を差し引く', () => {
+  const w = G.createWorld('s3', { seed: 1 });
+  const g = w.scenario.goals.find((x) => x.type === 'sellValue');
+  assert.ok(g);
+  w.stats.soldValue = { whitesugar: 5000 };
+  w.stats.boughtValue = { whitesugar: 2000 };
+  assert.equal(Math.round(G.goalProgress(w, g).p * g.amount), 3000);
+});
