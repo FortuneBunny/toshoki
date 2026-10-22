@@ -354,7 +354,7 @@ function familyDialog() {
       h('button', { class: 'btn primary small', onclick: () => { const r = app.run(() => G.chooseFamily(W, f.id)); if (r.ok) app.map.centerTile(...W.player.hq, 0.9); md.close(); app.render(); } }, 'この一族で始める'));
   });
   app.state.modals++;
-  const md = modal(app, '一族を選ぶ（館の立つ地域が決まる）', h('div', {}, h('p', { class: 'muted' }, 'この土地には、市場のある町がまだない。一族の館の近くに最初の交易所を置き、集落を町に育てていく。ライバルは、選ばなかった一族の館から始める。'), h('div', { class: 'hire-cards' }, cards)), () => [], { wide: true, onClose: () => { if (app.world?.setup) setTimeout(() => app.setupFlow(), 60); } });
+  const md = modal(app, '一族を選ぶ（館の立つ地域が決まる）', h('div', {}, h('p', { class: 'muted' }, `${Object.keys(app.world.cities).length ? '自分の交易所はまだない（古い町はあるが、一族のものではない）。' : 'この土地には、市場のある町がまだない。'}一族の館の近くに最初の交易所を置き、集落を町に育てていく。${app.world.rivals.length ? 'ライバルは、選ばなかった一族の館から始める。' : ''}`), h('div', { class: 'hire-cards' }, cards)), () => [], { wide: true, onClose: () => { if (app.world?.setup) setTimeout(() => app.setupFlow(), 60); } });
 }
 
 // 建設モード: 町のパネルで建物を選ぶと、地図の上で置けるマスが光る

@@ -300,7 +300,7 @@ function overview(app) {
     const wl = G.wildernessList(world);
     const rows = [...wl.hamlets.map((o) => ({ o, text: `${o.name}（人口${o.pop}・${Object.keys(o.foods).map((g) => GOODS[g].name).join('・')}）` })), ...wl.wilds.map((o) => ({ o, text: `${G.CIVICS[o.type].name}（${Object.keys(G.CIVICS[o.type].flat).filter((g) => sc.goods.includes(g)).map((g) => GOODS[g].name).join('・')}を買う）` }))]
       .map((r) => ({ ...r, d: from.length ? dist(r.o) : 0 })).sort((a, b) => a.d - b.d).slice(0, 8);
-    if (rows.length) add(box, h('div', { class: 'section' }, '🏕 まだ交易所の圏にない集落と古い建物'), h('ul', { class: 'advice' }, rows.map((r) => h('li', { style: { cursor: 'pointer' }, title: '地図でその場所を見る', onclick: () => app.map.centerTile(r.o.x, r.o.y, 0.9) }, `${r.text} — ${own.length ? '自分の交易所' : '一族の館'}から${r.d}マス`))),
+    if (rows.length) add(box, h('div', { class: 'section' }, '🏕 まだ交易所の圏にない集落と古い建物'), h('ul', { class: 'advice' }, rows.map((r) => h('li', { style: { cursor: 'pointer' }, title: '地図でその場所を見る', onclick: () => app.map.centerTile(r.o.x, r.o.y, 0.9) }, from.length ? `${r.text} — ${own.length ? '自分の交易所' : '一族の館'}から${r.d}マス` : r.text))),
       h('div', { class: 'faint', style: { fontSize: '11px' } }, `そばに交易所を開くか（上の「交易所」）、近くの交易所を「市場」に格上げすると圏に入る（交易所の圏 ${G.BALANCE.postGradeRadius[0]}マス・市場 ${G.BALANCE.postGradeRadius[1]}マス・大市場 ${G.BALANCE.postGradeRadius[2]}マス）`));
   }
   // 全部の町の相場（知っている範囲）

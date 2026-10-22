@@ -11,6 +11,7 @@ function parse() {
     if (args[i] === '--seeds') opts.seeds = Number(args[++i]);
     else if (args[i] === '--bots') opts.bots = args[++i];
     else if (args[i] === '--verbose') opts.verbose = true;
+    else if (args[i] === '--v3') opts.v3 = true; // 版3の定義（町のある形）と比べる
     else opts.scenarios.push(args[i]);
   }
   if (!opts.scenarios.length) opts.scenarios = G.SCENARIO_ORDER;
@@ -109,6 +110,9 @@ function upgrade(world, m) {
   const max = G.merchantCap(world);
   // 町のないシナリオでは、交易所が2つになるまで雇わない（2つ目の交易所の費用を残す）
   const early = G.isPioneer(world) && Object.values(world.cities).filter((c) => c.founded).length < 2;
+  // 白糖が目標の町のないシナリオでは、製糖所を建てるまで雇わない（格上げと製糖所の費用を残す）
+  const saving = G.isPioneer(world) && world.scenario.goals.some((g) => ['produce', 'share'].includes(g.type)) && !world.player.buildings.some((b) => b.type === 'mill');
+  if (saving) return;
   if (!early && world.player.merchants.length < max && world.player.silver > G.hireCost(world) * 3) G.hireMerchant(world, m.city);
 }
 
@@ -285,6 +289,15 @@ const ownPosts = (world) => Object.values(world.cities).filter((c) => c.founded)
 export function pioneerManage(world) {
   const pl = world.player;
   const posts = ownPosts(world);
+  // 白糖が目標なら、まず「サトウキビの交易所を市場に → 製糖所」（ほかの出費はそのあと）
+  const sugarFirst = world.scenario.goals.some((g) => ['produce', 'share'].includes(g.type)) && (world.scenario.buildings || []).includes('mill') && !pl.buildings.some((b) => b.type === 'mill');
+  if (sugarFirst) {
+    const at = posts.find((c) => c.produces.cane > 0) || posts[0];
+    if (!at) return;
+    if (at.grade === 0 && pl.silver > G.expandCost(world, at.id)) G.expandMarket(world, at.id);
+    if (at.grade >= 1 && pl.silver > G.buildCost(world, 'mill')) { const r = G.build(world, at.id, 'mill'); if (!r.ok && world.day % 50 === 0) console.error('mill', r.error); }
+    return;
+  }
   const have = new Set(posts.flatMap((c) => Object.keys(c.produces).filter((g) => c.produces[g] > 0)));
   // 交易所を開く: 自分の交易所から近く、まだ作っていない食べ物の集落がある場所
   if (posts.length < Math.min(5, G.postsAllowed(world)) && pl.silver > G.postCost(world) + (posts.length < 2 ? 50 : 350)) {
@@ -316,8 +329,12 @@ export function pioneerManage(world) {
       if (plan && pl.silver > plan.cost + 600) { G.buildPath(world, a.id, b.id, 'trail'); break; }
     }
   }
+  // 白糖が目標なら、サトウキビのある交易所を先に「市場」に格上げする（製糖所は市場から）
+  const wantSugar = world.scenario.goals.some((g) => ['produce', 'share'].includes(g.type));
+  const canePost = posts.find((c) => c.produces.cane > 0);
+  if (wantSugar && canePost && canePost.grade === 0 && pl.silver > G.expandCost(world, canePost.id) + 450) G.expandMarket(world, canePost.id);
   // 製糖所: サトウキビのある市場（格上げ済み）に
-  if ((world.scenario.buildings || []).includes('mill') && !pl.buildings.some((b) => b.type === 'mill') && pl.silver > 1200) {
+  if ((world.scenario.buildings || []).includes('mill') && !pl.buildings.some((b) => b.type === 'mill') && pl.silver > (wantSugar ? 450 : 1200)) {
     const at = posts.find((c) => c.grade >= 1 && c.produces.cane) || posts.find((c) => c.grade >= 1);
     if (at) {
       const m = pl.merchants.find((x) => !x.travel && x.city === at.id);
@@ -383,14 +400,14 @@ function orderBot(world, m, replan) {
 BOTS.wait = (world, m) => orderBot(world, m, 0);
 BOTS.manage = (world, m) => orderBot(world, m, 45);
 
-export function playBot(scenarioId, seed, botName, heirloom = null, fam = null) {
-  const world = G.createWorld(scenarioId, { seed, heirloom });
+export function playBot(scenarioId, seed, botName, heirloom = null, fam = null, v3 = false) {
+  const world = G.createWorld(scenarioId, { seed, heirloom, v3 });
   if (G.isPioneer(world)) pioneerStart(world, fam ?? seed);
   G.drainEvents(world);
   const bot = BOTS[botName];
   let guard = 0;
   while (!world.finished && guard++ < 20000) {
-    if (['pioneer', 'wait', 'manage'].includes(botName) && G.isPioneer(world)) pioneerManage(world);
+    if (['pioneer', 'wait', 'manage', 'goal'].includes(botName) && G.isPioneer(world)) pioneerManage(world);
     // 定期便の商人は町で止まらないので、組み直しは毎日ここで見る
     if (botName === 'manage') for (const m of world.player.merchants) if (m.order) orderBot(world, m, 45);
     // 定期便の商人は町に止まらないので、雇うのはここで（儲かって銀がたまったら）
@@ -435,12 +452,12 @@ function summarize(results) {
 if (process.argv[1]?.endsWith('sim-bots.js')) {
   const opts = parse();
   for (const sc of opts.scenarios) {
-    const def = G.resolveScenario(sc, 1);
+    const def = G.resolveScenario(sc, 1, { v3: opts.v3 });
     console.log(`\n=== ${sc} ${def.title}（期限 ${def.deadline}日） ===`);
     const rows = [];
     for (const bot of opts.bots) {
       const results = [];
-      for (let s = 1; s <= opts.seeds; s++) results.push(playBot(sc, s, bot));
+      for (let s = 1; s <= opts.seeds; s++) results.push(playBot(sc, s, bot, null, null, opts.v3));
       rows.push({ bot, ...summarize(results) });
     }
     console.table(rows);

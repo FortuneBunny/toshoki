@@ -34,12 +34,20 @@ export function arriveAt(world, m) {
     // 商人ごとに覚えるので、定期便を設定し直しても数は消えない
     world.stats.legs = world.stats.legs || {};
     for (const g of world.scenario.goals || []) {
-      if (g.type !== 'link' || (m.city !== g.a && m.city !== g.b)) continue;
-      const k = [g.a, g.b].sort().join('|');
-      m.linkSeen = m.linkSeen || {};
-      const other = m.city === g.a ? g.b : g.a;
-      if (m.linkSeen[k] === other) world.stats.legs[k] = (world.stats.legs[k] || 0) + 1;
-      m.linkSeen[k] = m.city;
+      if (g.type !== 'link') continue;
+      // a が 'post' なら、自分の交易所のどれでも（交易所ごとに数える）
+      const here = world.cities[m.city];
+      const pairs = g.a !== 'post' ? [[g.a, g.b]]
+        : m.city === g.b ? Object.keys(m.linkSeen || {}).map((k) => k.split('|')).filter((ids) => ids.includes(g.b)).map((ids) => [ids.find((x) => x !== g.b), g.b])
+          : here?.founded && !here.rivalPost ? [[m.city, g.b]] : [];
+      for (const [a, b] of pairs) {
+        if (m.city !== a && m.city !== b) continue;
+        const k = [a, b].sort().join('|');
+        m.linkSeen = m.linkSeen || {};
+        const other = m.city === a ? b : a;
+        if (m.linkSeen[k] === other) world.stats.legs[k] = (world.stats.legs[k] || 0) + 1;
+        m.linkSeen[k] = m.city;
+      }
     }
     emit(world, { type: 'orderArrive', merchant: m.id, city: m.city, quiet: true, text: `${m.name}（定期便）が${world.cities[m.city].name}に着いた` });
     runOrder(world, m);

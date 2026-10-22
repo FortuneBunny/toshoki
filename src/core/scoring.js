@@ -109,6 +109,14 @@ export function goalProgress(world, g) {
       const reached = g.pop ? best.pop >= g.pop : cityTier(best) >= g.tier;
       return { p: reached ? 1 : Math.min(0.99, best.pop / hi), text: `交易所を開いて${goal}に育てる（${best.name} 人口 ${Math.floor(best.pop)}/${hi}）` };
     }
+    case 'hamletPost': {
+      // その集落を取り込んだ交易所を育てる（版4のシナリオ。s4 の蜃気楼オアシス）
+      const hm = (world.hamlets || []).find((x) => x.name === g.hamlet);
+      const c = hm?.absorbedBy ? world.cities[hm.absorbedBy] : null;
+      const mine = c && c.founded && !c.rivalPost;
+      if (!mine) return { p: 0, text: `${g.hamlet}を交易所の圏に入れ、その交易所を人口${g.pop}に育てる（${c ? `${c.name}はライバルの交易所` : 'まだ圏に入れていない'}）` };
+      return { p: Math.min(c.pop >= g.pop ? 1 : 0.99, c.pop / g.pop), text: `${g.hamlet}を取り込んだ${c.name}を人口${g.pop}に育てる（今 ${Math.floor(c.pop)}）` };
+    }
     case 'posts': {
       // 自分の交易所を、いくつも育てる（町のないシナリオ）
       const posts = Object.values(world.cities).filter((c) => c.founded);

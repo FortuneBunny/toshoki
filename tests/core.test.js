@@ -651,3 +651,36 @@ test('定期便は仕入れ値を割って売らない。長く売れなけれ�
   G.advance(w, G.BALANCE.orderHoldDays + 20);
   assert.equal(w.stats.lossSales, 1, '長く売れないままでも売らなかった');
 });
+
+test('版4の s2〜s8: 最初の交易所を開いて遊べ、セーブとロードで同じに進む', () => {
+  for (const id of ['s2', 's3', 's4', 's5', 's6', 's7', 's8']) {
+    const w = G.createWorld(id, { seed: 3 });
+    assert.ok(G.isPioneer(w), `${id} が町のない始まり方になっていない`);
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    const s = G.foundSites(w, 1)[0];
+    assert.ok(s, `${id} に最初の交易所の場所がない`);
+    assert.ok(G.foundPost(w, s.x, s.y).ok);
+    assert.ok(w.player.merchants.length >= 1);
+    G.advance(w, 40, { stopOn: new Set() });
+    const w2 = G.deserialize(G.serialize(w));
+    G.advance(w, 30, { stopOn: new Set() });
+    G.advance(w2, 30, { stopOn: new Set() });
+    assert.equal(Math.round(w.player.silver), Math.round(w2.player.silver), `${id} のセーブとロードがずれた`);
+    assert.deepEqual(G.goalsStatus(w).map((g) => g.p), G.goalsStatus(w2).map((g) => g.p));
+  }
+});
+
+test('版3の s2 のセーブは、版3の定義で続きを遊べる', () => {
+  const w = G.createWorld('s2', { seed: 1, v3: true });
+  const w2 = G.deserialize(G.serialize(w));
+  assert.ok(w2.cities.mugi, '版3の町がない');
+  assert.ok(!G.isPioneer(w2));
+});
+
+test('古い町の入荷の波は、町の「これから」に出る', () => {
+  const w = G.createWorld('s2', { seed: 1 });
+  const notes = [];
+  for (let i = 0; i < 9; i++) { notes.push(...G.cityOutlook(w, w.cities.kohaku).map((o) => o.text)); G.advance(w, 10, { stopOn: new Set() }); }
+  assert.ok(notes.some((t) => t.includes('入荷が細っていく')));
+  assert.ok(notes.some((t) => t.includes('入荷が戻ってくる')));
+});
