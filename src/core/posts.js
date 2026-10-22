@@ -145,7 +145,8 @@ export function linkPostHops(world, id) {
 
 // 交易所の格（0 交易所・1 市場・2 大市場）。古いセーブの交易所は格がないので、市場として扱う
 export function postGrade(city) {
-  return city.grade ?? (city.founded ? 1 : 2);
+  // 町のないシナリオの古い町は「市場」扱い（大市場扱いで、格上げなしに宮殿まで建てられた。18回目の Opus）
+  return city.grade ?? (city.founded || city.oldTown ? 1 : 2);
 }
 export const gradeName = (g) => B.postGradeNames[g];
 

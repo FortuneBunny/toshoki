@@ -45,7 +45,8 @@ export function arriveAt(world, m) {
         const k = [a, b].sort().join('|');
         m.linkSeen = m.linkSeen || {};
         const other = m.city === a ? b : a;
-        if (m.linkSeen[k] === other) world.stats.legs[k] = (world.stats.legs[k] || 0) + 1;
+        // 荷を積んで着いた片道だけを数える（空荷の便を空き地の交易所と往復させて、16日で3往復を済ませられた。18回目の Sol）
+        if (m.linkSeen[k] === other && Object.values(m.cargo).some((n) => n >= 1)) world.stats.legs[k] = (world.stats.legs[k] || 0) + 1;
         m.linkSeen[k] = m.city;
       }
     }

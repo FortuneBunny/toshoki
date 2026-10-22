@@ -53,6 +53,7 @@ export const BALANCE = {
   // 移動と危険
   banditBase: 0.025,          // 危険度1の道で、1日あたり襲われる確率
   guardWage: 2,               // 護衛1人の1日の給金
+  oldTownProducers: 4,        // 古い町に自分で置ける生産施設の数
   orderHoldDays: 60,          // 定期便は仕入れ値を割って売らない。ただし、この日数売れないままなら最低売値だけで売る
   guardPower: 1,              // 護衛1人の強さ
   banditPower: [1, 4],        // 盗賊の強さの範囲

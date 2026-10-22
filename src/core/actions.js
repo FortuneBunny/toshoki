@@ -179,6 +179,9 @@ export function placeProducer(world, cityId, type, x, y) {
   if (['food', 'sweet'].includes(GOODS[p.good].kind) && !(city.district.native || []).includes(p.good)) return fail(`${city.name}の土地では${GOODS[p.good].name}は育たない（食べ物と甘味は、元から作っている品だけ増産できる。ほかの町から運ぼう）`);
   if (!producerUsable(world, type)) return fail(`${p.name}を置くには技術「${neededTech(world, 'producers', type)}」が要る`);
   if (!hasPresence(world, cityId)) return fail('置くには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
+  // 古い町に自分で置ける生産施設は4つまで（琥珀京に畑を32並べると、食卓の多様さを飛ばして都が育った。18回目の Opus）
+  const placedHere = city.district.buildings.filter((b) => b.placed && PRODUCERS[b.type]).length;
+  if (city.oldTown && placedHere >= B.oldTownProducers) return fail(`${city.name}は古い町なので、自分で置ける生産施設は${B.oldTownProducers}つまで（自分の交易所なら制限なし）`);
   const why = placeCheck(city, cityTier(city), type, x, y);
   if (why) return fail(why);
   const cost = producerCost(world, type);

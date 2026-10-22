@@ -303,7 +303,8 @@ test('目標「網」: 街道を敷くと町がつながる。目標「結ぶ」
   assert.ok(G.buildPath(w, 'toumitsu', 'hachi', 'road').ok);
   assert.equal(G.goalProgress(w, g).p, 1);
   // 途中で糖蜜町に寄っても、甘蔗の里と翠糖京の行き来は数える（s3 の目標）
-  const r = G.setOrder(w, 1, { stops: [{ city: 'kibi', buy: [], sell: [] }, { city: 'toumitsu', buy: [], sell: [] }, { city: 'suitou', buy: [], sell: [] }] });
+  // 荷を積んで着いた片道だけを数える（空荷の便は数えない）
+  const r = G.setOrder(w, 1, { stops: [{ city: 'kibi', buy: [{ good: 'wheat', qty: 10, max: 99 }], sell: [{ good: 'dates', min: 0 }] }, { city: 'toumitsu', buy: [], sell: [] }, { city: 'suitou', buy: [{ good: 'dates', qty: 10, max: 99 }], sell: [{ good: 'wheat', min: 0 }] }] });
   assert.ok(r.ok, r.error);
   for (let i = 0; i < 120; i++) G.advance(w, 1);
   assert.ok(G.goalProgress(w, { type: 'link', a: 'kibi', b: 'suitou', count: 2 }).p > 0, '寄り道しても往復が数えられる');
@@ -704,4 +705,11 @@ test('s3 の目標「白糖を売った額」は、市場で買った白糖の�
   w.stats.soldValue = { whitesugar: 5000 };
   w.stats.boughtValue = { whitesugar: 2000 };
   assert.equal(Math.round(G.goalProgress(w, g).p * g.amount), 3000);
+});
+
+test('目標「結ぶ」は、空荷の便を数えない', () => {
+  const w = G.createWorld('s3', { seed: 1, v3: true });
+  assert.ok(G.setOrder(w, 1, { stops: [{ city: 'kibi', buy: [], sell: [] }, { city: 'suitou', buy: [], sell: [] }] }).ok);
+  for (let i = 0; i < 120; i++) G.advance(w, 1);
+  assert.equal(G.goalProgress(w, { type: 'link', a: 'kibi', b: 'suitou', count: 2 }).p, 0);
 });

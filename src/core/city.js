@@ -201,7 +201,7 @@ export function updateCity(world, city) {
   rushCycle(world, city);
   // 落ち着いた古い町（シナリオの定義の steady）は、人口が動かない。入荷の波がそのまま値の上下に出る
   // （s2 の琥珀京は、届いた食べ物で人口7000まで膨らみ、そのあと飢えた）
-  if (!world.scenario.cities?.find((x) => x.id === city.id)?.steady) city.pop = Math.max(20, city.pop * (1 + growthRate(city)));
+  if (!city.steady) city.pop = Math.max(20, city.pop * (1 + growthRate(city)));
   // 住居の求める品が「1つ欠けまで」そろっていないと、新しい家は建たない（空き家は出る）
   const dw = dwellingStatus(city, cityTier(city));
   // 知らせるのは60日に1回まで（行ったり来たりで何度も出ないように）
@@ -270,6 +270,9 @@ export function cityOutlook(world, city) {
   else if (city.crash > 0) out.push({ kind: 'crash', text: `💥クラッシュ中（あと${city.crash}日）。甘味が売れにくく、町も育たない` });
   else if (city.glucose >= line - 15 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet')) {
     out.push({ kind: 'rushSoon', text: `🍬ラッシュ間近（糖度${Math.round(city.glucose)}・${line}で始まる）。甘味を2種類まとめて届けると始まり、甘味が高く売れる` });
+  } else if (city.glucose >= line - 45 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet' && dailyDemand(city, g, false) > 0)) {
+    // 食べ物だけでは「間近」の糖度に届かない。この印を待っていると、ラッシュが一度も起きなかった（18回目の Opus）
+    out.push({ kind: 'rushSoon', text: `🍬甘味でラッシュに届く（糖度${Math.round(city.glucose)}・${line}で始まる。食べ物だけでは届かない。甘味を2種類まとめて届けると糖度が上がる）` });
   }
   const to = city.glucoseTarget ?? city.glucose;
   if (to - city.glucose > 3) out.push({ kind: 'up', text: `糖度 上向き（${Math.round(city.glucose)}→${Math.round(to)}）` });
@@ -303,6 +306,7 @@ export function cityOutlook(world, city) {
 }
 
 export function growthPerDay(city) {
+  if (city.steady) return 0; // 人口が動かない古い町
   return growthRate(city);
 }
 

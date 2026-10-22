@@ -105,6 +105,8 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
       pop: c.pop, basePop: c.pop, glucose: c.glucose ?? 75, glucoseTarget: 75, luxury: 1,
       produces: { ...(c.produces || {}) }, stock: {}, rush: 0, crash: 0, rushCount: 0,
       prodMods: {}, demandMods: {}, priceMods: {}, growthMod: 1,
+      // 町のないシナリオの古い町: 格は「市場」扱い（宮殿は建てられない）。steady なら人口が動かない
+      ...(sc.pioneer ? { oldTown: true } : {}), ...(c.steady ? { steady: true } : {}),
     };
   }
   // 町のないシナリオ（版4 H2）: 集落・野の需要施設・一族の館。マス目を作る前に（まわりの山を退かすため）
@@ -262,6 +264,8 @@ function upkeep(world) {
     pl.rep = Math.max(0, pl.rep - 30);
     emit(world, { type: 'aid', big: true, text: '一族の長老から援助が届いた（+200 銀、評判 -30）。援助は一度きり' });
   }
+  // 借金のまま定期便が回っていると、何も買えずに給金だけがかかり続ける（18回目の Opus）。30日ごとに知らせる
+  if (pl.silver < 0 && pl.debtWarned && world.day % 30 === 0 && pl.merchants.some((m) => m.order)) emit(world, { type: 'debt', bad: true, big: true, text: `銀が${Math.floor(pl.silver)}のまま。定期便は何も買えず、給金と維持費（1日${Math.round(dailyCost(world, { guards: true }))}銀）だけがかかっている。積荷や倉庫の品を売るか、商人に暇を出そう` });
   if (pl.silver < 0 && !pl.debtWarned) {
     pl.debtWarned = true;
     emit(world, { type: 'debt', bad: true, text: '銀が底をついた！借金の状態では仕入れができない' });

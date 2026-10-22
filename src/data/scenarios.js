@@ -145,7 +145,7 @@ const s4 = {
   pioneer: {
     families: [{ id: 'hasan', name: 'ハサン家', x: 545, y: 365, text: '砂の海の真ん中、蜃気楼オアシスのそばに館がある。' }],
     // 蜃気楼オアシスのそば（市場の圏）に、ぶどうの泉。格上げすると取り込める（オアシスが人口1000に届かなかった。17回目の Opus・Sol）
-    hamlets: [{ name: '蜃気楼オアシス', x: 580, y: 335, pop: 360, foods: { dates: 4, salt: 2 } }, { name: 'ぶどうの泉', x: 602, y: 357, pop: 120, foods: { grapes: 1.2 } }],
+    hamlets: [{ name: '蜃気楼オアシス', x: 580, y: 335, pop: 360, foods: { dates: 4, salt: 2 } }, { name: 'ぶどうの泉', x: 612, y: 362, pop: 120, foods: { grapes: 1.2 } }],
     wilds: [{ type: 'inn', x: 584, y: 315 }],
     rivalPosts: [],
   },
