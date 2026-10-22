@@ -5,6 +5,9 @@ import { TRANSPORTS } from '../data/transports.js';
 import { quote, cityWants, midPrice } from './market.js';
 import { findPath } from './caravan.js';
 import { emit } from './events.js';
+import { BALANCE as B } from '../data/balance.js';
+import { foundSites, createPost } from './posts.js';
+import { HQ_RANGE } from './pioneer.js';
 
 function bestPlan(world, r, m) {
   const here = world.cities[m.city];
@@ -54,6 +57,7 @@ export function updateRivals(world) {
       emit(world, { type: 'rivalAid', text: `${r.name}は一族から援助を受けて持ち直した` });
     }
     for (const m of r.merchants) {
+      if (!m.city && !m.dest) continue; // 町のないシナリオで、まだ交易所がない
       if (m.travelDays > 0) {
         m.travelDays--;
         if (m.travelDays > 0) continue;
@@ -131,5 +135,40 @@ export function updateRivals(world) {
       m.from = m.city;
       m.departDay = world.day;
     }
+  }
+}
+
+// ---------- 町のないシナリオのライバル（版4 H2） ----------
+// ライバルも自分の館の近くから交易所を開いて育てる。集落と野の需要施設を取り合う相手になる。
+// 開いた交易所は、だれでも売り買いできる市場（プレイヤーの交易所ではない）
+const RIVAL_POST_NAMES = ['砂金の辻', '紅の市', '鷹の宿', '黒曜の市', '翡翠の辻'];
+export function rivalFound(world) {
+  const pz = world.scenario.pioneer;
+  if (!pz) return;
+  for (const r of world.rivals) {
+    if (!r.hq) continue;
+    r.posts = r.posts || [];
+    // 格上げ: 人口で自然に上がる
+    for (const id of r.posts) {
+      const c = world.cities[id];
+      if (c && c.grade < 2 && c.pop >= B.rivalGradePop[c.grade]) { c.grade += 1; emit(world, { type: 'rivalPost', city: id, text: `${r.name}の${c.name}が「${B.postGradeNames[c.grade]}」になった` }); }
+    }
+    const plan = pz.rivalPosts || [6, 160, 340];
+    if (r.posts.length >= plan.length || world.day < plan[r.posts.length]) continue;
+    const anchors = r.posts.length ? r.posts.map((id) => world.grid.cityTiles[id]) : [r.hq];
+    const reach = r.posts.length ? 34 : HQ_RANGE;
+    let best = null;
+    for (const s of foundSites(world, 60)) {
+      const d = Math.min(...anchors.map(([ax, ay]) => Math.max(Math.abs(ax - s.x), Math.abs(ay - s.y))));
+      if (d > reach) continue;
+      const score = s.score - d * 0.08;
+      if (!best || score > best.score) best = { ...s, score };
+    }
+    if (!best) { r.posts.push(null); continue; }
+    const n = r.posts.filter(Boolean).length;
+    const c = createPost(world, best.x, best.y, { id: `rpost${world.rivals.indexOf(r) + 1}_${n + 1}`, name: RIVAL_POST_NAMES[n % RIVAL_POST_NAMES.length], rival: r.name });
+    r.posts.push(c.id);
+    for (const m of r.merchants) if (!m.city) m.city = c.id;
+    emit(world, { type: 'rival', city: c.id, bad: true, text: `${r.name}が交易所「${c.name}」を開いた。まわりの集落は${r.name}のものになる（売り買いはだれでもできる）` });
   }
 }

@@ -4,7 +4,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { midPrice, targetStock } from './market.js';
 import { jitter } from './rng.js';
 import { emit } from './events.js';
-import { districtProduction, staffing, housingCap, updateHousing, civicDemand, civicsIn, civicSatisfaction } from './district.js';
+import { districtProduction, staffing, housingCap, updateHousing, civicDemand, civicsIn, civicSatisfaction, wildDemand } from './district.js';
 import { CIVICS } from '../data/district.js';
 import { dwellingDemand, updateDwellingSat, dwellingStatus, assignDwelling } from './dwelling.js';
 import { gainRep } from './trade.js';
@@ -18,10 +18,11 @@ export function cityTier(city) {
 export const tierName = (t) => B.tierNames[t];
 
 // 1日の消費量の基準。withPrice=true なら価格による増減と、ラッシュとクラッシュも反映する。
-export function dailyDemand(city, id, withPrice = true) {
+// wild=false なら、野の需要施設の分を除く（町の人が食べる分だけ）
+export function dailyDemand(city, id, withPrice = true, { wild = true } = {}) {
   const g = GOODS[id];
   // 需要施設と住居が求める品は、町の段階が低くても需要がある
-  const civic = civicDemand(city, id) + dwellingDemand(city, id, cityTier(city));
+  const civic = civicDemand(city, id, { wild }) + dwellingDemand(city, id, cityTier(city));
   if ((!g.rate || cityTier(city) < g.tier) && !civic) return 0;
   let d = (g.rate && cityTier(city) >= g.tier ? (g.rate * city.pop) / 1000 : 0) + civic;
   d *= city.demandMods?.[id] ?? 1;
@@ -59,23 +60,35 @@ function produce(world, city) {
   }
 }
 
+const NOWILD = { wild: false };
 function consume(world, city) {
   const need = glucoseNeed(city);
-  // 主食と果実は、必要量 × 上限 まで食べる（多すぎる分は比例して減らす）
   const ids = world.scenario.goods;
+  // 野の需要施設（寺院・隊商宿・館）は、求める品を決まった量だけ買って使う。町の人の糖度には入らない
+  city.wildEat = {};
+  for (const id of ids) {
+    const wd = wildDemand(city, id);
+    if (!wd) continue;
+    const p = midPrice(city, id);
+    const want = wd * Math.min(B.consumeMax, Math.max(B.consumeMin, Math.pow(GOODS[id].base / p, B.consumeElasticity)));
+    const eat = Math.min(city.stock[id] || 0, want);
+    city.stock[id] = (city.stock[id] || 0) - eat;
+    city.wildEat[id] = want > 0 ? eat / want : 0;
+  }
+  // 主食と果実は、必要量 × 上限 まで食べる（多すぎる分は比例して減らす）
   const foods = ids.filter((id) => GOODS[id].kind === 'food');
   const want = {};
   let wantGlu = 0;
   // 同じ食べ物だけでは糖度に上限がある（食卓の多様さが成長の鍵）
   const singleCap = (need * B.singleFoodCap);
   for (const id of foods) {
-    const w = Math.min(city.stock[id] || 0, dailyDemand(city, id), singleCap / GOODS[id].glu);
+    const w = Math.min(city.stock[id] || 0, dailyDemand(city, id, true, NOWILD), singleCap / GOODS[id].glu);
     want[id] = w;
     wantGlu += w * GOODS[id].glu;
   }
   const scale = wantGlu > need * B.baseFoodCap ? (need * B.baseFoodCap) / wantGlu : 1;
   city.eatRatio = {};
-  for (const id of foods) { const dd = dailyDemand(city, id); city.eatRatio[id] = dd > 0 ? Math.min(1, (city.stock[id] || 0) / dd) : 0; }
+  for (const id of foods) { const dd = dailyDemand(city, id, true, NOWILD); city.eatRatio[id] = dd > 0 ? Math.min(1, (city.stock[id] || 0) / dd) : 0; }
   let baseGlu = 0;
   city.diet = {};
   for (const id of foods) {
@@ -91,7 +104,7 @@ function consume(world, city) {
     if (GOODS[id].kind !== 'sweet') continue;
     // ドカ食い: 町が持ちたい量を超えた甘味は、毎日その一部が余分に食べられる
     const surplus = Math.max(0, (city.stock[id] || 0) - targetStock(city, id));
-    const dmd = dailyDemand(city, id);
+    const dmd = dailyDemand(city, id, true, NOWILD);
     const eat = Math.min(city.stock[id] || 0, dmd + surplus * B.sweetBinge * (city.crash > 0 ? 0.2 : 1));
     city.eatRatio[id] = dmd > 0 ? Math.min(1, eat / dmd) : 0;
     if (eat <= 0) continue;
@@ -105,7 +118,7 @@ function consume(world, city) {
   let luxGot = 0;
   for (const id of ids) {
     if (GOODS[id].kind !== 'goods') continue;
-    const d = dailyDemand(city, id);
+    const d = dailyDemand(city, id, true, NOWILD);
     if (d <= 0) continue;
     const eat = Math.min(city.stock[id] || 0, d);
     city.eatRatio[id] = Math.min(1, eat / d);

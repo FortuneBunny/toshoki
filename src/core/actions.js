@@ -198,7 +198,7 @@ export function civicCost(world, type) {
 export function civicCheck(world, cityId, type) {
   const city = world.cities[cityId];
   const c = CIVICS[type];
-  if (!city || !c) return '建てられない';
+  if (!city || !c || c.wild) return '建てられない';
   if (!districtEnabled(world)) return 'このシナリオでは区画に建物を置けない';
   if (!civicWants(type, world.scenario.goods).length) return `${c.name}が求める品を、このシナリオでは扱わない`;
   if (cityTier(city) < c.minTier) return `${c.name}は「${['集落', '村', '町', '都市', '大都市'][c.minTier]}」以上の町に建てられる`;
@@ -251,6 +251,7 @@ export function expandMarket(world, cityId) {
   const city = world.cities[cityId];
   if (!city) return fail('不明な町');
   if (!districtEnabled(world)) return fail('このシナリオでは区画を広げられない');
+  if (city.rivalPost) return fail(`${city.rivalPost}の交易所は広げられない`);
   if (!hasPresence(world, cityId)) return fail('広げるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   if (city.founded && city.grade !== undefined) {
     if (city.grade >= 2) return fail('もう大市場になっている（いちばん上の格）');

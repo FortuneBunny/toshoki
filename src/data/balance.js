@@ -87,6 +87,8 @@ export const BALANCE = {
   postGradeNames: ['交易所', '市場', '大市場'],
   postGradeRadius: [2, 4, 6], // 格ごとの市場の圏（中心からのマス数）
   postUpgradeCost: [0, 900, 2400], // その格へ上げる費用
+  pioneerPostPop: 40,
+  rivalGradePop: [700, 2600],  // ライバルの交易所が市場・大市場になる人口         // 町のないシナリオの交易所の、集落を除いた最初の人口
   postGrowth: 1.6,            // 交易所に食べ物を3種類以上届けているときの成長倍率
   // 区画: 生産施設を置いたとき
   producerBuildDays: 10,      // 置いてから動き出すまでの日数

@@ -6,7 +6,7 @@ const { GOODS, TRANSPORTS } = G;
 
 function parse() {
   const args = process.argv.slice(2);
-  const opts = { seeds: 20, bots: 'idle,random,known,greedy,sweet', scenarios: [] };
+  const opts = { seeds: 20, bots: 'idle,random,known,greedy,sweet,pioneer', scenarios: [] };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--seeds') opts.seeds = Number(args[++i]);
     else if (args[i] === '--bots') opts.bots = args[++i];
@@ -47,7 +47,7 @@ function sellAll(world, m, cheat, filter = () => true) {
 }
 
 // 今いる町で何を買ってどこへ行くか
-function plan(world, m, { cheat, goods }) {
+function plan(world, m, { cheat, goods, keep = false }) {
   const here = world.cities[m.city];
   const cap = G.cargoCap(m) - G.cargoUsed(m);
   let best = null;
@@ -57,7 +57,9 @@ function plan(world, m, { cheat, goods }) {
     if (!route) continue;
     const desert = route.edges.some((e) => e.kind === 'desert');
     for (const good of goods) {
-      let n = Math.min(Math.floor(cap / GOODS[good].weight), Math.floor(here.stock[good] || 0));
+      // keep: 町が持ちたい在庫は残す（自分の交易所を飢えさせない）
+      const avail = keep ? Math.max(0, (here.stock[good] || 0) - G.targetStock(here, good) * 0.6) : here.stock[good] || 0;
+      let n = Math.min(Math.floor(cap / GOODS[good].weight), Math.floor(avail));
       while (n > 0 && G.quote(world, here, good, n) > world.player.silver) n = Math.floor(n * 0.8);
       if (n < 2) continue;
       // 買い過ぎで値が上がりすぎないよう、利益が最大になる数を探す
@@ -127,11 +129,11 @@ export const BOTS = {
   sweet: (world, m) => trader(world, m, { cheat: false, onlySweet: true }),
 };
 
-function trader(world, m, { cheat, onlySweet }) {
+function trader(world, m, { cheat, onlySweet, keep = false }) {
   const goods = world.scenario.goods.filter((g) => !onlySweet || GOODS[g].kind === 'sweet');
   sellAll(world, m, cheat, (g) => !onlySweet || GOODS[g].kind === 'sweet' || !G.PROVISIONS.includes(g));
   upgrade(world, m);
-  const p = plan(world, m, { cheat, goods });
+  const p = plan(world, m, { cheat, goods, keep });
   if (p && p.perDay > 1) {
     G.trade(world, m.id, [{ good: p.good, qty: p.n }]);
     if (p.desert) provisions(world, m, p.days);
@@ -268,12 +270,78 @@ function goalBot(world, m) {
 }
 BOTS.goal = goalBot;
 
-export function playBot(scenarioId, seed, botName, heirloom = null) {
+// ---------- 町のないシナリオ（版4 H2） ----------
+// 始め方: 一族を選び（fam 番目）、館のそばの一番良い場所に最初の交易所を置く。どのボットも同じ（idle でも）
+export function pioneerStart(world, fam = 0) {
+  if (G.setupStage(world) === 'family') G.chooseFamily(world, G.familyList(world)[fam % G.familyList(world).length].id);
+  const s = G.foundSites(world, 1)[0];
+  if (s) G.foundPost(world, s.x, s.y);
+}
+
+const ownPosts = (world) => Object.values(world.cities).filter((c) => c.founded);
+// 開拓の運営: 交易所を開く・格上げ・道・工房・技術（毎日1回）
+export function pioneerManage(world) {
+  const pl = world.player;
+  const posts = ownPosts(world);
+  const have = new Set(posts.flatMap((c) => Object.keys(c.produces).filter((g) => c.produces[g] > 0)));
+  // 交易所を開く: 自分の交易所から近く、まだ作っていない食べ物の集落がある場所
+  if (posts.length < 5 && pl.silver > G.postCost(world) + 350) {
+    let best = null;
+    for (const s of G.foundSites(world, 40)) {
+      const d = Math.min(...posts.map((c) => { const [x, y] = world.grid.cityTiles[c.id]; return Math.max(Math.abs(x - s.x), Math.abs(y - s.y)); }));
+      if (d > 32) continue;
+      const fresh = s.preview.foods.filter((g) => !have.has(g)).length;
+      const score = s.score + fresh * 6 - d * 0.2;
+      if (!best || score > best.score) best = { ...s, score };
+    }
+    if (best) G.foundPost(world, best.x, best.y);
+  }
+  for (const c of posts) {
+    // 格上げ: 家の空き地が足りなくなってきたら
+    const cost = G.expandCost(world, c.id);
+    if (cost && c.grade < 2 && c.pop >= G.housingCap(c, G.cityTier(c)) * 0.8 && pl.silver > cost + 400) {
+      const m = pl.merchants.find((x) => !x.travel && x.city === c.id);
+      if (m || c.founded) G.expandMarket(world, c.id);
+    }
+  }
+  // 道: 自分の交易所どうしを小道で（近い順に）
+  if (G.pathsBuilt(world) < G.pathsAllowed(world) && pl.silver > 900) {
+    for (let i = 1; i < posts.length; i++) {
+      const a = posts[i];
+      const b = posts.slice(0, i).sort((p, q) => G.findPath(world, a.id, p.id, 'donkey')?.days - G.findPath(world, a.id, q.id, 'donkey')?.days)[0];
+      if (!b || world.edges.some((e) => e.built && ((e.a === a.id && e.b === b.id) || (e.a === b.id && e.b === a.id)))) continue;
+      const plan = G.planPath(world, a.id, b.id, 'trail');
+      if (plan && pl.silver > plan.cost + 600) { G.buildPath(world, a.id, b.id, 'trail'); break; }
+    }
+  }
+  // 製糖所: サトウキビのある市場（格上げ済み）に
+  if ((world.scenario.buildings || []).includes('mill') && !pl.buildings.some((b) => b.type === 'mill') && pl.silver > 1200) {
+    const at = posts.find((c) => c.grade >= 1 && c.produces.cane) || posts.find((c) => c.grade >= 1);
+    if (at) {
+      const m = pl.merchants.find((x) => !x.travel && x.city === at.id);
+      if (m) G.build(world, at.id, 'mill');
+    }
+  }
+  // 技術: 白糖と菓子
+  for (const id of ['whiterefining', 'confection']) {
+    const t = G.techList(world).find((x) => x.id === id);
+    if (t && t.available && !['player', 'licensed'].includes(t.owner) && pl.silver > t.price + 1500 && pl.buildings.length) G.buyTech(world, id);
+  }
+  if (pl.buildings.some((b) => b.type === 'mill') && !pl.buildings.some((b) => b.type === 'confectionery') && pl.silver > 2500 && G.buildingUsable(world, 'confectionery')) {
+    const at = posts.find((c) => c.grade >= 1 && pl.merchants.some((x) => !x.travel && x.city === c.id));
+    if (at) G.build(world, at.id, 'confectionery');
+  }
+}
+BOTS.pioneer = (world, m) => trader(world, m, { cheat: false, keep: true });
+
+export function playBot(scenarioId, seed, botName, heirloom = null, fam = null) {
   const world = G.createWorld(scenarioId, { seed, heirloom });
+  if (G.isPioneer(world)) pioneerStart(world, fam ?? seed);
   G.drainEvents(world);
   const bot = BOTS[botName];
   let guard = 0;
   while (!world.finished && guard++ < 20000) {
+    if (botName === 'pioneer') pioneerManage(world);
     for (const m of world.player.merchants) if (!m.travel) bot(world, m);
     G.advance(world, 1, { stopOn: new Set() });
   }

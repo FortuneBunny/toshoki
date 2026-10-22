@@ -98,6 +98,12 @@ export function goalProgress(world, g) {
       const reached = g.pop ? best.pop >= g.pop : cityTier(best) >= g.tier;
       return { p: reached ? 1 : Math.min(0.99, best.pop / hi), text: `交易所を開いて${goal}に育てる（${best.name} 人口 ${Math.floor(best.pop)}/${hi}）` };
     }
+    case 'posts': {
+      // 自分の交易所を、いくつも育てる（町のないシナリオ）
+      const posts = Object.values(world.cities).filter((c) => c.founded);
+      const v = posts.filter((c) => c.pop >= g.pop).length;
+      return { p: Math.min(1, v / g.count), text: `人口${g.pop}以上の交易所を${g.count}つにする（今 ${v}つ・開いた交易所 ${posts.length}）` };
+    }
     case 'cityPop': {
       const c = world.cities[g.city];
       return { p: c.pop / g.pop, text: `${c.name}の人口を ${g.pop} にする（今 ${Math.floor(c.pop)}）` };

@@ -21,6 +21,9 @@ import { runOrder } from './orders.js';
 import { trySettle, trackPosts } from './settlers.js';
 import { PRODUCERS } from '../data/district.js';
 import { BUILDINGS } from '../data/buildings.js';
+import { initPioneer, placeHamletTiles, absorbDaily, assignRivalFamilies } from './pioneer.js';
+import { addMerchantRef } from './posts.js';
+import { rivalFound } from './rival.js';
 
 export const SAVE_VERSION = 2;
 // 地図の1ピクセルが表す距離（ロバは1日に10進む）
@@ -95,6 +98,8 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
       prodMods: {}, demandMods: {}, priceMods: {}, growthMod: 1,
     };
   }
+  // 町のないシナリオ（版4 H2）: 集落・野の需要施設・一族の館。マス目を作る前に（まわりの山を退かすため）
+  if (sc.pioneer) initPioneer(world);
   sc.edges.forEach((e, i) => {
     const a = world.cities[e.a];
     const b = world.cities[e.b];
@@ -108,6 +113,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   world.storms = [];
   Object.defineProperty(world, 'grid', { enumerable: false, writable: true, value: buildGrid(world) });
   Object.defineProperty(world, 'routeCache', { enumerable: false, writable: true, value: new Map() });
+  if (sc.pioneer) placeHamletTiles(world);
 
   // 区画: 町の中のマス目。生産は区画の建物から集計する（開始時の合計は produces と同じ）
   for (const c of Object.values(world.cities)) {
@@ -131,15 +137,17 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   const mods = world.player.mods;
   world.player.silver = Math.round(world.player.silver * (mods.startSilver ?? 1) + (mods.startBonus || 0));
 
-  for (const md of sc.start.merchants) addMerchant(world, md);
+  // 町のないシナリオでは、商人は最初の交易所を開いたときに館から出てくる（pioneer.js の finishSetup）
+  if (!sc.pioneer) for (const md of sc.start.merchants) addMerchant(world, md);
   for (const rd of sc.rivals || []) {
     world.rivals.push({
       // 工房は複製する（技術で処理量を増やすと、シナリオの定義まで変わり、次に遊ぶ世界のライバルが最初から強くなっていた）
       name: rd.name, silver: rd.silver, skill: rd.skill, goods: rd.goods, sold: {}, workshop: rd.workshop ? { ...rd.workshop } : null, store: {},
-      merchants: rd.merchants.map((rm) => ({ city: rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home })),
+      merchants: rd.merchants.map((rm) => ({ city: sc.pioneer ? null : rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home })),
     });
   }
 
+  if (sc.pioneer) assignRivalFamilies(world);
   // 町の状態をなじませる（プレイヤーのいない20日間）
   for (let i = 0; i < 20; i++) {
     applyModifiers(world);
@@ -152,7 +160,8 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   world.log = [];
   for (const m of world.player.merchants) observe(world, m.city);
   for (const id of sc.knownAtStart || []) observe(world, id);
-  emit(world, { type: 'start', text: sc.intro });
+  if (sc.pioneer) emit(world, { type: 'setup', text: world.setup.stage === 'family' ? 'まず一族を選ぶ。一族ごとに、館の立つ地域が違う' : '一族の館の近くに、最初の交易所を置こう（無料）。集落を圏に入れると、その人と畑が交易所のものになる' });
+  else emit(world, { type: 'start', text: sc.intro });
   return world;
 }
 
@@ -260,12 +269,16 @@ function scriptedUnlocks(world) {
 
 export function tick(world) {
   if (world.finished && !world.continueAfterEnd) return;
+  // 町のないシナリオで、まだ最初の交易所を置いていない間は、時間が進まない
+  if (world.setup) return;
   world.day += 1;
   applyModifiers(world);
   scriptedUnlocks(world);
   rivalTechs(world);
   updateEvents(world);
   for (const c of Object.values(world.cities)) updateCity(world, c);
+  absorbDaily(world);
+  rivalFound(world);
   trackPosts(world);
   diffuse(world);
   updateProduction(world);
@@ -299,3 +312,6 @@ export function dateString(day) {
 }
 
 export { GOODS };
+
+// posts.js から商人を足すため（最初の交易所を開いたとき）
+addMerchantRef.fn = addMerchant;

@@ -105,6 +105,18 @@ export function buildGrid(world) {
     }
     terrain[key(cx, cy)] = c.tags?.includes('desert') ? T.SAND : T.PLAIN;
   }
+  // 町のないシナリオ: 集落・野の需要施設・一族の館のまわりも、開けた陸地にする
+  const spots = [...(world.hamlets || []), ...(world.wilds || [])].map((o) => [o.x, o.y, 2]);
+  if (world.player?.hq) spots.push([...world.player.hq, 2]);
+  for (const r of world.rivals || []) if (r.hq) spots.push([...r.hq, 2]);
+  for (const f of sc.pioneer?.families || []) spots.push([...tileOf(f.x, f.y), 2]);
+  for (const [cx, cy, rr] of spots) for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) {
+    const x = cx + dx;
+    const y = cy + dy;
+    if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) continue;
+    const k = key(x, y);
+    if (terrain[k] === T.MOUNTAIN || terrain[k] === T.WATER) terrain[k] = T.PLAIN;
+  }
   const cityAt = new Map(Object.entries(cityTiles).map(([id, [x, y]]) => [key(x, y), id]));
   const grid = { terrain, path, danger, cityTiles, cityAt, edgeTiles: {}, version: 0 };
   // 最初の道: シナリオの道をマスの上に敷く（海の道は敷かない＝船は水の上を自由に進む）

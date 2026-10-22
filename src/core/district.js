@@ -161,16 +161,23 @@ export function civicsIn(city) {
   return city.district ? city.district.buildings.filter((b) => CIVICS[b.type]) : [];
 }
 
-// この町に需要施設が生む、その品の1日の需要（人口1000人あたりの量 × 人口）
-export function civicDemand(city, id) {
+// この町に需要施設が生む、その品の1日の需要（人口1000人あたりの量 × 人口。野の需要施設は決まった量）
+export function civicDemand(city, id, { wild = true } = {}) {
   let d = 0;
   for (const b of civicsIn(city)) d += CIVICS[b.type].wants[id] || 0;
-  return d ? (d * city.pop) / 1000 : 0;
+  return (d ? (d * city.pop) / 1000 : 0) + (wild ? wildDemand(city, id) : 0);
+}
+
+// 野の需要施設が1日に買う量（町の人口によらない）
+export function wildDemand(city, id) {
+  let d = 0;
+  for (const b of civicsIn(city)) d += CIVICS[b.type].flat?.[id] || 0;
+  return d;
 }
 
 // シナリオで扱う品のうち、その施設が求めるもの
 export function civicWants(type, goods) {
-  return Object.keys(CIVICS[type].wants).filter((g) => goods.includes(g));
+  return Object.keys({ ...CIVICS[type].wants, ...(CIVICS[type].flat || {}) }).filter((g) => goods.includes(g));
 }
 
 // 需要施設の満足度（0〜1）: 求める品が、需要に対してどれだけ届いたか（町の消費の記録から）
@@ -178,7 +185,8 @@ export function civicSatisfaction(city, type, goods) {
   // まだ技術で開いていない品（どの町でも求められない品）は数えない
   const ids = civicWants(type, goods).filter((g) => (city.demandMods?.[g] ?? 1) > 0);
   if (!ids.length) return 0;
-  return ids.reduce((s, g) => s + Math.min(1, city.eatRatio?.[g] ?? 0), 0) / ids.length;
+  const ratio = CIVICS[type].wild ? city.wildEat : city.eatRatio;
+  return ids.reduce((s, g) => s + Math.min(1, ratio?.[g] ?? 0), 0) / ids.length;
 }
 
 // ---------- 住居と労働力（D2） ----------
@@ -281,7 +289,7 @@ export function worldToDistrict(city, wx, wy) {
 // その町の今の市場の圏
 export function cityRadius(city, tier) {
   // 交易所は、格で圏が決まる（町の段階では広がらない。広げるには格上げする）
-  if (city.founded && city.grade !== undefined) return Math.min(C, B.postGradeRadius[city.grade] + (city.district.radiusBonus || 0));
+  if (city.grade !== undefined) return Math.min(C, B.postGradeRadius[city.grade] + (city.district.radiusBonus || 0));
   return marketRadius(tier, city.district.radiusBonus || 0);
 }
 

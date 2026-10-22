@@ -26,6 +26,9 @@ function obtainable(world) {
   const set = new Set();
   for (const c of Object.values(world.cities)) for (const [g, r] of Object.entries(c.produces || {})) if (r > 0) set.add(g);
   for (const b of world.scenario.buildings || []) for (const r of BUILDINGS[b]?.recipes || []) for (const g of Object.keys(r.out)) set.add(g);
+  // 町のないシナリオ: まだ交易所の圏に入っていない集落の食べ物も、いずれ手に入る
+  for (const hm of world.hamlets || []) for (const g of Object.keys(hm.foods)) set.add(g);
+  for (const g of world.scenario.pioneer?.obtainable || []) set.add(g);
   return set;
 }
 

@@ -90,7 +90,8 @@ export function rivalTechs(world) {
   world.rivalTech = world.rivalTech || {};
   for (const t of techList(world)) {
     if (t.id !== 'refinery' && t.id !== 'wheel' && !TECHS[t.id].unlocks) continue;
-    if (world.rivalTech[t.id] || world.day < t.from + 45) continue;
+    // 町のないシナリオでは、ライバルも始めは貧しいので遅めに買う
+    if (world.rivalTech[t.id] || world.day < t.from + (world.scenario.pioneer ? 80 : 45)) continue;
     world.rivalTech[t.id] = true;
     world.techs = world.techs || {};
     const name = world.rivals[0].name;
