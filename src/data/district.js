@@ -66,9 +66,9 @@ export const CIVICS = {
 // 野の需要施設（版4 H2）: 町のない土地に最初から立っている。交易所の圏に入ると、その交易所の買い手になる。
 // flat: 1日に買う量（人口によらない）。プレイヤーは建てられない。序盤の確かな稼ぎ先
 export const WILD_CIVICS = {
-  shrine: { name: '古い寺院', wild: true, minTier: 0, cost: 0, wants: {}, flat: { dates: 1.5, honey: 0.5, grapes: 1, raisins: 0.5, rawsugar: 0.6, cane: 1.5 }, growth: 0.05, effect: '供物（果実と甘味）を毎日買う' },
-  inn: { name: '隊商宿', wild: true, minTier: 0, cost: 0, wants: {}, flat: { wheat: 2, millet: 2, rice: 2, salt: 1, dates: 1.5 }, growth: 0.05, effect: '旅人の食べ物と塩を毎日買う' },
-  manor: { name: '領主の館', wild: true, minTier: 0, cost: 0, wants: {}, flat: { rawsugar: 1, whitesugar: 0.6, sweets: 0.5, wine: 0.5, tea: 0.6, pottery: 0.6, teacake: 0.5, spicesugar: 0.3 }, growth: 0.05, effect: '甘味と贅沢品を毎日買う' },
+  shrine: { name: '古い寺院', img: 'temple', wild: true, minTier: 0, cost: 0, wants: {}, flat: { dates: 1.5, honey: 0.5, grapes: 1, raisins: 0.5, rawsugar: 0.6, cane: 1.5 }, growth: 0.05, effect: '供物（果実と甘味）を毎日買う' },
+  inn: { name: '隊商宿', img: 'caravanserai', wild: true, minTier: 0, cost: 0, wants: {}, flat: { wheat: 2, millet: 2, rice: 2, salt: 1, dates: 1.5 }, growth: 0.05, effect: '旅人の食べ物と塩を毎日買う' },
+  manor: { name: '領主の館', img: 'palace', wild: true, minTier: 0, cost: 0, wants: {}, flat: { rawsugar: 1, whitesugar: 0.6, sweets: 0.5, wine: 0.5, tea: 0.6, pottery: 0.6, teacake: 0.5, spicesugar: 0.3 }, growth: 0.05, effect: '甘味と贅沢品を毎日買う' },
 };
 Object.assign(CIVICS, WILD_CIVICS);
 

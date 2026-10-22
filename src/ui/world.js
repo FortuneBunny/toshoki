@@ -249,7 +249,7 @@ export function createWorldView(container, world, handlers) {
         if (ready(im)) { c.globalAlpha = building ? 0.45 : 1; c.drawImage(im, sx - s / 2, sy - s * 0.85, s, s); c.globalAlpha = 1; }
         continue;
       }
-      const path = G.CIVICS[b.type] ? `cities/${b.type}` : `cities/${b.type}`;
+      const path = `cities/${G.CIVICS[b.type]?.img || b.type}`;
       const im = img(path);
       const s = 40 * cam.zoom;
       if (ready(im)) c.drawImage(im, sx - s / 2, sy - s * 0.8, s, s);
@@ -290,7 +290,6 @@ export function createWorldView(container, world, handlers) {
   }
 
   // 町のないシナリオ（版4 H2）: まだ交易所の圏に入っていない集落・野の需要施設と、一族の館
-  const WILD_IMG = { shrine: 'cities/temple', inn: 'cities/caravanserai', manor: 'cities/palace' };
   function drawWilderness(c) {
     const labels = [];
     const S = TW * cam.zoom * (128 / 120);
@@ -328,7 +327,7 @@ export function createWorldView(container, world, handlers) {
       if (wd.absorbedBy) continue;
       const [sx, sy] = toScreen(...iso(wd.x, wd.y));
       if (!onScreen(sx, sy)) continue;
-      const im = img(WILD_IMG[wd.type]);
+      const im = img(`cities/${G.CIVICS[wd.type].img}`);
       const s = 44 * Math.max(0.5, cam.zoom);
       if (ready(im)) { c.filter = 'sepia(0.45) brightness(0.95)'; c.drawImage(im, sx - s / 2, sy - s * 0.8, s, s); c.filter = 'none'; }
       if (cam.zoom >= 0.3) label(sx, sy + 16 * Math.max(0.6, cam.zoom), G.CIVICS[wd.type].name, Object.keys(G.CIVICS[wd.type].flat).filter((g) => world.scenario.goods.includes(g)).slice(0, 3).map((g) => G.GOODS[g].name).join('・') + 'を買う', '#ffe6a8');

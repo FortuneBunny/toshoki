@@ -65,7 +65,7 @@ function cityPanel(app, id) {
         h('dt', {}, '住居'), h('dd', {}, `家 ${G.houseCount(c)}軒・住める人数 ${fmt(G.housingCap(c, tier))}${c.pop >= G.housingCap(c, tier) * 0.98 ? '（頭打ち）' : ''}`),
         h('dt', { title: '町が育つほど求める品が増える。1つ欠けまでそろえば新しい家が建つ' }, '住居の求め'), h('dd', {}, dwellingEl(c, tier, world)),
         h('dt', {}, '働き手'), h('dd', { class: G.staffing(c) < 1 ? 'bad' : '' }, `${fmt(G.workersAvailable(c))}人（必要 ${fmt(G.workersNeeded(c))}）${G.staffing(c) < 1 ? ` 生産 ${Math.round(G.staffing(c) * 100)}%` : ''}`)),
-      G.civicsIn(c).length ? h('div', {}, h('div', { class: 'section' }, '需要施設'), h('div', { class: 'chips' }, G.civicsIn(c).map((b) => h('span', { class: 'chip', title: `${G.CIVICS[b.type].name}: ${G.civicWants(b.type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}が届くほど成長` }, h('img', { src: `assets/svg/cities/${b.type}.svg`, class: 'icon-sm', alt: '' }), `${G.CIVICS[b.type].name} 満足度 ${Math.round((c.civicSat?.[b.type] || 0) * 100)}%`)))) : null,
+      G.civicsIn(c).length ? h('div', {}, h('div', { class: 'section' }, '需要施設'), h('div', { class: 'chips' }, G.civicsIn(c).map((b) => h('span', { class: 'chip', title: `${G.CIVICS[b.type].name}: ${G.civicWants(b.type, world.scenario.goods).map((g) => GOODS[g].name).join('・')}が届くほど成長` }, h('img', { src: `assets/svg/cities/${G.CIVICS[b.type]?.img || b.type}.svg`, class: 'icon-sm', alt: '' }), `${G.CIVICS[b.type].name} 満足度 ${Math.round((c.civicSat?.[b.type] || 0) * 100)}%`)))) : null,
       h('div', { class: 'section' }, '食卓（糖度への寄与）'),
       dietChips(world, c),
       h('div', { class: 'dim', style: { fontSize: '12px', lineHeight: 1.6 } }, `甘味の摂取 ${Math.round((c.sweetLevel || 0) * 100)}%（今日の甘味の必要量のうち食べた割合）。${Math.round(G.BALANCE.rushSweetLine * 100)}%以上かつ糖度${G.rushLineOf(world)}以上でシュガーラッシュ。1種類の食べ物で上げられるのは50まで、甘味は45まで。`),
@@ -250,7 +250,7 @@ function overview(app) {
     const wl = G.wildernessList(world);
     const rows = [...wl.hamlets.map((o) => ({ o, text: `${o.name}（人口${o.pop}・${Object.keys(o.foods).map((g) => GOODS[g].name).join('・')}）` })), ...wl.wilds.map((o) => ({ o, text: `${G.CIVICS[o.type].name}（${Object.keys(G.CIVICS[o.type].flat).filter((g) => sc.goods.includes(g)).map((g) => GOODS[g].name).join('・')}を買う）` }))]
       .map((r) => ({ ...r, d: from.length ? dist(r.o) : 0 })).sort((a, b) => a.d - b.d).slice(0, 8);
-    if (rows.length) add(box, h('div', { class: 'section' }, '🏕 まだ交易所の圏にない集落と古い建物'), h('ul', { class: 'advice' }, rows.map((r) => h('li', { style: { cursor: 'pointer' }, title: '地図でその場所を見る', onclick: () => app.map.centerTile(r.o.x, r.o.y, 0.9) }, `${r.text} — 自分の交易所から${r.d}マス`))),
+    if (rows.length) add(box, h('div', { class: 'section' }, '🏕 まだ交易所の圏にない集落と古い建物'), h('ul', { class: 'advice' }, rows.map((r) => h('li', { style: { cursor: 'pointer' }, title: '地図でその場所を見る', onclick: () => app.map.centerTile(r.o.x, r.o.y, 0.9) }, `${r.text} — ${own.length ? '自分の交易所' : '一族の館'}から${r.d}マス`))),
       h('div', { class: 'faint', style: { fontSize: '11px' } }, `そばに交易所を開くか（上の「交易所」）、近くの交易所を「市場」に格上げすると圏に入る（交易所の圏 ${G.BALANCE.postGradeRadius[0]}マス・市場 ${G.BALANCE.postGradeRadius[1]}マス・大市場 ${G.BALANCE.postGradeRadius[2]}マス）`));
   }
   // 全部の町の相場（知っている範囲）

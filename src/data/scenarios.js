@@ -16,7 +16,7 @@ const s1 = {
       { name: 'なつめやしの集落', x: 520, y: 285, pop: 360, foods: { dates: 5.1 } },
     ],
     // 古い寺院は、麦の集落のそば。麦の交易所の圏に入り、なつめやしを毎日買う
-    wilds: [{ type: 'shrine', x: 412, y: 286 }],
+    wilds: [{ type: 'shrine', x: 419, y: 281 }],
     rivalPosts: [],
   },
   shapes: [{ kind: 'desert', points: [[560, 0], [1000, 0], [1000, 600], [560, 600]] }],

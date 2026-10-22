@@ -116,7 +116,7 @@ export function openDistrict(app, cityId) {
       return g;
     }
     if (G.CIVICS[b.type]) {
-      add(g, s('image', { href: `assets/svg/cities/${b.type}.svg`, x: cx - 30, y: cy - 50, width: 60, height: 60 }));
+      add(g, s('image', { href: `assets/svg/cities/${G.CIVICS[b.type].img || b.type}.svg`, x: cx - 30, y: cy - 50, width: 60, height: 60 }));
       return g;
     }
     if (b.type === 'market') {
