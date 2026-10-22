@@ -4,6 +4,13 @@ import * as G from '../src/core/index.js';
 
 const silent = { stopOn: new Set() };
 
+// s1（版4: 町のない土地）で、交易所を2つ開いた状態にする
+function s1Posts(seed = 1) {
+  const w = G.createWorld('s1', { seed });
+  for (let i = 0; i < 2; i++) { const s = G.foundSites(w, 1)[0]; w.player.silver = Math.max(w.player.silver, 1000); assert.ok(G.foundPost(w, s.x, s.y).ok); }
+  return w;
+}
+
 test('同じシードなら同じ結果になる', () => {
   const run = () => {
     const w = G.createWorld('s2', { seed: 42 });
@@ -30,7 +37,7 @@ test('積載量と銀を超える取引はできない', () => {
 });
 
 test('出発して到着し、売れば利益が出る', () => {
-  const w = G.createWorld('s1', { seed: 3 });
+  const w = G.createWorld('s2', { seed: 3 });
   assert.ok(G.trade(w, 1, [{ good: 'wheat', qty: 20 }]).ok);
   const t = G.travel(w, 1, 'natsume');
   assert.ok(t.ok);
@@ -81,8 +88,8 @@ test('通れる道のない輸送手段は買えない', () => {
 });
 
 test('目標を満たすと勝ちになる', () => {
-  const w = G.createWorld('s1', { seed: 1 });
-  w.player.silver = 700;
+  const w = s1Posts();
+  for (const c of Object.values(w.cities)) c.pop = 700;
   G.advance(w, 1, silent);
   assert.ok(w.finished?.win);
 });
@@ -144,11 +151,11 @@ test('区画: 生産施設を置くと町の生産が増え、条件に合わな
 });
 
 test('区画: シナリオ1では建物を置けない（見るだけ）', () => {
-  const w = G.createWorld('s1', { seed: 1 });
+  const w = s1Posts();
   w.player.silver = 5000;
-  const c = w.cities.mugi;
+  const c = w.cities.post1;
   const [x, y] = G.placeableTiles(c, G.cityTier(c), 'wheat_farm')[0];
-  assert.equal(G.placeProducer(w, 'mugi', 'wheat_farm', x, y).ok, false);
+  assert.equal(G.placeProducer(w, 'post1', 'wheat_farm', x, y).ok, false);
 });
 
 test('住居: 人口に合わせて家が建ち、空き地がなければ人口は頭打ちになる', () => {
@@ -564,4 +571,55 @@ test('技術で開く品は、だれかが技術を買うまで求められな�
   assert.ok(!G.goodLocked(w, 'spicesugar'));
   assert.ok(G.dailyDemand(kohaku, 'spicesugar', false) > 0, '都市が香辛糖を求め始める');
   assert.ok(G.recipeUsable(w, '香辛糖づくり'));
+});
+
+test('町のない土地: 一族を選び、集落のそばに最初の交易所を置くまで時間は進まない（版4 H2）', () => {
+  const w = G.createWorld('free', { seed: 3 });
+  assert.equal(Object.keys(w.cities).length, 0);
+  assert.equal(G.setupStage(w), 'family');
+  G.advance(w, 5, silent);
+  assert.equal(w.day, 0, '始める前は時間が進まない');
+  assert.ok(G.chooseFamily(w, G.familyList(w)[0].id).ok);
+  assert.equal(G.setupStage(w), 'post');
+  // 集落のない場所には置けない
+  const [hx, hy] = w.player.hq;
+  let empty = null;
+  for (let dy = -10; dy <= 10 && !empty; dy++) for (let dx = -10; dx <= 10 && !empty; dx++) {
+    const x = hx + dx, y = hy + dy;
+    if (!G.siteCheck(w, x, y)) continue;
+    if (!G.sitePreview(w, x, y).hamlets.length && !w.grid.cityAt.size) empty = [x, y];
+  }
+  const s = G.foundSites(w, 1)[0];
+  const hamletPop = s.preview.hamlets.reduce((t, hm) => t + hm.pop, 0);
+  const r = G.foundPost(w, s.x, s.y);
+  assert.ok(r.ok, r.error);
+  assert.equal(r.cost, 0, '最初の交易所は無料');
+  assert.equal(G.setupStage(w), null);
+  assert.ok(w.player.merchants.length >= 1 && w.player.merchants.every((m) => m.city === r.id), '商人が最初の交易所に出てくる');
+  assert.equal(Math.round(w.cities[r.id].pop), G.BALANCE.pioneerPostPop + hamletPop, '集落の人が住人になる');
+  assert.ok(s.preview.hamlets.every((hm) => hm.absorbedBy === r.id));
+  G.advance(w, 5, silent);
+  assert.equal(w.day, 5);
+});
+
+test('町のない土地: 野の需要施設は決まった量を買い、ライバルも交易所を開く（版4 H2）', () => {
+  const w = G.createWorld('s1', { seed: 1 });
+  const s = G.foundSites(w, 4).find((x) => x.preview.wilds.length);
+  assert.ok(s, '寺院を圏に入れられる場所がある');
+  const r = G.foundPost(w, s.x, s.y);
+  assert.ok(r.ok, r.error);
+  const c = w.cities[r.id];
+  assert.ok(G.wildDemand(c, 'dates') > 0, '古い寺院がなつめやしを求める');
+  assert.ok(G.dailyDemand(c, 'dates', false) > G.dailyDemand(c, 'dates', false, { wild: false }));
+  const f = G.createWorld('free', { seed: 2 });
+  G.chooseFamily(f, G.familyList(f)[0].id);
+  const fs = G.foundSites(f, 1)[0];
+  G.foundPost(f, fs.x, fs.y);
+  G.advance(f, 20, silent);
+  assert.ok(Object.values(f.cities).some((x) => x.rivalPost), 'ライバルも交易所を開く');
+  // 読み込み直しても同じに進む
+  const g2 = G.deserialize(G.serialize(f));
+  G.advance(f, 30, silent);
+  G.advance(g2, 30, silent);
+  assert.equal(G.serialize(f), G.serialize(g2));
 });

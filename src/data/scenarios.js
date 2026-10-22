@@ -3,25 +3,34 @@
 
 const s1 = {
   id: 's1', no: 1, title: 'はじまりの甘み',
-  intro: '一族の当主として最初の商いに出る。麦の里では麦があまり、ナツメ泉ではなつめやしがあまっている。安く買って、足りない町で売ろう。',
+  // 版4: 町のない土地から始める手引き。違う食べ物の集落のそばに交易所を2つ置き、食べ物を運び合う
+  intro: '一族の当主として、まだ市場のない土地に入る。麦を作る集落と、なつめやしを作る集落がある。それぞれのそばに交易所を開き、食べ物を運び合おう。どちらの食卓も2種類になれば糖度が上がり、家が建って町が育つ。',
   goods: ['wheat', 'dates'],
-  start: { silver: 150, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'mugi' }] },
-  cities: [
-    { id: 'mugi', name: '麦の里', x: 260, y: 320, pop: 520, produces: { wheat: 9 } },
-    { id: 'natsume', name: 'ナツメ泉', x: 700, y: 280, pop: 430, produces: { dates: 6.5 }, tags: ['desert'] },
-  ],
-  edges: [{ a: 'mugi', b: 'natsume', kind: 'trail' }],
-  knownAtStart: ['natsume'],
-  goals: [{ type: 'silver', amount: 600 }],
-  deadline: 240, rankS: 0.35,
+  start: { silver: 600, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }] },
+  cities: [],
+  edges: [],
+  pioneer: {
+    families: [{ id: 'hasan', name: 'ハサン家', x: 470, y: 330, text: '麦の集落となつめやしの集落の間に館がある。' }],
+    hamlets: [
+      { name: '麦の集落', x: 400, y: 300, pop: 420, foods: { wheat: 8.4 } },
+      { name: 'なつめやしの集落', x: 520, y: 285, pop: 360, foods: { dates: 5.1 } },
+    ],
+    // 古い寺院は、麦の集落のそば。麦の交易所の圏に入り、なつめやしを毎日買う
+    wilds: [{ type: 'shrine', x: 412, y: 286 }],
+    rivalPosts: [],
+  },
+  shapes: [{ kind: 'desert', points: [[560, 0], [1000, 0], [1000, 600], [560, 600]] }],
+  goals: [{ type: 'posts', count: 2, pop: 300 }, { type: 'postTier', tier: 1, pop: 600 }],
+  deadline: 300, rankS: 0.45,
+  maxPosts: 2, postCost: 250, maxPaths: 1,
   events: false, contracts: false, bandits: false,
   district: false, // 区画は見るだけ（建物を置くのは s2 から）
   tutorial: [
-    { text: '麦の里で「交易」を開き、麦を買えるだけ買う', done: (w) => (w.stats.bought.wheat || 0) > 0 },
-    { text: 'ナツメ泉へ出発する', done: (w) => w.stats.trips >= 1 },
-    { text: 'ナツメ泉で麦を売る（相場は品の少ない町ほど高い）', done: (w) => (w.stats.soldTotal.wheat || 0) > 0 },
-    { text: 'なつめやしを買って麦の里で売る。往復で稼ごう', done: (w) => (w.stats.soldTotal.dates || 0) > 0 },
-    { text: '町の糖度ゲージを見る。食べ物が届くと糖度が上がり、人口が増える', done: (w) => w.stats.trips >= 4 },
+    { text: '麦の集落のそば（緑の印）に、最初の交易所を置く（無料）', done: (w) => Object.values(w.cities).some((c) => c.founded) },
+    { text: '上の「交易所」から、なつめやしの集落のそばに2つ目の交易所を開く', done: (w) => Object.values(w.cities).filter((c) => c.founded).length >= 2 },
+    { text: '麦を買って、なつめやしの交易所へ運んで売る（相場は品の少ない町ほど高い）', done: (w) => (w.stats.soldTotal.wheat || 0) > 0 },
+    { text: 'なつめやしを買って、麦の交易所で売る（古い寺院も毎日なつめやしを買う）', done: (w) => (w.stats.soldTotal.dates || 0) > 0 },
+    { text: '交易所の糖度ゲージを見る。食卓が2種類になると糖度が上がり、家が建つ。往復を「定期便」にしよう', done: (w) => w.player.merchants.some((m) => m.order) },
   ],
 };
 

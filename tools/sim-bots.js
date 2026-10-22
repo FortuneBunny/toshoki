@@ -107,7 +107,9 @@ function upgrade(world, m) {
     if (world.player.silver > def.cost * 2.2) { G.buyTransport(world, m.id, t); break; }
   }
   const max = G.merchantCap(world);
-  if (world.player.merchants.length < max && world.player.silver > G.hireCost(world) * 3) G.hireMerchant(world, m.city);
+  // 町のないシナリオでは、交易所が2つになるまで雇わない（2つ目の交易所の費用を残す）
+  const early = G.isPioneer(world) && Object.values(world.cities).filter((c) => c.founded).length < 2;
+  if (!early && world.player.merchants.length < max && world.player.silver > G.hireCost(world) * 3) G.hireMerchant(world, m.city);
 }
 
 export const BOTS = {
@@ -285,7 +287,7 @@ export function pioneerManage(world) {
   const posts = ownPosts(world);
   const have = new Set(posts.flatMap((c) => Object.keys(c.produces).filter((g) => c.produces[g] > 0)));
   // 交易所を開く: 自分の交易所から近く、まだ作っていない食べ物の集落がある場所
-  if (posts.length < 5 && pl.silver > G.postCost(world) + 350) {
+  if (posts.length < Math.min(5, G.postsAllowed(world)) && pl.silver > G.postCost(world) + (posts.length < 2 ? 50 : 350)) {
     let best = null;
     for (const s of G.foundSites(world, 40)) {
       const d = Math.min(...posts.map((c) => { const [x, y] = world.grid.cityTiles[c.id]; return Math.max(Math.abs(x - s.x), Math.abs(y - s.y)); }));
