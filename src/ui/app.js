@@ -126,7 +126,8 @@ app.showTitle = () => {
 app.confirm = (title, text, onOk) => {
   app.state.modals++;
   setSpeed(0);
-  modal(app, title, h('div', { style: { whiteSpace: 'pre-line', lineHeight: 1.7 } }, text), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, 'やめる'), h('button', { class: 'btn primary', onclick: () => { close(); onOk(); } }, '決定')]);
+  // 町のないシナリオで始める前なら、どう閉じても、選び直しに戻る
+  modal(app, title, h('div', { style: { whiteSpace: 'pre-line', lineHeight: 1.7 } }, text), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, 'やめる'), h('button', { class: 'btn primary', onclick: () => { close(); onOk(); } }, '決定')], { onClose: () => { if (app.world?.setup) setTimeout(() => app.setupFlow(), 60); } });
 };
 
 // アクションを実行し、結果の出来事を演出につなぐ
@@ -320,6 +321,33 @@ function mount(world) {
   renderTop(true);
   app.render();
   // 最初は一時停止で始める。手引きのあるシナリオでは手引きを出す
+  // 町のないシナリオで、まだ始めていなければ: 一族を選ぶ → 最初の交易所を置く
+  if (world.setup) setTimeout(() => app.setupFlow(), 250);
+}
+
+// ---------- 町のないシナリオの始まり（版4 H2） ----------
+app.setupFlow = () => {
+  const W = app.world;
+  if (!W.setup) return;
+  if (G.setupStage(W) === 'family') return familyDialog();
+  if (!app.state.found) app.startFound();
+};
+function familyDialog() {
+  const W = app.world;
+  const cards = G.familyList(W).map((f) => {
+    const [fx, fy] = G.tileOf(f.x, f.y);
+    // 館の近くの集落（最初の交易所で取り込めるもの）
+    const near = (W.hamlets || []).filter((hm) => Math.max(Math.abs(hm.x - fx), Math.abs(hm.y - fy)) <= G.HQ_RANGE + 2);
+    const wilds = (W.wilds || []).filter((w) => Math.max(Math.abs(w.x - fx), Math.abs(w.y - fy)) <= G.HQ_RANGE + 2);
+    return h('div', { class: 'hire-card' },
+      h('div', { class: 'talent' }, f.name),
+      h('div', { class: 'muted' }, f.text || ''),
+      h('div', { class: 'dim', style: { fontSize: '12px' } }, `館の近くの集落: ${near.map((hm) => `${hm.name}（${Object.keys(hm.foods).map((g) => GOODS[g].name).join('・')}）`).join('、') || 'なし'}`),
+      wilds.length ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `近くの古い建物: ${wilds.map((w) => G.CIVICS[w.type].name).join('、')}`) : null,
+      h('button', { class: 'btn primary small', onclick: () => { const r = app.run(() => G.chooseFamily(W, f.id)); if (r.ok) app.map.centerTile(...W.player.hq, 0.9); md.close(); app.render(); } }, 'この一族で始める'));
+  });
+  app.state.modals++;
+  const md = modal(app, '一族を選ぶ（館の立つ地域が決まる）', h('div', {}, h('p', { class: 'muted' }, 'この土地には、市場のある町がまだない。一族の館の近くに最初の交易所を置き、集落を町に育てていく。ライバルは、選ばなかった一族の館から始める。'), h('div', { class: 'hire-cards' }, cards)), () => [], { wide: true, onClose: () => { if (app.world?.setup) setTimeout(() => app.setupFlow(), 60); } });
 }
 
 // 建設モード: 町のパネルで建物を選ぶと、地図の上で置けるマスが光る
@@ -370,9 +398,10 @@ function finishPath(to) {
 app.startFound = () => {
   const W = app.world;
   if (!G.postsAllowed(W)) return app.error('このシナリオでは交易所を開けない');
-  app.state.found = { sites: G.foundSites(W) };
+  app.state.found = { sites: G.foundSites(W, W.setup ? 12 : 8) };
   setSpeed(0);
-  fx.toast(`交易所を開く場所を選ぶ（緑の印がおすすめ。道か水辺から2マス以内）。費用 ${G.postCost(W)}銀・Esc でやめる`, { icon: 'ui/workshop' });
+  if (W.setup) { app.setupToast?.remove(); app.setupToast = fx.toast('一族の館の近く（黄色の枠の中）に、最初の交易所を置こう（無料）。緑の印は、集落を圏に入れられる場所', { icon: 'ui/workshop', sticky: true }); }
+  else fx.toast(`交易所を開く場所を選ぶ（緑の印がおすすめ。${W.scenario.pioneer ? '集落や古い建物のそば' : '道か水辺から2マス以内'}）。費用 ${G.postCost(W)}銀・Esc でやめる`, { icon: 'ui/workshop' });
   app.render();
 };
 function foundAt(x, y) {
@@ -382,11 +411,28 @@ function foundAt(x, y) {
   if (s) { x = s.x; y = s.y; }
   const why = G.siteCheck(W, x, y);
   if (why) return app.error(why);
-  const goods = G.siteGoods(W, x, y);
+  const setup = !!W.setup;
   app.state.found = null;
-  app.confirm('交易所を開く', h('div', {}, h('p', {}, `${x},${y} に新しい町を開く: `, h('b', {}, `${G.postCost(W)}銀`), `（手持ち ${Math.floor(W.player.silver)}銀）`),
-    h('p', { class: 'muted' }, `採れそうな品: ${goods.map((g) => GOODS[g].name).join('・')}。人口${G.POST_POP}人から始まる。食べ物と甘味を届けると育つ`)),
-  () => { const r = app.run(() => G.foundPost(W, x, y), 'build'); if (r.ok) { app.state.selCity = r.id; app.render(); } });
+  let what;
+  if (W.scenario.pioneer) {
+    // 町のないシナリオ: 圏に入る集落と古い建物、格上げで入るもの
+    const pv = G.sitePreview(W, x, y);
+    const hamText = (list) => list.map((hm) => `${hm.name}（人口${hm.pop}・${Object.keys(hm.foods).map((g) => GOODS[g].name).join('・')}）`).join('、');
+    what = [
+      h('p', {}, pv.hamlets.length ? `圏に入る集落: ${hamText(pv.hamlets)}` : '圏に入る集落はない（人が少なく、採れる品もない）'),
+      pv.wilds.length ? h('p', {}, `圏に入る古い建物: ${pv.wilds.map((w) => `${G.CIVICS[w.type].name}（${Object.keys(G.CIVICS[w.type].flat).filter((g) => W.scenario.goods.includes(g)).map((g) => GOODS[g].name).join('・')}を毎日買う）`).join('、')}`) : null,
+      h('p', { class: 'muted' }, `人口${pv.pop}人から始まる。${pv.later.hamlets.length || pv.later.wilds.length ? `「市場」に格上げすると、${[hamText(pv.later.hamlets), pv.later.wilds.map((w) => G.CIVICS[w.type].name).join('、')].filter(Boolean).join('、')}も入る。` : ''}違う食べ物を届けると育つ`),
+    ];
+  } else what = h('p', { class: 'muted' }, `採れそうな品: ${G.siteGoods(W, x, y).map((g) => GOODS[g].name).join('・')}。人口${G.POST_POP}人から始まる。食べ物と甘味を届けると育つ`);
+  app.confirm(setup ? '最初の交易所を開く' : '交易所を開く', h('div', {}, h('p', {}, `${x},${y} に${setup ? '最初の交易所を開く（無料）' : '新しい町を開く: '}`, setup ? null : h('b', {}, `${G.postCost(W)}銀`), setup ? null : `（手持ち ${Math.floor(W.player.silver)}銀）`), what),
+  () => {
+    const r = app.run(() => G.foundPost(W, x, y), 'build');
+    if (r.ok) {
+      app.state.selCity = r.id;
+      if (setup) { app.state.selMerchant = W.player.merchants[0]?.id; app.setupToast?.remove(); app.setupToast = null; renderTop(true); }
+      app.render();
+    }
+  });
 }
 app.foundAt = (x, y) => foundAt(x, y);
 app.clickCity = (id) => onCityClick(id);
@@ -464,6 +510,11 @@ function renderGoals() {
 function renderMerchants() {
   const w = app.world;
   const el = clear(app.els.merchants);
+  // 町のないシナリオで始める前: 商人はまだ館にいる
+  if (w.setup) {
+    add(el, h('div', { class: 'mcard add', role: 'button', style: { cursor: 'pointer' }, onclick: () => app.setupFlow() }, G.setupStage(w) === 'family' ? '一族を選ぶ' : '最初の交易所を置く', h('small', { class: 'dim', style: { display: 'block', fontSize: '11px' } }, '置くと、商人が館から出てくる')));
+    return;
+  }
   for (const m of w.player.merchants) {
     const t = TRANSPORTS[m.transport];
     const used = G.cargoUsed(m);
@@ -631,7 +682,7 @@ document.addEventListener('keydown', (e) => {
   if (['1', '2', '3'].includes(e.key) && app.state.modals === 0) setSpeed(Number(e.key));
   if (e.key === 'Escape' && app.state.pick) { app.state.pick = null; app.state.hoverRoute = null; app.render(); }
   if (e.key === 'Escape' && app.state.build) { app.state.build = null; app.render(); }
-  if (e.key === 'Escape' && app.state.found) { app.state.found = null; app.render(); }
+  if (e.key === 'Escape' && app.state.found && !app.world?.setup) { app.state.found = null; app.render(); }
   if (e.key === 'Escape' && app.state.roadPick) { app.state.roadPick = null; app.state.hoverRoute = null; app.render(); }
 });
 
@@ -668,7 +719,7 @@ function devCity() {
   const w = app.world;
   const pick = location.hash.match(/city=(\w+)/);
   if (pick && w.cities[pick[1]]) return pick[1];
-  return w.player.merchants.find((m) => m.city)?.city || Object.values(w.cities).sort((a, b) => b.pop - a.pop)[0].id;
+  return w.player.merchants.find((m) => m.city)?.city || Object.values(w.cities).sort((a, b) => b.pop - a.pop)[0]?.id;
 }
 function devOpens() {
   const cam = location.hash.match(/cam=([\w-]+)(?:@([\d.]+))?/);

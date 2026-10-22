@@ -36,7 +36,7 @@ function buildAll(world, cityId) {
     const spot = G.placeableTiles(c, tier, type)[0];
     if (spot) G.placeProducer(world, cityId, type, spot.x, spot.y);
   }
-  for (const type of Object.keys(G.CIVICS)) G.buildCivic(world, cityId, type);
+  for (const type of Object.keys(G.CIVICS).filter((x) => !G.CIVICS[x].wild)) G.buildCivic(world, cityId, type);
 }
 
 function save(name, world) {

@@ -46,7 +46,7 @@ function cityPanel(app, id) {
   const k = world.player.knowledge[id];
   const age = G.knowledgeAge(world, id);
   const box = h('div', {});
-  add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.founded && c.grade !== undefined ? `・自分の${G.gradeName(c.grade)}` : ''}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}${world.player.branches?.includes(id) ? '・自分の商館' : ''}`)),
+  add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.founded && c.grade !== undefined ? `・自分の${G.gradeName(c.grade)}` : ''}${c.rivalPost ? `・${c.rivalPost}の${G.gradeName(c.grade)}` : ''}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}${world.player.branches?.includes(id) ? '・自分の商館' : ''}`)),
     h('button', { class: 'btn ghost small', style: { marginLeft: 'auto' }, onclick: () => { app.state.selCity = null; app.render(); } }, '✕')));
   if (here.length || c.founded || G.isVisited(world, id)) { // 一度訪れた町と自分の交易所は、いつでも今の様子が分かる
     const tier = G.cityTier(c);
@@ -114,7 +114,7 @@ function cityPanel(app, id) {
       const spareNow = (c.produces[p.good] || 0) - G.dailyDemand(c, p.good, false);
       opts.push(h('button', { class: 'btn tiny', title: `${p.name}: ${GOODS[p.good].name} +${p.rate}/日、働き手${p.workers}人。建てると余りが ${spareNow >= 0 ? '+' : ''}${fmt(spareNow, 1)} → ${spareNow + p.rate >= 0 ? '+' : ''}${fmt(spareNow + p.rate, 1)}/日（働き手が足りれば。今の人口での目安）`, onclick: () => app.startBuild(id, 'producer', k) }, goodIcon(p.good, 'icon-sm'), ` ${p.name} ${G.producerCost(world, k)}`));
     }
-    for (const k of Object.keys(G.CIVICS)) {
+    for (const k of Object.keys(G.CIVICS).filter((x) => !G.CIVICS[x].wild)) {
       if (G.civicCheck(world, id, k)) continue;
       opts.push(h('button', { class: 'btn tiny', title: G.CIVICS[k].effect, onclick: () => app.startBuild(id, 'civic', k) }, h('img', { src: `assets/svg/cities/${k}.svg`, class: 'icon-sm', alt: '' }), ` ${G.CIVICS[k].name} ${G.civicCost(world, k)}`));
     }
@@ -242,6 +242,17 @@ function overview(app) {
   // 銀の使い道（銀が眠っているとき）
   const sa = G.silverAdvice(world);
   if (sa.length) add(box, h('div', { class: 'section' }, `💰 銀の使い道（今 ${Math.floor(world.player.silver)}銀）`), h('ul', { class: 'advice' }, sa.map((a) => h('li', {}, a.text))));
+  // 町のないシナリオ: まだ交易所の圏に入っていない集落と古い建物（近い順）
+  if (sc.pioneer) {
+    const own = Object.values(world.cities).filter((c) => c.founded).map((c) => world.grid.cityTiles[c.id]);
+    const from = own.length ? own : world.player.hq ? [world.player.hq] : [];
+    const dist = (o) => Math.min(...from.map(([x, y]) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y))));
+    const wl = G.wildernessList(world);
+    const rows = [...wl.hamlets.map((o) => ({ o, text: `${o.name}（人口${o.pop}・${Object.keys(o.foods).map((g) => GOODS[g].name).join('・')}）` })), ...wl.wilds.map((o) => ({ o, text: `${G.CIVICS[o.type].name}（${Object.keys(G.CIVICS[o.type].flat).filter((g) => sc.goods.includes(g)).map((g) => GOODS[g].name).join('・')}を買う）` }))]
+      .map((r) => ({ ...r, d: from.length ? dist(r.o) : 0 })).sort((a, b) => a.d - b.d).slice(0, 8);
+    if (rows.length) add(box, h('div', { class: 'section' }, '🏕 まだ交易所の圏にない集落と古い建物'), h('ul', { class: 'advice' }, rows.map((r) => h('li', { style: { cursor: 'pointer' }, title: '地図でその場所を見る', onclick: () => app.map.centerTile(r.o.x, r.o.y, 0.9) }, `${r.text} — 自分の交易所から${r.d}マス`))),
+      h('div', { class: 'faint', style: { fontSize: '11px' } }, `そばに交易所を開くか（上の「交易所」）、近くの交易所を「市場」に格上げすると圏に入る（交易所の圏 ${G.BALANCE.postGradeRadius[0]}マス・市場 ${G.BALANCE.postGradeRadius[1]}マス・大市場 ${G.BALANCE.postGradeRadius[2]}マス）`));
+  }
   // 全部の町の相場（知っている範囲）
   add(box, h('div', { class: 'section' }, '知っている相場'));
   const t = h('table', { class: 'prices-table' });

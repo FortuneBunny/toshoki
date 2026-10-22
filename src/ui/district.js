@@ -47,7 +47,7 @@ export function openDistrict(app, cityId) {
       }, goodIcon(p.good, 'icon-sm'), h('span', {}, p.name), h('small', { class: 'num' }, `${cost}銀`), h('small', { class: 'faint' }, n ? `${n}か所` : 'なし')));
     }
     add(palette, h('div', { class: 'section' }, '需要施設'));
-    for (const [k, cv] of Object.entries(G.CIVICS)) {
+    for (const [k, cv] of Object.entries(G.CIVICS).filter(([, x]) => !x.wild)) {
       const why = G.civicCheck(world, cityId, k);
       if (why && /扱わない/.test(why)) continue;
       const wants = G.civicWants(k, world.scenario.goods);

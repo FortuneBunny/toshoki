@@ -9,6 +9,7 @@ import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan } from './city.js';
 import { dwellingStatus } from './dwelling.js';
 import { goalsStatus } from './scoring.js';
 import { knowledgeAge } from './knowledge.js';
+import { foundSites, postCost } from './posts.js';
 import { cargoCap, cargoUsed, foodNeeded } from './caravan.js';
 
 export function suggestTrades(world, mid, limit = 3) {
@@ -70,6 +71,14 @@ export function adviceText(world, mid) {
   const ss = suggestTrades(world, mid);
   const lines = [];
   const name = (id) => world.cities[id].name;
+  // 町のないシナリオの序盤: 交易所が1つだけなら、違う食べ物の集落のそばに2つ目を
+  const own = Object.values(world.cities).filter((c) => c.founded);
+  if (world.scenario.pioneer && own.length === 1) {
+    const have = Object.keys(own[0].produces).filter((g) => own[0].produces[g] > 0);
+    const [ox, oy] = world.grid.cityTiles[own[0].id];
+    const near = foundSites(world, 30).filter((s) => s.preview.foods.some((g) => !have.includes(g) && GOODS[g].kind === 'food')).map((s) => ({ ...s, d: Math.max(Math.abs(s.x - ox), Math.abs(s.y - oy)) })).sort((a, b) => a.d - b.d)[0];
+    if (near) lines.push(`2つ目の交易所を、${near.preview.hamlets.map((hm) => hm.name).join('・')}のそば（${near.x},${near.y}、${near.d}マス先）に開く（上の「交易所」/ CLI: found ${near.x},${near.y} confirm・${postCost(world)}銀）。${near.preview.foods.map((g) => GOODS[g].name).join('・')}と${have.map((g) => GOODS[g].name).join('・')}を運び合うと、どちらの食卓も2種類になって糖度が上がり、家が建つ`);
+  }
   for (const s of ss) {
     lines.push(`${GOODS[s.good].name}を${s.qty}個買って（約${s.cost}銀）${name(s.to)}へ（約${s.days}日）。見込み +${s.profit}銀${s.food ? `。砂漠を渡るので食料（${PROVISIONS.map((g) => GOODS[g].name).join('・')}のどれか）を${s.food}個積む` : ''}`);
   }

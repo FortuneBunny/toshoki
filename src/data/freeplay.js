@@ -19,9 +19,9 @@ function rates(goods, pop, r) {
   return out;
 }
 const FAMILIES = [
-  { id: 'hasan', name: 'ハサン家', text: '川沿いの緑の土地に館がある。' },
-  { id: 'zahra', name: 'ザフラ家', text: '砂漠のふちに館がある。' },
-  { id: 'kaya', name: 'カヤ家', text: '丘のふもとに館がある。' },
+  { id: 'hasan', name: 'ハサン家' },
+  { id: 'zahra', name: 'ザフラ家' },
+  { id: 'kaya', name: 'カヤ家' },
 ];
 
 function rng(seed) {
@@ -49,7 +49,12 @@ export function generateFreeplay(seed) {
 
   // 一族の館: 地図の3つの地域に1つずつ（緑・砂漠のふち・丘）
   const cols = desertEast ? [180, 520, 820] : [820, 480, 180];
-  const families = FAMILIES.map((f, i) => ({ ...f, x: cols[i] + Math.round((r() - 0.5) * 80), y: 160 + Math.round(r() * 280) }));
+  const families = FAMILIES.map((f, i) => {
+    const x = cols[i] + Math.round((r() - 0.5) * 80);
+    const y = 160 + Math.round(r() * 280);
+    const text = inDesert(x) ? '砂漠のふちに館がある。なつめやしとキビの土地。' : Math.abs(x - (desertEast ? 660 : 340)) < 160 ? '砂漠に近い草原に館がある。' : '緑の土地に館がある。麦や米がよく育つ。';
+    return { ...f, x, y, text };
+  });
   // どの館のそばにも、違う食べ物の集落を2つと、野の需要施設を1つ（序盤がからっぽにならないように）
   for (const f of families) {
     // 集落（人口300未満）の段階で食べる品（麦・米・キビ・なつめやし・サトウキビ）にする

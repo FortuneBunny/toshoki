@@ -158,11 +158,9 @@ export function rivalFound(world) {
     const anchors = r.posts.length ? r.posts.map((id) => world.grid.cityTiles[id]) : [r.hq];
     const reach = r.posts.length ? 34 : HQ_RANGE;
     let best = null;
-    for (const s of foundSites(world, 60)) {
-      const d = Math.min(...anchors.map(([ax, ay]) => Math.max(Math.abs(ax - s.x), Math.abs(ay - s.y))));
-      if (d > reach) continue;
-      const score = s.score - d * 0.08;
-      if (!best || score > best.score) best = { ...s, score };
+    for (const s of foundSites(world, 60, { from: anchors })) {
+      if (s.dist > reach) continue;
+      if (!best || s.score > best.score) best = s;
     }
     if (!best) { r.posts.push(null); continue; }
     const n = r.posts.filter(Boolean).length;

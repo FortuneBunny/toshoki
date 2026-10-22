@@ -112,7 +112,7 @@ function cityArg(world, s) {
 const WORLD_CH = ['.', '"', ':', 'n', '^', '~'];
 function lookText(world, cx, cy, r = 12) {
   const g = world.grid;
-  const rows = [`■ ${cx},${cy} のまわり（. 平地  " 肥えた土地  : 砂地  n 丘  ^ 山  ~ 水  - 小道  = 街道  ! 危険  @ 町）`];
+  const rows = [`■ ${cx},${cy} のまわり（. 平地  " 肥えた土地  : 砂地  n 丘  ^ 山  ~ 水  - 小道  = 街道  ! 危険  @ 町${world.scenario.pioneer ? '  h 集落  w 古い建物  H 一族の館' : ''}）`];
   const names = [];
   for (let y = cy - r; y <= cy + r; y++) {
     let line = '';
@@ -121,6 +121,11 @@ function lookText(world, cx, cy, r = 12) {
       const k = G.gridKey(x, y);
       const id = g.cityAt.get(k);
       if (id) { line += '@'; names.push(`@(${x},${y}) ${world.cities[id].name}(${id})`); continue; }
+      const hm = (world.hamlets || []).find((o) => !o.absorbedBy && o.x === x && o.y === y);
+      if (hm) { line += 'h'; names.push(`h(${x},${y}) ${hm.name}`); continue; }
+      const wd = (world.wilds || []).find((o) => !o.absorbedBy && o.x === x && o.y === y);
+      if (wd) { line += 'w'; names.push(`w(${x},${y}) ${G.CIVICS[wd.type].name}`); continue; }
+      if (world.player.hq && world.player.hq[0] === x && world.player.hq[1] === y) { line += 'H'; names.push(`H(${x},${y}) 一族の館`); continue; }
       if (world.player.merchants.some((m) => { const [px, py] = m.travel ? [m.travel.tiles[m.travel.i][0], m.travel.tiles[m.travel.i][1]] : g.cityTiles[m.city]; return px === x && py === y; })) { line += 'M'; continue; }
       line += g.path[k] === 2 ? '=' : g.path[k] === 1 ? (g.danger[k] ? '!' : '-') : WORLD_CH[g.terrain[k]];
     }
@@ -131,7 +136,7 @@ function lookText(world, cx, cy, r = 12) {
 }
 function overviewText(world) {
   const g = world.grid;
-  const rows = ['■ 世界の地図（縦4×横2マスを1文字。英字は町、. 平地、" 肥えた土地、: 砂、n 丘、^ 山、~ 水、= 道）'];
+  const rows = [`■ 世界の地図（縦4×横2マスを1文字。英字は町、. 平地、" 肥えた土地、: 砂、n 丘、^ 山、~ 水、= 道${world.scenario.pioneer ? '、h 集落、w 古い建物、H 一族の館（wild で一覧）' : ''}）`];
   const letters = {};
   Object.keys(world.cities).forEach((id, i) => { letters[id] = String.fromCharCode(65 + i); });
   for (let y = 0; y < G.GRID_H; y += 4) {
@@ -144,6 +149,9 @@ function overviewText(world) {
         const k = G.gridKey(x + dx, y + dy);
         const id = g.cityAt.get(k);
         if (id) ch = letters[id];
+        else if (!ch && (world.hamlets || []).some((o) => !o.absorbedBy && o.x === x + dx && o.y === y + dy)) ch = 'h';
+        else if (!ch && (world.wilds || []).some((o) => !o.absorbedBy && o.x === x + dx && o.y === y + dy)) ch = 'w';
+        else if (!ch && world.player.hq && world.player.hq[0] === x + dx && world.player.hq[1] === y + dy) ch = 'H';
         cnt[g.terrain[k]]++;
         if (g.path[k]) road++;
       }
@@ -181,6 +189,11 @@ function statusText(world) {
   out.push(`ランクの基準: S=${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日以内 / A=${Math.floor(sc.deadline * 0.75)}日以内 / B=期限内`);
   out.push(`このシナリオ: 輸送手段 ${world.allowedTransports.map((t) => TRANSPORTS[t].name).join('・')} / 商人は最大${G.merchantCap(world)}人${G.branchesAllowed(world) ? '（商館で1人ずつ増やせる）' : ''} / 工房 ${(sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes).map((b) => BUILDINGS[b].name).join('・') || 'なし'}${(sc.buildings || []).includes('road') ? ' / 道の整備あり' : ''}（費用は shop）`);
   out.push(`使える建設: 区画の施設 ${G.districtEnabled(world) ? 'あり' : 'なし'} / 道を敷く ${G.pathsAllowed(world) ? `${G.pathsAllowed(world)}本まで` : 'なし'} / 交易所 ${G.postsAllowed(world) ? `${G.postsAllowed(world)}つまで` : 'なし'} / 技術 ${G.techList(world).length ? G.techList(world).map((t) => t.name).join('・') : 'なし'}`);
+  // 町のないシナリオで、まだ始めていない
+  if (world.setup) {
+    out.push(`★ まだ始まっていない（時間は進まない）。${G.setupStage(world) === 'family' ? `まず一族を選ぶ: families で一覧 → family <id>（${G.familyList(world).map((f) => `${f.id}=${f.name}`).join('・')}）` : '一族の館の近くに最初の交易所を置く（無料）: sites で候補 → found <x,y> confirm。集落を圏に入れられる場所でないと置けない。置くと商人が館から出てくる'}`);
+  }
+  if (sc.pioneer) out.push(`町のない土地: まだ交易所の圏にない集落 ${G.wildernessList(world).hamlets.length}・古い建物 ${G.wildernessList(world).wilds.length}（wild で一覧。交易所を開くか、市場に格上げして圏に入れる）`);
   out.push('目標（全部が同時にそろった時に達成。銀・資産・町の人口や段階は、一度届いても下回ると戻る）:');
   G.goalsStatus(world).forEach((g, i) => {
     out.push(`  ${g.done ? '✔' : '□'} ${g.text}  [${'█'.repeat(Math.round(g.p * 10))}${'░'.repeat(10 - Math.round(g.p * 10))}] ${Math.round(g.p * 100)}%`);
@@ -404,7 +417,7 @@ function buildableText(world, id) {
     out.push(`  ${k}（${p.name}）: ${cost}銀＋維持費${G.BALANCE.producerUpkeep}/日  ${GOODS[p.good].name} +${p.rate}/日（${G.BALANCE.producerBuildDays}日後から）  働き手${p.workers}人  ${tiles.length ? `置けるマス ${tiles.length}か所: ${tiles.slice(0, 6).map(([x, y]) => G.coordName(x, y)).join(' ')}` : '置けるマスがない'}`);
   }
   out.push('需要施設（その町に新しい需要を生み、求める品が届くと町が育つ）:');
-  for (const [k, cv] of Object.entries(G.CIVICS)) {
+  for (const [k, cv] of Object.entries(G.CIVICS).filter(([, x]) => !x.wild)) {
     const why = G.civicCheck(world, id, k);
     const wants = G.civicWants(k, world.scenario.goods).map((g) => GOODS[g].name).join('・');
     out.push(`  ${k}（${cv.name}）: ${G.civicCost(world, k)}銀  求める品 ${wants || 'なし'}  成長 +${Math.round(cv.growth * 100)}%・${cv.effect}  ${why ? `✖ ${why}` : '建てられる（civic ' + k + ' confirm）'}`);
@@ -552,7 +565,9 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   road <道の番号> [confirm]            小道を街道に整備する
   path <町> <町> trail|road|canal [confirm]  2つの町を結ぶ道を敷く（小道・街道・運河。経路は自動で一番安い所を通る）
   port [confirm]                       水辺の町に港を開く（船が着ける）
-  sites                                交易所を開ける場所の候補（座標と、採れそうな品）
+  sites                                交易所を開ける場所の候補（座標と、採れそうな品。町のない土地では圏に入る集落）
+  families / family <id>               町のない土地: 一族の一覧 / 一族を選ぶ（館の立つ地域が決まる）
+  wild                                 町のない土地: まだ交易所の圏にない集落と古い建物（近い順）
   techs                                買える技術の一覧（ライバルが先に買うと独占され、使用料がかかる）
   tech <id> [confirm]                  技術を買う
   found <x,y> [confirm]                その場所に交易所（新しい町）を開く
@@ -603,8 +618,35 @@ function run(world, cmd, pos, opts) {
     if (r && r.ok === false) throw new Error(r.error);
     return r;
   };
+  // 町のないシナリオで始める前は、一族を選ぶ・交易所を置く・見るだけのコマンドしか使えない
+  if (world.setup && !['status', 'families', 'family', 'sites', 'found', 'wild', 'look', 'overview', 'goals', 'help', 'rules', 'save', 'techs'].includes(cmd)) throw new Error(`まだ始まっていない。${G.setupStage(world) === 'family' ? 'families → family <id> で一族を選ぶ' : 'sites → found <x,y> confirm で最初の交易所を置く'}`);
   switch (cmd) {
     case 'status': out.push(statusText(world)); break;
+    case 'families': {
+      if (!G.familyList(world).length) { out.push('このシナリオでは一族を選ばない'); break; }
+      out.push('■ 一族（館の立つ地域が決まる。ライバルは選ばなかった一族の館から始める）');
+      for (const f of G.familyList(world)) {
+        const [fx, fy] = G.tileOf(f.x, f.y);
+        const near = (world.hamlets || []).filter((hm) => Math.max(Math.abs(hm.x - fx), Math.abs(hm.y - fy)) <= G.HQ_RANGE + 2);
+        out.push(`  ${f.id}（${f.name}）: 館 ${fx},${fy}。${f.text || ''}館の近くの集落: ${near.map((hm) => `${hm.name}（${hm.x},${hm.y}・人口${hm.pop}・${Object.keys(hm.foods).map((g) => GOODS[g].name).join('・')}）`).join('、') || 'なし'}`);
+      }
+      break;
+    }
+    case 'family': {
+      after(G.chooseFamily(world, pos[0]));
+      out.push(`${G.familyList(world).find((f) => f.id === world.player.family).name}に決めた。館は ${world.player.hq.join(',')}。次は sites → found <x,y> confirm で最初の交易所（無料）`);
+      break;
+    }
+    case 'wild': {
+      const wl = G.wildernessList(world);
+      const own = Object.values(world.cities).filter((c) => c.founded).map((c) => world.grid.cityTiles[c.id]);
+      const from = own.length ? own : world.player.hq ? [world.player.hq] : [];
+      const d = (o) => (from.length ? Math.min(...from.map(([x, y]) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)))) : 0);
+      out.push(`■ まだ交易所の圏にない集落と古い建物（自分の交易所${own.length ? '' : '（まだないので一族の館）'}から近い順）。交易所の圏は 交易所${G.BALANCE.postGradeRadius[0]}・市場${G.BALANCE.postGradeRadius[1]}・大市場${G.BALANCE.postGradeRadius[2]}マス`);
+      const rows = [...wl.hamlets.map((o) => [d(o), `  集落 ${o.name} ${o.x},${o.y}（${d(o)}マス）人口${o.pop}・作る: ${Object.entries(o.foods).map(([g, r]) => `${GOODS[g].name}${r}/日`).join('・')}`]), ...wl.wilds.map((o) => [d(o), `  古い建物 ${G.CIVICS[o.type].name} ${o.x},${o.y}（${d(o)}マス）毎日買う: ${Object.entries(G.CIVICS[o.type].flat).filter(([g]) => world.scenario.goods.includes(g)).map(([g, r]) => `${GOODS[g].name}${r}`).join('・')}`])].sort((a, b) => a[0] - b[0]);
+      out.push(...rows.slice(0, 20).map((r) => r[1]));
+      break;
+    }
     case 'market': {
       // 同じ町に商人が何人いても、その町の市場は同じなので自動で選ぶ
       const idleMs = world.player.merchants.filter((x) => !x.travel);
@@ -666,7 +708,16 @@ function run(world, cmd, pos, opts) {
     case 'sites': {
       const allowed = G.postsAllowed(world);
       if (!allowed) { out.push('このシナリオでは交易所を開けない'); break; }
-      out.push(`■ 交易所の候補（開いた数 ${G.postsFounded(world)}/${allowed}、次の費用 ${G.postCost(world)}銀。道か水辺から2マス以内、ほかの町から14マス以上）。交易所は人口${G.POST_POP}人の集落から始まり、最初の産出は1日2個ほど。食べ物と甘味を届けて育てる拠点`);
+      if (world.scenario.pioneer) out.push(`■ 交易所の候補（開いた数 ${G.postsFounded(world)}/${allowed}、次の費用 ${G.postCost(world)}銀。ほかの町から8マス以上。${world.setup ? `最初の交易所は一族の館から${G.HQ_RANGE}マス以内で、集落を圏に入れられる場所。` : ''}圏（${G.BALANCE.postGradeRadius[0]}マス）に入る集落の人と畑が、交易所のものになる）`);
+      else out.push(`■ 交易所の候補（開いた数 ${G.postsFounded(world)}/${allowed}、次の費用 ${G.postCost(world)}銀。道か水辺から2マス以内、ほかの町から14マス以上）。交易所は人口${G.POST_POP}人の集落から始まり、最初の産出は1日2個ほど。食べ物と甘味を届けて育てる拠点`);
+      if (world.scenario.pioneer) {
+        // 町のないシナリオ: 圏に入る集落と古い建物
+        for (const s of G.foundSites(world, 12)) {
+          const pv = s.preview;
+          out.push(`  ${s.x},${s.y}（${s.dist}マス先）  人口${pv.pop}から  集落: ${pv.hamlets.map((hm) => `${hm.name}（${Object.keys(hm.foods).map((g) => GOODS[g].name).join('・')}）`).join('、') || 'なし'}${pv.wilds.length ? `  古い建物: ${pv.wilds.map((w) => G.CIVICS[w.type].name).join('、')}` : ''}${pv.later.hamlets.length || pv.later.wilds.length ? `  市場に格上げで +${[...pv.later.hamlets.map((hm) => hm.name), ...pv.later.wilds.map((w) => G.CIVICS[w.type].name)].join('・')}` : ''}`);
+        }
+        break;
+      }
       for (const s of G.foundSites(world)) out.push(`  ${s.x},${s.y}  採れそうな品: ${s.goods.map((g) => GOODS[g].name).join('・')}  一番近い町: ${world.cities[s.near].name}（${s.nearDist}マス）`);
       break;
     }
@@ -675,6 +726,11 @@ function run(world, cmd, pos, opts) {
       const [x, y] = pos[0].split(',').map(Number);
       if (pos[1] !== 'confirm') {
         const why = G.siteCheck(world, x, y);
+        if (!why && world.scenario.pioneer) {
+          const pv = G.sitePreview(world, x, y);
+          out.push(`${x},${y} に交易所を開く: ${G.postCost(world)}銀。圏に入る集落: ${pv.hamlets.map((hm) => `${hm.name}（人口${hm.pop}・${Object.keys(hm.foods).map((g) => GOODS[g].name).join('・')}）`).join('、') || 'なし'}${pv.wilds.length ? `。古い建物: ${pv.wilds.map((w) => G.CIVICS[w.type].name).join('、')}` : ''}。人口${pv.pop}人から始まる。確定するには: found ${pos[0]} confirm`);
+          break;
+        }
         out.push(why ? `✖ ${why}` : `${x},${y} に交易所を開く: ${G.postCost(world)}銀。採れそうな品: ${G.siteGoods(world, x, y).map((g) => GOODS[g].name).join('・')}。人口${G.POST_POP}人から始まる。確定するには: found ${pos[0]} confirm`);
         break;
       }
@@ -1012,7 +1068,7 @@ function run(world, cmd, pos, opts) {
     case 'civic': {
       const type = pos[0];
       const cv = G.CIVICS[type];
-      if (!cv) throw new Error(`種類を指定: ${Object.entries(G.CIVICS).map(([k, x]) => `${k}（${x.name}）`).join('、')}`);
+      if (!cv || cv.wild) throw new Error(`種類を指定: ${Object.entries(G.CIVICS).filter(([, x]) => !x.wild).map(([k, x]) => `${k}（${x.name}）`).join('、')}`);
       const xy = pos[1] && pos[1] !== 'confirm' ? G.parseCoord(pos[1]) : null;
       const at = hereCity(world, opts);
       if (!pos.includes('confirm')) {

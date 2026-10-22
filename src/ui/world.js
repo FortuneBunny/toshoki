@@ -289,6 +289,76 @@ export function createWorldView(container, world, handlers) {
     }
   }
 
+  // 町のないシナリオ（版4 H2）: まだ交易所の圏に入っていない集落・野の需要施設と、一族の館
+  const WILD_IMG = { shrine: 'cities/temple', inn: 'cities/caravanserai', manor: 'cities/palace' };
+  function drawWilderness(c) {
+    const labels = [];
+    const S = TW * cam.zoom * (128 / 120);
+    const onScreen = (sx, sy) => sx > -80 && sy > -80 && sx < canvas.clientWidth + 80 && sy < canvas.clientHeight + 80;
+    const label = (sx, sy, text, sub, color = '#fff7e6') => labels.push(() => {
+      const fs = Math.max(10, 12 * Math.min(1.2, cam.zoom + 0.3));
+      c.font = `800 ${fs}px "Zen Maru Gothic", sans-serif`;
+      c.textAlign = 'center';
+      c.lineWidth = 3;
+      c.strokeStyle = 'rgba(40,25,15,0.85)';
+      c.fillStyle = color;
+      c.strokeText(text, sx, sy);
+      c.fillText(text, sx, sy);
+      if (sub) { c.font = `700 ${fs * 0.8}px "Zen Maru Gothic", sans-serif`; c.strokeText(sub, sx, sy + fs); c.fillText(sub, sx, sy + fs); }
+    });
+    for (const hm of world.hamlets || []) {
+      if (hm.absorbedBy) continue;
+      const [cx, cy] = toScreen(...iso(hm.x, hm.y));
+      if (!onScreen(cx, cy)) continue;
+      const items = [...(hm.fields || []).map(([x, y, g]) => ({ x, y, g })), ...(hm.houses || []).map(([x, y]) => ({ x, y }))].sort((a, b) => (a.x + a.y) - (b.x + b.y));
+      for (const it of items) {
+        const [sx, sy] = toScreen(...iso(it.x, it.y));
+        if (cam.zoom < 0.4) continue;
+        const path = it.g ? `buildings/${G.PRODUCER_FOR[it.g]}` : `houses/plain-${(it.x + it.y) % 2 ? 1 : 2}`;
+        const im = img(path);
+        if (ready(im)) { c.globalAlpha = 0.92; c.drawImage(im, sx - S / 2, sy - S * 0.75, S, S); c.globalAlpha = 1; }
+      }
+      if (cam.zoom < 0.4) {
+        c.fillStyle = '#e2c08a'; c.strokeStyle = '#3b2618'; c.lineWidth = 1;
+        c.beginPath(); c.arc(cx, cy, 4, 0, Math.PI * 2); c.fill(); c.stroke();
+      }
+      if (cam.zoom >= 0.3) label(cx, cy + 18 * Math.max(0.6, cam.zoom), hm.name, `人口${hm.pop}・${Object.keys(hm.foods).map((g) => G.GOODS[g].name).join('・')}`);
+    }
+    for (const wd of world.wilds || []) {
+      if (wd.absorbedBy) continue;
+      const [sx, sy] = toScreen(...iso(wd.x, wd.y));
+      if (!onScreen(sx, sy)) continue;
+      const im = img(WILD_IMG[wd.type]);
+      const s = 44 * Math.max(0.5, cam.zoom);
+      if (ready(im)) { c.filter = 'sepia(0.45) brightness(0.95)'; c.drawImage(im, sx - s / 2, sy - s * 0.8, s, s); c.filter = 'none'; }
+      if (cam.zoom >= 0.3) label(sx, sy + 16 * Math.max(0.6, cam.zoom), G.CIVICS[wd.type].name, Object.keys(G.CIVICS[wd.type].flat).filter((g) => world.scenario.goods.includes(g)).slice(0, 3).map((g) => G.GOODS[g].name).join('・') + 'を買う', '#ffe6a8');
+    }
+    const seats = [];
+    if (world.player.hq) seats.push({ t: world.player.hq, name: '一族の館', color: '#ffd166' });
+    for (const r of world.rivals || []) if (r.hq) seats.push({ t: r.hq, name: `${r.name}の館`, color: '#ff9b8a' });
+    // 一族を選ぶ前は、どの一族の館も見せる
+    if (world.setup?.stage === 'family') for (const f of G.familyList(world)) seats.push({ t: G.tileOf(f.x, f.y), name: `${f.name}の館`, color: '#ffd166' });
+    for (const st of seats) {
+      const [sx, sy] = toScreen(...iso(st.t[0], st.t[1]));
+      if (!onScreen(sx, sy)) continue;
+      const im = img('cities/tier1');
+      const s = 50 * Math.max(0.5, cam.zoom);
+      if (ready(im)) c.drawImage(im, sx - s / 2, sy - s * 0.8, s, s);
+      c.fillStyle = st.color; c.strokeStyle = '#3b2618'; c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(sx + s * 0.18, sy - s * 0.95); c.lineTo(sx + s * 0.18, sy - s * 1.35); c.lineTo(sx + s * 0.45, sy - s * 1.22); c.lineTo(sx + s * 0.18, sy - s * 1.1); c.closePath(); c.fill(); c.stroke();
+      label(sx, sy + 14 * Math.max(0.6, cam.zoom), st.name, null, st.color);
+    }
+    // 最初の交易所を置ける範囲（館から HQ_RANGE マス）
+    if (world.setup?.stage === 'post' && world.player.hq) {
+      const [hx, hy] = world.player.hq;
+      const R = G.HQ_RANGE;
+      const pts = [[-R, -R], [R, -R], [R, R], [-R, R]].map(([dx, dy]) => toScreen(...iso(hx + dx, hy + dy)));
+      c.strokeStyle = 'rgba(255,209,102,0.8)'; c.lineWidth = 2; c.setLineDash([8, 6]);
+      c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py))); c.closePath(); c.stroke(); c.setLineDash([]);
+    }
+    return labels;
+  }
+
   function unitScreen(px, py) {
     return toScreen(...pxToWorld(px, py));
   }
@@ -310,6 +380,7 @@ export function createWorldView(container, world, handlers) {
       ctx.stroke();
       ctx.setLineDash([]);
     }
+    const wildLabels = drawWilderness(ctx);
     // 交易所の候補地
     if (state.found?.sites) {
       for (const s of state.found.sites) {
@@ -485,6 +556,7 @@ export function createWorldView(container, world, handlers) {
     });
     world.rivals.forEach((rv) => rv.merchants.forEach((m) => {
       const city = world.cities[m.travelDays > 0 ? m.from : m.city];
+      if (!city) return; // 町のないシナリオで、まだ交易所がないライバル
       let px = city.x;
       let py = city.y;
       if (m.travelDays > 0) {
@@ -521,6 +593,7 @@ export function createWorldView(container, world, handlers) {
       ctx.fillText(u.label, sx + s * 0.4, sy - s * 0.95 + 3);
       if (u.sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(sx, sy, s * 0.5, s * 0.25, 0, 0, Math.PI * 2); ctx.stroke(); }
     }
+    for (const f of wildLabels) f();
     for (const f of labels) f();
     drawMini();
   }
@@ -654,7 +727,11 @@ export function createWorldView(container, world, handlers) {
     resize();
     fitAll();
     const m0 = world.player.merchants[0];
-    if (m0?.city) {
+    // 町のないシナリオで始める前: 一族を選ぶ間は全体、選んだら館へ寄る
+    if (!m0 && world.player.hq) {
+      [cam.x, cam.y] = iso(world.player.hq[0], world.player.hq[1]);
+      cam.zoom = Math.max(cam.zoom, 0.9);
+    } else if (m0?.city) {
       const [tx, ty] = world.grid.cityTiles[m0.city];
       const full = cam.zoom;
       [cam.x, cam.y] = iso(tx, ty);
@@ -678,6 +755,8 @@ export function createWorldView(container, world, handlers) {
     },
     unitPos,
     centerOn(px, py) { [cam.x, cam.y] = pxToWorld(px, py); invalidate(); draw(); },
+    // マスを中心に（zoom があれば、それより引いて見ない）
+    centerTile(tx, ty, zoom = null) { [cam.x, cam.y] = iso(tx, ty); if (zoom) cam.zoom = Math.max(cam.zoom, zoom); invalidate(); draw(); },
     // 町がどれも画面に見えていなければ、全部が入るように寄せる（行き先を選ぶとき、行き先が画面の外にあって選べなかったため）
     frameCities(ids, keep = null) {
       const pts = ids.map((id) => world.grid.cityTiles[id]).filter(Boolean).map((t) => iso(t[0], t[1]));

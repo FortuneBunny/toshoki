@@ -13,6 +13,7 @@ import { HQ_RANGE, absorbAround, sitePreview, finishSetup } from './pioneer.js';
 export const POST_COST = B.postCost;
 export const POST_POP = 160;
 const MIN_GAP = 14; // ほかの町からこのマス数以上離す
+const PIONEER_GAP = 8; // 町のないシナリオ
 const EDGE_MARGIN = 7; // 区画（12×12）が地図からはみ出さないように
 const POST_NAMES = ['風見の辻', '若葉の市', '白砂の宿', '月見の宿', '黄金の辻', '星降る市', '虹の渡し', '琥珀の宿', '蜜月の辻', '銀泉の市'];
 
@@ -38,7 +39,9 @@ export function siteCheck(world, x, y) {
   const k = gridKey(x, y);
   const t = grid.terrain[k];
   if (t === T.WATER || t === T.MOUNTAIN) return '水や山の上には開けない';
-  for (const [cx, cy] of Object.values(grid.cityTiles)) if (Math.max(Math.abs(cx - x), Math.abs(cy - y)) < MIN_GAP) return `ほかの町に近すぎる（${MIN_GAP}マス以上離す）`;
+  // 町のないシナリオは、集落どうしが近いので間を詰めてよい（重なった圏のマスは近い交易所のもの）
+  const gap = world.scenario.pioneer ? PIONEER_GAP : MIN_GAP;
+  for (const [cx, cy] of Object.values(grid.cityTiles)) if (Math.max(Math.abs(cx - x), Math.abs(cy - y)) < gap) return `ほかの町に近すぎる（${gap}マス以上離す）`;
   let road = false;
   let water = false;
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
@@ -52,6 +55,8 @@ export function siteCheck(world, x, y) {
   if (world.setup?.stage === 'post' && world.player.hq) {
     const [hx, hy] = world.player.hq;
     if (Math.max(Math.abs(hx - x), Math.abs(hy - y)) > HQ_RANGE) return `最初の交易所は、一族の館から${HQ_RANGE}マス以内に置く`;
+    // 人も畑もない場所に最初の交易所を置くと、何もできずに詰む
+    if (!sitePreview(world, x, y).hamlets.length) return `最初の交易所は、集落を圏（${B.postGradeRadius[0]}マス）に入れられる場所に置く（緑の印）`;
   }
   return null;
 }
@@ -79,9 +84,13 @@ export function siteGoods(world, x, y) {
 }
 
 // 候補地: 道や水辺に沿って、開ける場所を土地の良さの順に
-export function foundSites(world, limit = 8) {
+export function foundSites(world, limit = 8, { from = null } = {}) {
   const grid = world.grid;
   const out = [];
+  // 町のないシナリオ: 近い場所ほど上に（from: 起点のマス。既定は自分の交易所か一族の館）
+  const own = Object.values(world.cities).filter((c) => c.founded).map((c) => grid.cityTiles[c.id]);
+  const anchors = from || (own.length ? own : world.player.hq ? [world.player.hq] : []);
+  const far = (x, y) => (anchors.length ? Math.min(...anchors.map(([ax, ay]) => Math.max(Math.abs(ax - x), Math.abs(ay - y)))) : 0);
   // 町のないシナリオは、集落のすぐそばを1マスずつ探す（交易所の圏は2マスと狭いため）
   const step = world.scenario.pioneer ? 1 : 3;
   for (let y = EDGE_MARGIN; y < GRID_H - EDGE_MARGIN; y += step) {
@@ -92,7 +101,8 @@ export function foundSites(world, limit = 8) {
         const pv = sitePreview(world, x, y);
         if (!pv.hamlets.length && !pv.wilds.length) continue;
         const later = pv.later.hamlets.length * 0.3 + pv.later.wilds.length * 0.2;
-        out.push({ x, y, goods: pv.foods, score: pv.pop / 40 + pv.foods.length * 3 + pv.wilds.length * 4 + later, preview: pv });
+        const d = far(x, y);
+        out.push({ x, y, goods: pv.foods, score: pv.pop / 40 + pv.foods.length * 3 + pv.wilds.length * 4 + later - d * 0.25, preview: pv, dist: d });
         continue;
       }
       const goods = siteGoods(world, x, y);
