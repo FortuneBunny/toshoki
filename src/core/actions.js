@@ -20,6 +20,7 @@ import { emit } from './events.js';
 import { checkGoals } from './scoring.js';
 import { gainRep as gainRepFromAction } from './trade.js';
 import { postGrade, gradeName } from './posts.js';
+import { buildingUsable, producerUsable, neededTech } from './techs.js';
 
 const fail = (error) => ({ ok: false, error });
 
@@ -176,6 +177,7 @@ export function placeProducer(world, cityId, type, x, y) {
   if (!world.scenario.goods.includes(p.good)) return fail(`${p.name}はこのシナリオでは建てられない（${GOODS[p.good].name}を扱わない）`);
   // 食べ物と甘味は、その町が元から作っている品の増産だけ（町の中で食卓をそろえると、交易で町を育てる意味が消えるため）
   if (['food', 'sweet'].includes(GOODS[p.good].kind) && !(city.district.native || []).includes(p.good)) return fail(`${city.name}の土地では${GOODS[p.good].name}は育たない（食べ物と甘味は、元から作っている品だけ増産できる。ほかの町から運ぼう）`);
+  if (!producerUsable(world, type)) return fail(`${p.name}を置くには技術「${neededTech(world, 'producers', type)}」が要る`);
   if (!hasPresence(world, cityId)) return fail('置くには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   const why = placeCheck(city, cityTier(city), type, x, y);
   if (why) return fail(why);
@@ -327,6 +329,7 @@ export function build(world, cityId, type, at = null) {
   const def = BUILDINGS[type];
   if (!city || !def?.recipes) return fail('建てられない');
   if (!(world.scenario.buildings || []).includes(type)) return fail('このシナリオでは建てられない');
+  if (!buildingUsable(world, type)) return fail(`${def.name}を建てるには技術「${neededTech(world, 'buildings', type)}」が要る`);
   if (!hasPresence(world, cityId)) return fail('建てるには、その町に自分の商人がいるか、定期便がその町を回っている必要がある');
   if (world.player.buildings.some((b) => b.city === cityId && b.type === type)) return fail('すでにある');
   if (postGrade(city) < 1) return fail(`工房は「${gradeName(1)}」に格上げした交易所に建てられる`);

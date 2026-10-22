@@ -169,7 +169,7 @@ function cityPanel(app, id) {
       if (world.player.buildings.some((x) => x.city === id && x.type === b)) continue;
       const def = BUILDINGS[b];
       const bc = G.buildCost(world, b);
-      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`${def.name}を建てる（${bc}銀）`, recipeText(def), () => app.run(() => G.build(world, id, b), 'build')) }, `${def.name} ${bc}銀`));
+      add(acts, h('button', { class: 'btn small', onclick: () => app.confirm(`${def.name}を建てる（${bc}銀）`, recipeText(def, world), () => app.run(() => G.build(world, id, b), 'build')) }, `${def.name} ${bc}銀`));
     }
   }
   if (acts.children.length) add(box, h('div', { class: 'section' }, 'この町でできること'), acts);
@@ -177,7 +177,7 @@ function cityPanel(app, id) {
   if (bs.length) {
     add(box, h('div', { class: 'section' }, '自分の工房と倉庫'));
     for (const b of bs) {
-      add(box, h('div', { class: 'contract' }, icon(`cities/${b.type}`, 'icon'), h('div', { style: { flex: 1 } }, h('b', {}, BUILDINGS[b.type].name), h('div', { class: 'faint' }, recipeText(BUILDINGS[b.type]))),
+      add(box, h('div', { class: 'contract' }, icon(`cities/${b.type}`, 'icon'), h('div', { style: { flex: 1 } }, h('b', {}, BUILDINGS[b.type].name), h('div', { class: 'faint' }, recipeText(BUILDINGS[b.type], world))),
         h('button', { class: 'btn tiny', onclick: () => app.run(() => G.setBuilding(world, b.id, { active: !b.active })) }, b.active ? '稼働中' : '停止中'),
         h('button', { class: 'btn tiny', title: '足りない材料を市場から買う', onclick: () => app.run(() => G.setBuilding(world, b.id, { autoBuy: !b.autoBuy })) }, b.autoBuy ? '自動購入あり' : '自動購入なし')));
     }
@@ -199,8 +199,9 @@ function cityPanel(app, id) {
   return box;
 }
 
-function recipeText(def) {
-  return def.recipes.map((r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')} → ${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ') + `（1日${def.batches}回、維持費${def.upkeep}/日）`;
+function recipeText(def, world) {
+  const type = Object.keys(BUILDINGS).find((k) => BUILDINGS[k] === def);
+  return G.recipeList(world, type).map((r) => G.recipeLine(r)).join(' / ') + `（1日${def.batches}回、維持費${def.upkeep}/日）`;
 }
 
 function adviceBlock(world, c) {

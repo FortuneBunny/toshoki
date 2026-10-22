@@ -2,6 +2,7 @@
 import { GOODS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
 import { cityTier, dailyDemand } from './city.js';
+import { CIVICS } from '../data/district.js';
 
 export function targetStock(city, id) {
   const d = dailyDemand(city, id, false);
@@ -16,7 +17,8 @@ export function midPrice(city, id, stock = city.stock[id] || 0) {
   const r = Math.max(0, stock) / target;
   let mult = Math.pow(2 / (1 + r), B.priceElasticity);
   mult *= city.priceMods?.[id] ?? 1;
-  if (city.district?.buildings.some((b) => b.type === 'palace') && ['silk', 'spice', 'sugarart'].includes(id)) mult *= 1.15;
+  // 需要施設の求める品は高く売れる（宮殿 +15%、寺院・学問所 +10%）
+  for (const b of city.district?.buildings || []) { const cv = CIVICS[b.type]; if (cv?.priceUp && cv.wants[id]) mult *= 1 + cv.priceUp; }
   mult = Math.min(B.priceMax, Math.max(B.priceMin, mult));
   return g.base * mult;
 }

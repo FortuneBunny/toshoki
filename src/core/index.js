@@ -7,7 +7,7 @@ export * from './caravan.js';
 export * from './knowledge.js';
 export * from './scoring.js';
 export * from './save.js';
-export { buildingInputs } from './production.js';
+export { buildingInputs, recipeList, recipeLine } from './production.js';
 export { previewTrade, talentPrice, executeTrade } from './trade.js';
 export * from './district.js';
 export * from './grid.js';

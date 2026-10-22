@@ -55,12 +55,12 @@ export const PRODUCERS = {
 };
 
 // 需要施設: 建てると、その町に新しい需要が生まれる。求める品が届いている度合い（満足度）に応じて効果がある
-// wants: 人口1000人あたりの1日の需要  growth: 満足度1のときの成長率の上乗せ
+// wants: 人口1000人あたりの1日の需要  growth: 満足度1のときの成長率の上乗せ  priceUp: 求める品の値の上乗せ（建てて稼ぐ手段。版4 H4）
 export const CIVICS = {
-  teahouse: { name: '茶館',   minTier: 1, cost: 350,  wants: { tea: 0.6, sweets: 0.4, mizuame: 0.4 }, growth: 0.10, effect: '甘味がよく売れる（甘味の需要 +10%）' },
-  temple:   { name: '寺院',   minTier: 2, cost: 700,  wants: { honey: 0.5, wine: 0.4, sweets: 0.4 },   growth: 0.15, effect: '評判が毎日少しずつ上がる' },
-  academy:  { name: '学問所', minTier: 2, cost: 600,  wants: { tea: 0.5, pottery: 0.4, salt: 0.6 },   growth: 0.10, effect: '暮らしの豊かさを底上げ' },
-  palace:   { name: '宮殿',   minTier: 3, cost: 1500, wants: { silk: 0.3, spice: 0.3, sugarart: 0.15 }, growth: 0.20, effect: '宮殿の求める品が高く売れる（+15%）' },
+  teahouse: { name: '茶館',   minTier: 1, cost: 350,  wants: { tea: 0.6, sweets: 0.4, mizuame: 0.4, teacake: 0.4 }, growth: 0.10, effect: '甘味がよく売れる（甘味の需要 +10%）' },
+  temple:   { name: '寺院',   minTier: 2, cost: 700,  wants: { honey: 0.5, wine: 0.4, sweets: 0.4 },   growth: 0.15, priceUp: 0.1, effect: '評判が毎日少しずつ上がる。供物が高く売れる（+10%）' },
+  academy:  { name: '学問所', minTier: 2, cost: 600,  wants: { tea: 0.5, pottery: 0.4, salt: 0.6 },   growth: 0.10, priceUp: 0.1, effect: '暮らしの豊かさを底上げ。求める品が高く売れる（+10%）' },
+  palace:   { name: '宮殿',   minTier: 3, cost: 1500, wants: { silk: 0.3, spice: 0.3, sugarart: 0.15, spicesugar: 0.2 }, growth: 0.20, priceUp: 0.15, effect: '宮殿の求める品が高く売れる（+15%）' },
 };
 
 // 品物 → それを生む施設

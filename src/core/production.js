@@ -4,6 +4,7 @@ import { GOODS } from '../data/goods.js';
 import { quote } from './market.js';
 import { cityTier } from './city.js';
 import { emit } from './events.js';
+import { recipeUsable, neededTech } from './techs.js';
 import { BALANCE as B } from '../data/balance.js';
 
 export function buildingInputs(type) {
@@ -11,6 +12,14 @@ export function buildingInputs(type) {
   for (const r of BUILDINGS[type].recipes || []) for (const id of Object.keys(r.in)) ids.add(id);
   return [...ids];
 }
+
+// そのシナリオで使える作り方（材料も産物もシナリオにあるもの）。技術が要るものは、要る技術の名前を lock に入れる
+export function recipeList(world, type) {
+  return (BUILDINGS[type].recipes || [])
+    .filter((r) => [...Object.keys(r.in), ...Object.keys(r.out)].every((g) => world.scenario.goods.includes(g)))
+    .map((r) => ({ ...r, lock: neededTech(world, 'recipes', r.name) }));
+}
+export const recipeLine = (r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}${r.lock ? `（要: ${r.lock}）` : ''}`;
 
 function tryBatch(world, b, recipe, wh, city) {
   b.why = null;
@@ -67,7 +76,7 @@ export function updateProduction(world) {
     if (!b.active) continue;
     let made = 0;
     for (let i = 0; i < def.batches + (world.player.mods?.batchBonus || 0); i++) {
-      const recipes = def.recipes.filter((r) => (r.minTier ?? 0) <= cityTier(city) && (!b.recipe || b.recipe === r.name) && Object.keys(r.in).every((g) => world.scenario.goods.includes(g)));
+      const recipes = def.recipes.filter((r) => (r.minTier ?? 0) <= cityTier(city) && (!b.recipe || b.recipe === r.name) && Object.keys(r.in).every((g) => world.scenario.goods.includes(g)) && Object.keys(r.out).every((g) => world.scenario.goods.includes(g)) && recipeUsable(world, r.name));
       let ok = false;
       // 止まった理由は、上から試したレシピごとに並べる（下のレシピも試したことが分かるように）
       const whys = [];

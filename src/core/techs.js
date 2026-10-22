@@ -1,6 +1,32 @@
 // 技術の購入・独占・使用許可（E2）
 import { TECHS, LICENSE_RATE } from '../data/techs.js';
 import { emit } from './events.js';
+import { GOODS } from '../data/goods.js';
+
+// ---------- 技術で開く品と作り方（版4 H3） ----------
+// シナリオにある技術のうち、kind（goods・recipes・buildings・producers）に name を含むもの
+function unlockTech(world, kind, name) {
+  for (const id of Object.keys(world.scenario.techs || {})) if (TECHS[id]?.unlocks?.[kind]?.includes(name)) return id;
+  return null;
+}
+// その品は、まだだれも技術を買っていないので、どの町でも求められない
+export function goodLocked(world, good) {
+  const id = unlockTech(world, 'goods', good);
+  return !!id && !world.techs?.[id];
+}
+// プレイヤーが使えるか（技術が要らないか、自分が持っているか、使用料を払った）
+function usable(world, kind, name) {
+  const id = unlockTech(world, kind, name);
+  return !id || world.techs?.[id] === 'player' || world.techs?.[id] === 'licensed';
+}
+export const recipeUsable = (world, name) => usable(world, 'recipes', name);
+export const buildingUsable = (world, type) => usable(world, 'buildings', type);
+export const producerUsable = (world, type) => usable(world, 'producers', type);
+// 使えないときの、要る技術の名前
+export function neededTech(world, kind, name) {
+  const id = unlockTech(world, kind, name);
+  return id && !usable(world, kind, name) ? TECHS[id].name : null;
+}
 
 // そのシナリオで、今日買える技術（from 日目から）
 export function techList(world) {
@@ -13,7 +39,16 @@ export function techList(world) {
   });
 }
 
+// 品が開いたことを知らせる（だれが買っても需要は開く）
+function announceGoods(world, id, who) {
+  const goods = TECHS[id].unlocks?.goods || [];
+  if (!goods.length || world.goodsOpened?.[id]) return;
+  world.goodsOpened = { ...(world.goodsOpened || {}), [id]: who };
+  emit(world, { type: 'newGood', big: true, rare: true, text: `新しい品「${goods.map((g) => GOODS[g].name).join('・')}」が、町で求められるようになった！${who === 'rival' ? '（作るには使用料が要る）' : ''}` });
+}
+
 function applyTech(world, id, who) {
+  announceGoods(world, id, who);
   if (who === 'rival') {
     for (const r of world.rivals) if (id === 'refinery' && r.workshop) r.workshop.inputPerDay = Math.round(r.workshop.inputPerDay * 1.33);
     return;
@@ -31,7 +66,7 @@ function applyTech(world, id, who) {
 
 export function buyTech(world, id) {
   const t = techList(world).find((x) => x.id === id);
-  if (!t) return { ok: false, error: 'その技術はこのシナリオにない' };
+  if (!t || t.legacy) return { ok: false, error: 'その技術はこのシナリオにない' };
   if (!t.available) return { ok: false, error: `${t.name}は${t.from}日目から買える` };
   if (t.owner === 'player' || t.owner === 'licensed') return { ok: false, error: 'もう持っている' };
   if (world.player.silver < t.price) return { ok: false, error: `銀が足りない（${t.price}必要）` };
@@ -54,7 +89,7 @@ export function rivalTechs(world) {
   if (!world.rivals.length) return;
   world.rivalTech = world.rivalTech || {};
   for (const t of techList(world)) {
-    if (t.id !== 'refinery' && t.id !== 'wheel' && t.id !== 'relay') continue;
+    if (t.id !== 'refinery' && t.id !== 'wheel' && !TECHS[t.id].unlocks) continue;
     if (world.rivalTech[t.id] || world.day < t.from + 45) continue;
     world.rivalTech[t.id] = true;
     world.techs = world.techs || {};

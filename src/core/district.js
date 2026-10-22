@@ -175,7 +175,8 @@ export function civicWants(type, goods) {
 
 // 需要施設の満足度（0〜1）: 求める品が、需要に対してどれだけ届いたか（町の消費の記録から）
 export function civicSatisfaction(city, type, goods) {
-  const ids = civicWants(type, goods);
+  // まだ技術で開いていない品（どの町でも求められない品）は数えない
+  const ids = civicWants(type, goods).filter((g) => (city.demandMods?.[g] ?? 1) > 0);
   if (!ids.length) return 0;
   return ids.reduce((s, g) => s + Math.min(1, city.eatRatio?.[g] ?? 0), 0) / ids.length;
 }

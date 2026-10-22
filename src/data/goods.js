@@ -28,6 +28,9 @@ export const GOODS = {
   mizuame:    { name: '水飴',     cat: 'processed', kind: 'sweet', base: 20,  glu: 4.0, rate: 0.5,  tier: 2, weight: 1 },
   sweets:     { name: '菓子',     cat: 'luxury',    kind: 'sweet', base: 40,  glu: 8.0, rate: 0.3,  tier: 2, weight: 1 },
   sugarart:   { name: '砂糖細工', cat: 'luxury',    kind: 'sweet', base: 130, glu: 10,  rate: 0.12, tier: 3, weight: 1 },
+  // 合わせの加工品（版4 H3）: 離れた地域の品を2つ合わせて作る。技術で作り方と需要が開く
+  spicesugar: { name: '香辛糖',   cat: 'luxury',    kind: 'sweet', base: 68,  glu: 7.0, rate: 0.15, tier: 3, weight: 1 },
+  teacake:    { name: '茶菓子',   cat: 'luxury',    kind: 'sweet', base: 30,  glu: 4.0, rate: 0.3,  tier: 2, weight: 1 },
   wine:       { name: '果実酒',   cat: 'luxury',    kind: 'sweet', base: 38,  glu: 3.0, rate: 0.4,  tier: 2, weight: 1 },
   silk:       { name: '絹',       cat: 'trade',     kind: 'goods', base: 64,  glu: 0,   rate: 0.25, tier: 3, weight: 1 },
   pottery:    { name: '陶器',     cat: 'trade',     kind: 'goods', base: 22,  glu: 0,   rate: 0.5,  tier: 2, weight: 1 },

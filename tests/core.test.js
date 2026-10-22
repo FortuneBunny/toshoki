@@ -516,3 +516,52 @@ test('砂漠で食料が尽きても、足りなかった分は次の旅に持�
   assert.ok(starved, '食料なしで砂漠を渡ると尽きる');
   assert.ok((m.hunger || 0) < 1, `持ち越すのは端数だけ（${m.hunger}）`);
 });
+
+test('一度訪れた町は、離れてもいつでも今の相場が分かる（版4 H0）', () => {
+  const w = G.createWorld('s2', { seed: 5 });
+  const m = w.player.merchants[0];
+  const start = m.city;
+  assert.ok(G.isVisited(w, start));
+  const t = G.travel(w, m.id, 'natsume');
+  assert.ok(t.ok);
+  G.advance(w, 3, silent);
+  assert.equal(G.knowledgeAge(w, start), 0, '出たあとの町も今の情報');
+  assert.equal(w.player.knowledge[start].prices.wheat, G.midPrice(w.cities[start], 'wheat'));
+  assert.ok(Array.isArray(G.cityOutlook(w, w.cities[start])));
+});
+
+test('交易所は安く開けて、格上げで圏が広がる（版4 H1）', () => {
+  const w = G.createWorld('s8', { seed: 1 });
+  w.player.silver = 99999;
+  const site = G.foundSites(w, 1)[0];
+  const cost = G.postCost(w);
+  assert.ok(cost <= 400, `1つ目は安い（${cost}）`);
+  const r = G.foundPost(w, site.x, site.y);
+  assert.ok(r.ok, r.error);
+  const c = w.cities[r.id];
+  assert.equal(c.grade, 0);
+  assert.equal(G.cityRadius(c, G.cityTier(c)), 2);
+  w.player.merchants[0].city = c.id;
+  assert.ok(G.build(w, c.id, 'mill').ok === false, '交易所のままでは工房を建てられない');
+  assert.ok(G.expandMarket(w, c.id).ok);
+  assert.equal(c.grade, 1);
+  assert.equal(G.cityRadius(c, G.cityTier(c)), 4);
+  assert.ok(G.build(w, c.id, 'mill').ok, '市場になれば建てられる');
+  assert.ok(G.postCost(w) > cost, '2つ目は高くなる');
+});
+
+test('技術で開く品は、だれかが技術を買うまで求められない（版4 H3）', () => {
+  const w = G.createWorld('s8', { seed: 1 });
+  const kohaku = w.cities.kohaku;
+  assert.ok(G.goodLocked(w, 'spicesugar'));
+  assert.equal(G.dailyDemand(kohaku, 'spicesugar', false), 0);
+  assert.equal(G.recipeUsable(w, '香辛糖づくり'), false);
+  w.day = 200;
+  w.player.silver = 99999;
+  const r = G.buyTech(w, 'spicesugar');
+  assert.ok(r.ok, r.error);
+  G.advance(w, 1, silent);
+  assert.ok(!G.goodLocked(w, 'spicesugar'));
+  assert.ok(G.dailyDemand(kohaku, 'spicesugar', false) > 0, '都市が香辛糖を求め始める');
+  assert.ok(G.recipeUsable(w, '香辛糖づくり'));
+});

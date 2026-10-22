@@ -17,6 +17,9 @@ export const BUILDINGS = {
       { in: { whitesugar: 2, wheat: 2 }, out: { sweets: 3 }, name: '菓子づくり' },
       // 麦が手に入らない大都市で止まり続けないように、米でも作れる（12回目の Opus の指摘）
       { in: { whitesugar: 2, rice: 2 }, out: { sweets: 3 }, name: '米菓子づくり' },
+      // 合わせの加工品（技術で開く）。離れた地域の品を運んでくる理由になる
+      { in: { whitesugar: 1, spice: 1 }, out: { spicesugar: 2 }, name: '香辛糖づくり' },
+      { in: { tea: 1, honey: 1 }, out: { teacake: 2 }, name: '茶菓子づくり' },
     ],
   },
   winery: {

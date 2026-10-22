@@ -6,6 +6,7 @@ import { cityTier, dailyDemand } from './city.js';
 import { midPrice } from './market.js';
 import { TRANSPORTS } from '../data/transports.js';
 import { isVisited } from './knowledge.js';
+import { goodLocked } from './techs.js';
 import { BUILDINGS } from '../data/buildings.js';
 
 // 通知を積む。UI と CLI はここから演出を取り出す。
@@ -23,6 +24,8 @@ export function applyModifiers(world) {
   for (const c of Object.values(world.cities)) {
     c.prodMods = {};
     c.demandMods = { ...(world.scenario.demandScale || {}) }; // シナリオごとの需要の倍率（s7 の白糖など）
+    // 技術で開く品は、だれかが技術を買うまで、どの町でも求められない（版4 H3）
+    for (const g of world.scenario.goods) if (goodLocked(world, g)) c.demandMods[g] = 0;
     c.priceMods = {};
     c.growthMod = 1;
   }

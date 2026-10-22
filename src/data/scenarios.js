@@ -231,7 +231,7 @@ const s7 = {
 const s8 = {
   id: 's8', no: 8, title: 'グルコース・ロード',
   intro: '西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げよ。さらに、地図の空き地に交易所を開き「町」（人口1000）まで育てて、一族の新しい拠点とせよ（上の「交易所」/ CLI: sites）。駅伝制や大型帆船は技術として買える。一族の名を歴史に刻め。',
-  goods: ['wheat', 'rice', 'millet', 'dates', 'grapes', 'raisins', 'cane', 'honey', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'sugarart', 'wine', 'silk', 'spice', 'tea', 'pottery', 'salt'],
+  goods: ['wheat', 'rice', 'millet', 'dates', 'grapes', 'raisins', 'cane', 'honey', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'sugarart', 'wine', 'silk', 'spice', 'tea', 'pottery', 'salt', 'spicesugar', 'teacake'],
   start: { silver: 1200, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'kohaku' }, { name: 'ライラ', portrait: 'merchant-2', city: 'kohaku' }] },
   cities: [
     { id: 'kohaku', name: '琥珀京', x: 500, y: 300, pop: 4200, produces: { wheat: 10, pottery: 1.5 } },
@@ -274,7 +274,7 @@ const s8 = {
   deadline: 900, rankS: 0.45,
   transports: ['donkey', 'camel', 'cart', 'dhow'],
   buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],
-  techs: { carrack: { from: 240 }, refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 60 } },
+  techs: { carrack: { from: 240 }, refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 60 }, sugarcraft: { from: 0 }, teaceremony: { from: 60 }, spicesugar: { from: 120 } },
   events: true, contracts: true, bandits: true, newsDaysPerHop: 4,
   maxMerchants: 6, branches: true,
 };
