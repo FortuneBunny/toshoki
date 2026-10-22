@@ -638,3 +638,16 @@ test('定期便を別の商人に写せる（版4 H5）', () => {
   assert.deepEqual(b.order.stops.map((s) => s.city), a.order.stops.map((s) => s.city));
   assert.equal(G.copyOrder(w, a.id, a.id).ok, false);
 });
+
+test('定期便は仕入れ値を割って売らない。長く売れなければ最低売値で売る', () => {
+  const w = G.createWorld('s2', { seed: 3 });
+  assert.ok(G.trade(w, 1, [{ good: 'wheat', qty: 20 }]).ok);
+  const m = G.getMerchant(w, 1);
+  m.cost.wheat = 100; // 高く仕入れたことにする
+  assert.ok(G.setOrder(w, 1, { stops: [{ city: 'mugi', buy: [], sell: [] }, { city: 'natsume', buy: [], sell: [{ good: 'wheat', min: 0 }] }] }).ok);
+  G.advance(w, 20);
+  assert.ok(m.cargo.wheat >= 18, '仕入れ値を割る売りをした'); // 砂漠で少し食べる
+  assert.equal(w.stats.lossSales, 0);
+  G.advance(w, G.BALANCE.orderHoldDays + 20);
+  assert.equal(w.stats.lossSales, 1, '長く売れないままでも売らなかった');
+});

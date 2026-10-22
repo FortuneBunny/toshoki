@@ -515,7 +515,9 @@ function renderGoals() {
   const left = w.scenario.deadline - w.day;
   const hints = w.finished ? [] : G.goalHints(w);
   if (hints.length) add(el, h('div', { class: 'goalhint' }, hints.map((x) => h('span', { role: 'button', class: x.warn ? 'bad' : '', title: 'この町の様子を見る', onclick: () => { app.state.selCity = x.city; app.render(); } }, '▸ ', x.text))));
-  add(el, h('div', { class: `deadline ${left < 30 ? 'warn' : ''}` }, w.finished ? (w.finished.win ? `達成 ランク${w.finished.rank}` : '期限切れ') : `期限まで ${left} 日（S: ${Math.max(0, Math.floor(w.scenario.deadline * (w.scenario.rankS ?? 0.55)) - w.day)}日）`));
+  // 「(S: 0日)」の意味が分かりにくかった（15回目の Opus）
+  const sLeft = Math.floor(w.scenario.deadline * (w.scenario.rankS ?? 0.55)) - w.day;
+  add(el, h('div', { class: `deadline ${left < 30 ? 'warn' : ''}` }, w.finished ? (w.finished.win ? `達成 ランク${w.finished.rank}` : '期限切れ') : `期限まで ${left} 日（${sLeft > 0 ? `ランクSは あと${sLeft}日以内` : 'ランクSの期日は過ぎた'}）`));
 }
 
 function renderMerchants() {

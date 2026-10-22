@@ -387,7 +387,9 @@ export function orderDialog(app, mid) {
   // 上限買値: 今の買値の15%増しか、売る町の今の売値の9割（赤字にならない線）の高いほう
   const maxFor = (cid, g, q, to) => Math.ceil(Math.max(avgBuy(cid, g, q) * 1.15, to ? avgSell(to, g, q) * 0.9 : 0) * 10) / 10;
   // 最低売値は、仕入れ値（同じ便で買う町の今の値）を割らない値
-  const minFor = (g, from) => Math.floor((from ? avgBuy(from, g) : m.cost[g] || GOODS[g].base * 0.6) * 1.03 * 10) / 10;
+  // 便の中で買わない品は、積んでいる分の仕入れ値か、訪れた産地のいちばん安い今の買値（基準値の6割にしていたので、赤字売りが続いた。16回目の Sonnet）
+  const cheapest = (g) => Math.min(...Object.values(world.cities).filter((c) => G.isVisited(world, c.id) && (c.stock[g] || 0) >= 1).map((c) => avgBuy(c.id, g)), Infinity);
+  const minFor = (g, from) => Math.floor((from ? avgBuy(from, g) : m.cost[g] || (Number.isFinite(cheapest(g)) ? cheapest(g) : GOODS[g].base * 0.8)) * 1.03 * 10) / 10;
   let stops;
   // その品を便の中で買う、ほかの停泊地（最低売値の基準）
   const buyerOf = (g, i) => stops.find((st, j) => j !== i && st.buy?.some((x) => x.good === g))?.city;
@@ -416,7 +418,7 @@ export function orderDialog(app, mid) {
   const goodOpts = (sel) => goods.map((g) => h('option', { value: g, selected: g === sel || undefined }, GOODS[g].name));
   const draw = () => {
     clear(body);
-    add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。値は今の相場から: 上限買値は今の買値の15%増しか、売る町の売値の9割の高いほう。最低売値は、買う町の今の買値。'));
+    add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。値は今の相場から: 上限買値は今の買値の15%増しか、売る町の売値の9割の高いほう。最低売値は、買う町の今の買値。定期便は、積荷の仕入れ値を割っては売らない（60日売れなければ最低売値で売る）。'));
     stops.forEach((st, i) => {
       const box = h('div', { class: 'order-stop' });
       add(box, h('div', { class: 'row' }, h('b', {}, `${i + 1}.`), h('select', { onchange: (e) => { st.city = e.target.value; if (!world.player.warehouses[st.city]) { st.unload = []; st.load = []; } draw(); } }, cityOpts(st.city)),

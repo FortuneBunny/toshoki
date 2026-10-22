@@ -4,7 +4,7 @@
 
 - 作成日: 2026-10-22
 - 前提: 全面マス目方式（`docs/PLAN-construction.md`）は完了・公開済み。交易所・開拓団・住居の求める品・需要施設・技術の仕組みは、ここから作り替えて使う。
-- 状態: H0〜H5 は実装済み（進み具合は `docs/progress.md`、経緯は `docs/balance-log.md`）。柱1と柱2は `docs/pillars.md` に反映した。
+- 状態: H0〜H5 と F（調整）は済んだ（進み具合は `docs/progress.md`、経緯は `docs/balance-log.md`）。柱1と柱2は `docs/pillars.md` に反映した。
 - 決めたこと: s2〜s8 は最初から町がある形のまま残す。町のない始まり方は s1 とフリープレイ。
 
 ## 0. 方針

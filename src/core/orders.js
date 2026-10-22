@@ -78,10 +78,20 @@ export function runOrder(world, m, { depart = true } = {}) {
     for (const s of stop.sell || []) {
       const have = (m.cargo[s.good] || 0) - (s.keep || 0);
       if (have <= 0 || !cityWants(city, s.good)) continue;
+      // 仕入れ値も割らない（最低売値を低く入れると赤字売りが続いた。16回目の Sonnet）。
+      // ただし、仕入れ値の縛りで60日売れないままなら、最低売値だけで売る（積荷が埋まって便が止まらないように）
+      o.hold = o.hold || {};
+      const held = o.hold[s.good] !== undefined && world.day - o.hold[s.good] >= B.orderHoldDays;
+      const floor = held ? (s.min || 0) : Math.max(s.min || 0, m.cost[s.good] || 0);
       let n = have;
-      while (n > 0 && quote(world, city, s.good, -n) / n < (s.min || 0)) n = Math.floor(n * 0.7);
-      if (n <= 0) { notes.push(`${GOODS[s.good].name}は売値 ${(quote(world, city, s.good, -1)).toFixed(2)} が最低売値 ${s.min} を下回るので売らずに持ち越し`); continue; }
+      while (n > 0 && quote(world, city, s.good, -n) / n < floor) n = Math.floor(n * 0.7);
+      if (n <= 0) {
+        if (floor > (s.min || 0) && o.hold[s.good] === undefined) o.hold[s.good] = world.day;
+        notes.push(`${GOODS[s.good].name}は売値 ${(quote(world, city, s.good, -1)).toFixed(2)} が${floor > (s.min || 0) ? `仕入れ値 ${floor.toFixed(2)}` : `最低売値 ${s.min}`} を下回るので売らずに持ち越し`);
+        continue;
+      }
       executeTrade(world, m, [{ good: s.good, qty: -n }], { auto: true });
+      if (!m.cargo[s.good]) delete o.hold[s.good];
     }
     // 次の区間で砂漠を渡るなら、食料の分の積載と銀を空けておく（品物で積荷が埋まって飢えないように）
     const nextCity = o.stops[(o.next + 1) % o.stops.length].city;

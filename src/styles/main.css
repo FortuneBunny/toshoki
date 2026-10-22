@@ -272,7 +272,9 @@ img { user-select: none; }
 @keyframes shake { 20% { transform: translate(-4px, 2px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, -1px); } 80% { transform: translate(2px, 2px); } }
 .flash { position: fixed; inset: 0; background: radial-gradient(circle, rgba(255, 240, 190, 0.55), rgba(255, 200, 80, 0) 70%); animation: flash 0.5s forwards; pointer-events: none; z-index: 69; }
 @keyframes flash { to { opacity: 0; } }
-#toasts { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); z-index: 75; display: flex; flex-direction: column-reverse; gap: 6px; align-items: center; pointer-events: none; }
+/* 通知は地図の右上（右の欄の左）。真ん中や下では、町の名前や商人のカードを隠した（15・16回目のテスト） */
+#toasts { position: fixed; top: 112px; right: 356px; z-index: 75; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; pointer-events: none; max-width: min(460px, 60vw); }
+@media (max-width: 900px) { #toasts { right: 8px; left: 8px; align-items: center; max-width: none; } }
 /* ダイアログを開いている間は、知らせを下に出す（見出しや「買う」欄の上に重なって読めなかった） */
 body:has(.modal-back) #toasts { display: none; } /* 出来事の欄には残る。ダイアログのボタンに重なっていた */
 .toast { background: linear-gradient(#3b2d18, #241a10); border: 1px solid #c79a42; border-radius: 30px; padding: 8px 18px 8px 8px; display: flex; align-items: center; gap: 10px; font-weight: 900; box-shadow: var(--shadow); animation: toastIn 0.35s cubic-bezier(0.2, 1.5, 0.4, 1), toastOut 0.4s 3.2s forwards; }
