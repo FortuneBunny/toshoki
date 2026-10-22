@@ -246,6 +246,25 @@ export function dietAdvice(world, city) {
   return out.sort((a, b) => b.gain - a.gain);
 }
 
+// 町のこれから（版4: 読む材料は相場の古さではなく、町の糖度の流れ）。相場の横に出す短い印
+// kind: rush / crash / rushSoon / up / down / hungry
+export function cityOutlook(world, city) {
+  const out = [];
+  const line = rushLineOf(world);
+  if (city.rush > 0) out.push({ kind: 'rush', text: `🍬ラッシュ中（あと${city.rush}日）。甘味がよく売れる。終わるとクラッシュ` });
+  else if (city.crash > 0) out.push({ kind: 'crash', text: `💥クラッシュ中（あと${city.crash}日）。甘味が売れにくく、町も育たない` });
+  else if (city.glucose >= line - 15 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet')) {
+    out.push({ kind: 'rushSoon', text: `🍬ラッシュ間近（糖度${Math.round(city.glucose)}・${line}で始まる）。甘味を2種類まとめて届けると始まり、甘味が高く売れる` });
+  }
+  const to = city.glucoseTarget ?? city.glucose;
+  if (to - city.glucose > 3) out.push({ kind: 'up', text: `糖度 上向き（${Math.round(city.glucose)}→${Math.round(to)}）` });
+  else if (to - city.glucose < -3) out.push({ kind: 'down', text: `糖度 下向き（${Math.round(city.glucose)}→${Math.round(to)}）。食べ物が足りなくなってきた` });
+  // 食卓にない食べ物は、在庫が尽きていて高い。届ければ高く売れ、糖度も伸びる
+  const missing = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && dailyDemand(city, g, false) > 0 && !((city.diet?.[g] || 0) > 0.05) && !((city.produces?.[g] || 0) > 0));
+  if (missing.length) out.push({ kind: 'hungry', text: `食卓にない: ${missing.slice(0, 3).map((g) => GOODS[g].name).join('・')}（高く売れ、糖度も伸びる）` });
+  return out;
+}
+
 export function growthPerDay(city) {
   return growthRate(city);
 }

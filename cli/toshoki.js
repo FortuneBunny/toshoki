@@ -188,7 +188,7 @@ function statusText(world) {
     if (!g.done && ['cityTier', 'cityPop', 'rushes'].includes(def.type)) {
       const c = world.cities[def.city];
       const k = world.player.knowledge[c.id];
-      const here = world.player.merchants.some((m) => m.city === c.id);
+      const here = world.player.merchants.some((m) => m.city === c.id) || G.isVisited(world, c.id) || c.founded;
       const adv = here ? G.dietAdvice(world, c).slice(0, 3) : [];
       out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、${rushGap(here ? c.glucose : k?.glucose, (here ? c.sweetLevel : k?.sweetLevel) || 0, G.rushSweetPlan(world, c), G.rushLineOf(world))}` : ''}${here ? (() => { const why = G.growthBlocker(world, c); return why ? `。⚠ ${why}` : ''; })() : k?.blocker ? `。⚠ ${world.day - k.day}日前に見たとき: ${k.blocker}` : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}（20日ごとの便なら1回に約${Math.ceil(a.perDay * 20)}個）`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
     }
@@ -292,13 +292,13 @@ function pricesText(world) {
       const ageThis = k.priceDay?.[id] !== undefined && (k.day < 0 || k.priceDay[id] > k.day) ? world.day - k.priceDay[id] : null;
       return `${fmt(p)}${k.wants && k.wants[id] === false ? '×' : ''}${ageThis !== null ? '(噂)' : ''}`;
     });
-    const ageText = age === null ? '未訪問' : age === 0 ? '今' : `${age}日前`;
+    const ageText = age === null ? '未訪問' : age === 0 ? '今' : '噂';
     return [`${c.name}(${c.id})`, ageText, ...cells];
   });
   return [
     '■ 知っている相場（中値。手数料抜き。×=その町では買い取らない）',
     table(['町', '情報', ...ids.map((id) => GOODS[id].name)], rows, ids.map((_, i) => i + 2)),
-    '※ 情報は商人が最後にその町にいた時点のもの。今の相場とは違うかもしれない。',
+    '※ 一度訪れた町は、いつでも今の相場が分かる（未訪問の町は噂で聞いた値だけ）。読むのは、着くまでに町がどう変わるか（town で糖度の流れを見る）。',
     `作っている町（産地）: ${ids.filter((g) => Object.values(world.cities).some((c) => (c.produces?.[g] || 0) > 0.3)).map((g) => `${GOODS[g].name}=${Object.values(world.cities).filter((c) => (c.produces?.[g] || 0) > 0.3).map((c) => c.name).join('・')}`).join('  ')}`,
   ].join('\n');
 }
@@ -307,9 +307,8 @@ function cityText(world, id) {
   const c = world.cities[id];
   if (!c) throw new Error(`不明な町: ${id}`);
   const k = world.player.knowledge[id];
-  // 自分の交易所は、商人がいなくても様子が分かる
-  // 自分の交易所と、今日だれかが立ち寄った町は、今の様子が分かる
-  const here = world.player.merchants.some((m) => m.city === id) || !!world.cities[id]?.founded || world.player.knowledge[id]?.day === world.day;
+  // 自分の交易所と、一度訪れた町は、いつでも今の様子が分かる
+  const here = world.player.merchants.some((m) => m.city === id) || !!world.cities[id]?.founded || G.isVisited(world, id);
   const out = [`■ ${c.name}(${id})  ${G.tierName(G.cityTier(c))}  人口 ${here ? Math.floor(c.pop) : k?.pop !== undefined ? `${Math.floor(k.pop)}（${world.day - k.day}日前）` : '?'}`];
   if (here) {
     const tierIdx = G.cityTier(c);
@@ -317,6 +316,8 @@ function cityText(world, id) {
     out.push(`糖度 ${Math.round(c.glucose)}（目標値 ${Math.round(c.glucoseTarget)}）  1日の人口増加率 ${(G.growthPerDay(c) * 100).toFixed(2)}%${nextPop ? `  次の段階まで 人口 ${nextPop}${G.growthPerDay(c) > 0 && !(G.growthBlocker(world, c) || '').startsWith('家') ? `（このペースなら あと約${Math.ceil(Math.log(nextPop / c.pop) / Math.log(1 + G.growthPerDay(c)))}日）` : G.growthBlocker(world, c) ? '（今は止まっている。下の「伸びを止めているもの」を見る）' : ''}` : ''}`);
     const why = G.growthBlocker(world, c);
     if (why) out.push(`伸びを止めているもの: ${why}`);
+    const look = G.cityOutlook(world, c);
+    if (look.length) out.push(`これから: ${look.map((o) => o.text).join(' / ')}`);
     out.push(`糖度の目安: 40未満=飢え（人口減） 40〜110=安定（成長） 110〜140=活況（急成長） 140以上で甘味を大量に食べるとシュガーラッシュ → その後クラッシュ`);
     const diet = Object.entries(c.diet || {}).sort((a, b) => b[1] - a[1]);
     out.push(dwellingLine(world, c));
@@ -337,9 +338,7 @@ function cityText(world, id) {
     const demand = world.scenario.goods.filter((g) => G.dailyDemand(c, g, false) > 0).map((g) => `${GOODS[g].name}${fmt(G.dailyDemand(c, g, false))}`).join(' ');
     out.push(`需要（1日の基本消費量）: ${demand || 'なし'}`);
   } else {
-    out.push('（自分の商人がいないので、今のことは分からない）');
-    if (k?.glucose !== undefined) out.push(`最後に見た糖度: ${Math.round(k.glucose)}（${world.day - k.day}日前）`);
-    if (k?.diet) out.push(`最後に見た食卓: ${Object.entries(k.diet).sort((a, b) => b[1] - a[1]).map(([g, v]) => `${GOODS[g].name} +${Math.round(v * 100)}`).join(' / ') || 'なし'}`);
+    out.push('（まだ訪れていない町。商人を送ると、そのあとはいつでも様子が分かる）');
   }
   const routes = world.edges.filter((e) => e.a === id || e.b === id).map((e) => {
     const other = e.a === id ? e.b : e.a;
@@ -690,7 +689,7 @@ function run(world, cmd, pos, opts) {
     case 'advice': {
       const m = pickMerchant(world, opts);
       if (m.travel) { out.push(`${m.name}は移動中`); break; }
-      out.push(`■ ${m.name}の次の一手の例（知っている相場から。古い相場は外れることもある）`);
+      out.push(`■ ${m.name}の次の一手の例（今の相場から。着く頃には町の様子が変わることもある）`);
       for (const l of G.adviceText(world, m.id)) out.push(`  ・${l}`);
       break;
     }

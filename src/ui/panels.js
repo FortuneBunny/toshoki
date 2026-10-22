@@ -48,10 +48,12 @@ function cityPanel(app, id) {
   const box = h('div', {});
   add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}${world.player.branches?.includes(id) ? '・自分の商館' : ''}`)),
     h('button', { class: 'btn ghost small', style: { marginLeft: 'auto' }, onclick: () => { app.state.selCity = null; app.render(); } }, '✕')));
-  if (here.length || c.founded || world.player.branches?.includes(id)) { // 自分の交易所と商館のある町は、商人がいなくても今の様子が分かる
+  if (here.length || c.founded || G.isVisited(world, id)) { // 一度訪れた町と自分の交易所は、いつでも今の様子が分かる
     const tier = G.cityTier(c);
     const next = G.BALANCE.tierPops[tier + 1];
+    const look = G.cityOutlook(world, c);
     add(box, 
+      look.length ? h('div', { class: 'outlook' }, look.map((o) => h('div', { class: `ol ${o.kind}` }, o.text))) : null,
       h('div', { class: 'section' }, '糖度（町の血糖値）'),
       gaugeBlock(c.glucose, c.glucoseTarget),
       h('dl', { class: 'kv' },
@@ -69,13 +71,11 @@ function cityPanel(app, id) {
       h('div', { class: 'dim', style: { fontSize: '12px', lineHeight: 1.6 } }, `甘味の摂取 ${Math.round((c.sweetLevel || 0) * 100)}%（今日の甘味の必要量のうち食べた割合）。${Math.round(G.BALANCE.rushSweetLine * 100)}%以上かつ糖度${G.rushLineOf(world)}以上でシュガーラッシュ。1種類の食べ物で上げられるのは50まで、甘味は45まで。`),
       adviceBlock(world, c));
   } else {
-    add(box, h('div', { class: 'faint' }, age === null ? 'まだ訪れていない町。商人を送ると相場が分かる。' : `最後に見たのは ${age} 日前。今どうなっているかは分からない。`));
-    if (k?.glucose !== undefined) add(box, h('div', { class: 'section' }, `糖度（${age}日前）`), gaugeBlock(k.glucose));
-    if (k?.diet) add(box, h('div', { class: 'section' }, `食卓（${age}日前）`), h('div', { class: 'chips' }, Object.entries(k.diet).sort((a, b) => b[1] - a[1]).map(([g, v]) => h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} +${Math.round(v * 100)}`))));
+    add(box, h('div', { class: 'faint' }, 'まだ訪れていない町。商人を送ると、そのあとはいつでも相場と様子が分かる。'));
   }
   // 相場
   if (k) {
-    add(box, h('div', { class: 'section' }, `相場 ${age === 0 ? '（今）' : `（${age}日前の情報）`}`));
+    add(box, h('div', { class: 'section' }, age === 0 ? '相場（今）' : '相場（噂で聞いた値だけ）'));
     const t = h('table', { class: 'prices-table' }, h('tr', {}, h('th', {}, '品物'), h('th', {}, '中値'), h('th', {}, '在庫'), h('th', {}, '推移')));
     for (const gid of world.scenario.goods) {
       const p = k.prices?.[gid];
@@ -250,7 +250,7 @@ function overview(app) {
     const age = G.knowledgeAge(world, c.id);
     const cls = age === null ? 'faint' : age <= 3 ? 'age-fresh' : age <= 15 ? 'age-old' : 'age-stale';
     add(t, h('tr', { style: { cursor: 'pointer' }, onclick: () => { app.state.selCity = c.id; app.render(); } },
-      h('td', {}, c.name, h('div', { class: cls, style: { fontSize: '10px' } }, age === null ? '未訪問' : age === 0 ? '今' : `${age}日前`)),
+      h('td', {}, c.name, h('div', { class: cls, style: { fontSize: '10px' } }, age === null ? '未訪問' : age === 0 ? '今' : '噂')),
       ...sc.goods.map((g) => {
         const p = k?.prices?.[g];
         if (p === undefined) return h('td', { class: 'faint' }, '?');
@@ -258,7 +258,7 @@ function overview(app) {
         return h('td', { class: `num ${p < GOODS[g].base * 0.75 ? 'good' : p > GOODS[g].base * 1.35 ? 'bad' : ''}`, style: want ? {} : { opacity: 0.4 } }, fmt(p, p < 10 ? 1 : 0));
       })));
   }
-  add(box, h('div', { class: 'table-scroll' }, t), h('div', { class: 'faint', style: { fontSize: '11px' } }, '緑=安い（仕入れどき）、赤=高い（売りどき）。情報は商人が最後にいたときのもの。'));
+  add(box, h('div', { class: 'table-scroll' }, t), h('div', { class: 'faint', style: { fontSize: '11px' } }, '緑=安い（仕入れどき）、赤=高い（売りどき）。一度訪れた町は、いつでも今の相場が分かる。'));
   // 定期便
   const orders = world.player.merchants.filter((m) => m.order);
   if (orders.length) {
@@ -297,7 +297,8 @@ export function departDialog(app, mid, to) {
           h('button', { class: 'btn tiny', onclick: () => { guards = Math.max(0, guards - 1); draw(); } }, '−'), h('b', { class: 'num' }, guards), h('button', { class: 'btn tiny', onclick: () => { guards = Math.min(12, guards + 1); draw(); } }, '＋'),
           h('span', { class: 'dim' }, `費用 約${guards * G.BALANCE.guardWage * route.days}銀`))) : null,
       // 噂だけで、相場を見たことのない町は「まだ知らない」（「null日前の情報」と出ていた）
-      k && G.knowledgeAge(world, to) !== null ? h('div', { class: 'dim', style: { marginTop: '6px' } }, `${dest.name}の相場は${G.knowledgeAge(world, to)}日前の情報。着く頃には ${G.knowledgeAge(world, to) + route.days} 日前の情報になる。`) : h('div', { class: 'dim' }, `${dest.name}の相場はまだ知らない。着いてから確かめる。`),
+      // 着く頃の町を読む材料（版4: 相場はいつも最新。変わるのは、着くまでの町の糖度の流れ）
+      G.isVisited(world, to) ? h('div', { class: 'dim', style: { marginTop: '6px' } }, `${dest.name}の今の様子（着くのは約${route.days}日後）`, h('div', { class: 'outlook' }, G.cityOutlook(world, dest).map((o) => h('div', { class: `ol ${o.kind}` }, o.text)))) : h('div', { class: 'dim' }, `${dest.name}の相場はまだ知らない。着いてから確かめる。`),
       Object.keys(m.cargo).length && k ? h('div', { class: 'chips' }, Object.entries(m.cargo).map(([g, q]) => {
         const p = k.prices?.[g];
         const want = k.wants?.[g] !== false;

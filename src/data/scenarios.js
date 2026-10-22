@@ -27,7 +27,7 @@ const s1 = {
 
 const s2 = {
   id: 's2', no: 2, title: 'なつめやしの谷',
-  intro: '谷には4つの町がある。相場は日々動き、遠くの町の情報はどんどん古くなる。「着いたとき、まだ高いか？」を読み切れ。麦の里を「町」に育て、一族の資産を3000銀にせよ。',
+  intro: '谷には4つの町がある。相場は日々動き、運んでいる間にも町は変わる。糖度の流れを見て「着いたとき、まだ高いか？」を読み切れ。麦の里を「町」に育て、一族の資産を3000銀にせよ。',
   goods: ['wheat', 'dates', 'honey', 'rawsugar'],
   start: { silver: 220, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'mugi' }] },
   cities: [
@@ -182,7 +182,6 @@ const s6 = {
   goals: [{ type: 'deliver', good: 'spice', city: 'byakudan', amount: 200 }, { type: 'networth', amount: 9000 }],
   deadline: 480, rankS: 0.4,
   transports: ['donkey', 'dhow', 'carrack'],
-  techs: { relay: { from: 30 } },
   events: true, contracts: true, bandits: false, newsDaysPerHop: 5,
   disabledEvents: ['sandstorm'],
   maxMerchants: 3, branches: true,
@@ -275,7 +274,7 @@ const s8 = {
   deadline: 900, rankS: 0.45,
   transports: ['donkey', 'camel', 'cart', 'dhow'],
   buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],
-  techs: { relay: { from: 120 }, carrack: { from: 240 }, refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 60 } },
+  techs: { carrack: { from: 240 }, refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 60 } },
   events: true, contracts: true, bandits: true, newsDaysPerHop: 4,
   maxMerchants: 6, branches: true,
 };

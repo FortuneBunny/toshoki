@@ -71,7 +71,7 @@ export function adviceText(world, mid) {
   const lines = [];
   const name = (id) => world.cities[id].name;
   for (const s of ss) {
-    lines.push(`${GOODS[s.good].name}を${s.qty}個買って（約${s.cost}銀）${name(s.to)}へ（約${s.days}日）。見込み +${s.profit}銀（${s.age}日前の相場）${s.food ? `。砂漠を渡るので食料（${PROVISIONS.map((g) => GOODS[g].name).join('・')}のどれか）を${s.food}個積む` : ''}`);
+    lines.push(`${GOODS[s.good].name}を${s.qty}個買って（約${s.cost}銀）${name(s.to)}へ（約${s.days}日）。見込み +${s.profit}銀${s.food ? `。砂漠を渡るので食料（${PROVISIONS.map((g) => GOODS[g].name).join('・')}のどれか）を${s.food}個積む` : ''}`);
   }
   const u = unknownNear(world, mid);
   if (u) {
@@ -102,7 +102,7 @@ export function adviceText(world, mid) {
         const gain = k.prices[good] * 0.9 * q - (m.cost[good] || 0) * q;
         if (gain > 0 && (!best || gain / Math.max(1, r.days) > best.gain / Math.max(1, best.days))) best = { cid, days: r.days, gain, age: world.day - k.day };
       }
-      if (best) lines.push(`積んでいる${GOODS[good].name}${q}個は、${name(best.cid)}（約${best.days}日）で売ると見込み +${Math.round(best.gain)}銀（${best.age}日前の相場）。「出発」で地図の${name(best.cid)}を選ぶ`);
+      if (best) lines.push(`積んでいる${GOODS[good].name}${q}個は、${name(best.cid)}（約${best.days}日）で売ると見込み +${Math.round(best.gain)}銀。「出発」で地図の${name(best.cid)}を選ぶ`);
     }
   }
   if (!lines.length) lines.push('今いる町で見込みのある取引が見つからない。積荷を売るか、別の町へ行って相場を確かめよう');

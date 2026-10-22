@@ -5,6 +5,7 @@ import { chance, pick, randInt, nextRandom } from './rng.js';
 import { cityTier, dailyDemand } from './city.js';
 import { midPrice } from './market.js';
 import { TRANSPORTS } from '../data/transports.js';
+import { isVisited } from './knowledge.js';
 import { BUILDINGS } from '../data/buildings.js';
 
 // 通知を積む。UI と CLI はここから演出を取り出す。
@@ -142,6 +143,8 @@ export function queueNews(world, cityId, ev) {
 }
 
 export function newsDelay(world, cityId) {
+  // 一度訪れた町と自分の交易所の出来事は、すぐに分かる（相場もいつも最新のため）
+  if (world.cities[cityId]?.founded || isVisited(world, cityId)) return 0;
   let best = Infinity;
   for (const m of world.player.merchants) {
     const here = m.travel ? null : m.city;

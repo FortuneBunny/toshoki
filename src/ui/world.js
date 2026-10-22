@@ -430,7 +430,7 @@ export function createWorldView(container, world, handlers) {
       ctx.strokeText(c.name, sx, sy + s * 0.32 + fs);
       ctx.fillText(c.name, sx, sy + s * 0.32 + fs);
       const age = G.knowledgeAge(world, c.id);
-      const sub = `${G.tierName(G.cityTier(c))} ${Math.round(c.pop).toLocaleString('ja-JP')}人${world.player.branches?.includes(c.id) ? '・商館' : ''}${age === null ? '・未訪問' : age > 0 && !here ? `・${age}日前` : ''}`;
+      const sub = `${G.tierName(G.cityTier(c))} ${Math.round(c.pop).toLocaleString('ja-JP')}人${world.player.branches?.includes(c.id) ? '・商館' : ''}${age === null ? '・未訪問' : ''}`;
       ctx.font = `700 ${fs * 0.75}px "Zen Maru Gothic", sans-serif`;
       ctx.lineWidth = 3;
       ctx.strokeText(sub, sx, sy + s * 0.32 + fs * 1.9);

@@ -1,5 +1,6 @@
 import { growthBlocker, growthPerDay } from './city.js';
-// 相場の知識。商人がいる町の相場だけが最新になり、ほかの町の情報は時間とともに古くなる。
+// 相場の知識。一度訪れた町と自分の交易所は、いつでも最新の様子が分かる（版4。読むのは相場の古さではなく、町の糖度の流れ）。
+// まだ訪れていない町は、噂で値の一部が届くだけ。
 import { midPrice, cityWants } from './market.js';
 
 export function observe(world, cityId) {
@@ -25,16 +26,15 @@ export function observe(world, cityId) {
 export function observePresent(world) {
   const here = new Set();
   for (const m of world.player.merchants) if (!m.travel) here.add(m.city);
-  // 自分の交易所は、いつでも様子が分かる
-  for (const c of Object.values(world.cities)) if (c.founded) here.add(c.id);
-  // 商館のある町は、5日ごとに相場が届く（いつも最新だと、古い情報で読む面白さが薄れるため。12回目の Opus の指摘）
-  if (world.day % 5 === 0) for (const id of world.player.branches || []) here.add(id);
-  for (const id of here) observe(world, id);
-  // 情報網の技術: 一定日数ごとに遠くの町の相場が（古いまま）届く
-  const net = world.scenario.infoNetwork;
-  if (net && world.day % net.every === 0) {
-    for (const id of Object.keys(world.cities)) if (!here.has(id)) observe(world, id);
-  }
+  // 自分の交易所と、一度訪れた町は、いつでも様子が分かる
+  for (const c of Object.values(world.cities)) if (c.founded || isVisited(world, c.id)) here.add(c.id);
+  for (const id of here) if (world.cities[id]) observe(world, id);
+}
+
+// 一度訪れた（相場を見た）町か。噂で値の一部を聞いただけの町は含めない
+export function isVisited(world, cityId) {
+  const k = world.player.knowledge[cityId];
+  return !!k && !k.partial && k.day >= 0;
 }
 
 // その町についての知識の古さ（日）
