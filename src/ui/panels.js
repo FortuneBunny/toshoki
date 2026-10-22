@@ -39,6 +39,54 @@ function gaugeBlock(g, target) {
     h('div', { class: 'gauge-legend' }, h('span', {}, '飢え'), h('span', {}, '40'), h('span', {}, '安定'), h('span', {}, '110 活況'), h('span', {}, '140 ラッシュ')));
 }
 
+// 自分の交易所の格上げ（区画の画面の奥にしかなく、見つけにくかった。第15回テスト）。家が頭打ちのときは目立たせる
+function upgradeBlock(app, c) {
+  const world = app.world;
+  const next = c.grade + 1;
+  if (next > 2) return null;
+  const cost = G.expandCost(world, c.id);
+  const capped = c.pop >= G.housingCap(c, G.cityTier(c)) * 0.98;
+  const [cx, cy] = world.grid?.cityTiles?.[c.id] || [0, 0];
+  const now = G.cityRadius(c, G.cityTier(c));
+  const r = G.cityRadius({ ...c, grade: next }, 0);
+  const gain = world.hamlets ? G.coveredBy(world, cx, cy, r) : { hamlets: [], wilds: [] };
+  const gains = [...gain.hamlets.map((hm) => `${hm.name}（人口${hm.pop}）`), ...gain.wilds.map((w) => G.CIVICS[w.type].name)];
+  const short = cost - world.player.silver;
+  const presence = G.hasPresence(world, c.id);
+  const why = short > 0 ? `銀があと${fmt(short)}足りない` : !presence ? '自分の商人がいるか、定期便が回っている必要がある' : '';
+  return h('div', { class: `upgrade-box ${capped ? 'hot' : ''}` },
+    h('div', {}, capped ? h('b', { class: 'amber' }, '⚠ 家を建てる空き地がなく、人口が頭打ち。格上げで圏を広げよう') : h('b', {}, `「${G.gradeName(next)}」に格上げできる`)),
+    h('div', { class: 'dim', style: { fontSize: '12px' } }, `圏 ${now}→${r}マス。${next === 1 ? '工房と需要施設（宮殿のほか）を建てられる。' : '宮殿も建てられる。'}${gains.length ? `圏に入る: ${gains.join('、')}` : ''}`),
+    h('button', { class: `btn small ${capped ? 'primary' : ''}`, disabled: !!why || undefined, title: why, onclick: () => app.confirm(`「${G.gradeName(next)}」に格上げ（${cost}銀）`, `市場の圏が${r}マスに広がります。${gains.length ? `${gains.join('、')}が圏に入ります。` : ''}`, () => app.run(() => G.expandMarket(world, c.id), 'build')) }, `「${G.gradeName(next)}」に格上げ ${fmt(cost)}銀`),
+    why ? h('span', { class: 'faint', style: { fontSize: '11px', marginLeft: '6px' } }, why) : null);
+}
+
+// 買い取らない理由（「買取なし」だけでは、技術を買ったのになぜ売れないのか分からなかった。第15回テスト）
+function noBuyWhy(world, c, g) {
+  if (G.goodLocked(world, g)) return `買取なし（技術「${G.TECHS[Object.keys(world.scenario.techs || {}).find((t) => G.TECHS[t]?.unlocks?.goods?.includes(g))]?.name}」で開く）`;
+  if (G.cityTier(c) < GOODS[g].tier) return `買取なし（「${G.tierName(GOODS[g].tier)}」になると買う）`;
+  return '買取なし';
+}
+
+// この町の工房で作れる加工品と、その作り方（工房・材料・要る技術・交易所の格）
+function makeBlock(app, c) {
+  const world = app.world;
+  const goods = world.scenario.goods.filter((g) => GOODS[g].cat !== 'raw' && G.howToMake(world, g).length);
+  if (!goods.length) return null;
+  const gradeOk = G.postGrade(c) >= 1;
+  return h('div', {}, h('div', { class: 'section' }, '工房で作れる品'),
+    gradeOk ? null : h('div', { class: 'amber', style: { fontSize: '12px' } }, `工房は「${G.gradeName(1)}」に格上げすると建てられる`),
+    h('div', { style: { fontSize: '12px', lineHeight: 1.6 } }, goods.map((g) => {
+      const ways = G.howToMake(world, g);
+      const lock = ways.every((w) => w.lock) ? ways[0].lock : null;
+      const k = world.player.knowledge[c.id];
+      const price = k?.wants?.[g] !== false && k?.prices?.[g] !== undefined ? `この町で ${fmt(k.prices[g], 1)}銀` : noBuyWhy(world, c, g);
+      return h('div', { class: lock ? 'faint' : '' }, goodIcon(g, 'icon-sm'), h('b', {}, ` ${GOODS[g].name}`), `: ${ways.filter((w) => !lock || w.lock === lock).slice(0, 2).map((w) => `${w.building}で ${G.recipeLine({ ...w.recipe, lock: null })}`).join(' / ')}`,
+        lock ? h('span', { class: 'amber' }, `（要: 技術「${lock}」）`) : null, h('span', { class: 'dim' }, ` ・${price}`));
+    })),
+    Object.keys(world.scenario.techs || {}).length ? h('button', { class: 'btn tiny ghost', onclick: () => techDialog(app) }, '技術を見る') : null);
+}
+
 function cityPanel(app, id) {
   const world = app.world;
   const c = world.cities[id];
@@ -48,6 +96,7 @@ function cityPanel(app, id) {
   const box = h('div', {});
   add(box, h('div', { class: 'panel-title' }, icon(`cities/tier${G.cityTier(c)}`, 'icon-lg'), h('div', {}, c.name, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(c))}${c.founded && c.grade !== undefined ? `・自分の${G.gradeName(c.grade)}` : ''}${c.rivalPost ? `・${c.rivalPost}の${G.gradeName(c.grade)}` : ''}${c.tags.includes('desert') ? '・砂漠' : ''}${c.tags.includes('port') ? '・港' : ''}${world.player.branches?.includes(id) ? '・自分の商館' : ''}`)),
     h('button', { class: 'btn ghost small', style: { marginLeft: 'auto' }, onclick: () => { app.state.selCity = null; app.render(); } }, '✕')));
+  if (c.founded && c.grade !== undefined && !c.rivalPost) add(box, upgradeBlock(app, c));
   if (here.length || c.founded || G.isVisited(world, id)) { // 一度訪れた町と自分の交易所は、いつでも今の様子が分かる
     const tier = G.cityTier(c);
     const next = G.BALANCE.tierPops[tier + 1];
@@ -82,7 +131,7 @@ function cityPanel(app, id) {
       if (p === undefined) continue;
       const hist = k.history?.[gid] || [];
       const want = k.wants?.[gid] !== false;
-      add(t, h('tr', {}, h('td', {}, goodIcon(gid, 'icon-sm'), ' ', GOODS[gid].name, want ? '' : h('span', { class: 'faint' }, ' 買取なし')), h('td', { class: `num ${p < GOODS[gid].base * 0.75 ? 'good' : p > GOODS[gid].base * 1.35 ? 'bad' : ''}` }, fmt(p, 1)), h('td', { class: 'num' }, k.stock?.[gid] ?? '?'), h('td', {}, hist.length > 1 ? sparkline(hist.map((x) => x[1]), 50, 16) : '')));
+      add(t, h('tr', {}, h('td', {}, goodIcon(gid, 'icon-sm'), ' ', GOODS[gid].name, want ? '' : h('span', { class: 'faint' }, ` ${noBuyWhy(world, c, gid)}`)), h('td', { class: `num ${p < GOODS[gid].base * 0.75 ? 'good' : p > GOODS[gid].base * 1.35 ? 'bad' : ''}` }, fmt(p, 1)), h('td', { class: 'num' }, k.stock?.[gid] ?? '?'), h('td', {}, hist.length > 1 ? sparkline(hist.map((x) => x[1]), 50, 16) : '')));
     }
     add(box, t);
   }
@@ -95,6 +144,7 @@ function cityPanel(app, id) {
     return h('span', { class: `chip ${spare > 0.3 ? 'good' : spare < 0 ? 'bad' : ''}`, title: spare > 0.3 ? '余りが市場にたまり、買える' : '町が自分で食べ切るので、買える在庫はほとんど残らない' },
       goodIcon(g, 'icon-sm'), `${GOODS[g].name} 作る${fmt(r, 1)}・食べる${fmt(eat, 1)} → 余り ${spare >= 0 ? '+' : ''}${fmt(spare, 1)}/日`);
   })));
+  if (G.hasPresence(world, id) || c.founded) add(box, makeBlock(app, c));
   // この町でできること
   const acts = h('div', { class: 'chips', style: { gap: '6px' } });
   const selM = world.player.merchants.find((x) => x.id === app.state.selMerchant);
@@ -331,18 +381,30 @@ export function orderDialog(app, mid) {
   const m = G.getMerchant(world, mid);
   const goods = world.scenario.goods;
   // 下書き: 既存の定期便 → 直近の取引 → 今いる町と隣町
+  // 上限買値・最低売値は今の相場から入れる（基準値から入れていたので、相場が上がると買わずに素通りした。第15回テスト）
+  const avgBuy = (cid, g, q = 20) => { const c = world.cities[cid]; return c ? G.quote(world, c, g, Math.max(1, q)) / Math.max(1, q) : GOODS[g].base; };
+  const avgSell = (cid, g, q = 20) => { const c = world.cities[cid]; return c && G.cityWants(c, g) ? -G.quote(world, c, g, -Math.max(1, q)) / Math.max(1, q) : 0; };
+  // 上限買値: 今の買値の15%増しか、売る町の今の売値の9割（赤字にならない線）の高いほう
+  const maxFor = (cid, g, q, to) => Math.ceil(Math.max(avgBuy(cid, g, q) * 1.15, to ? avgSell(to, g, q) * 0.9 : 0) * 10) / 10;
+  // 最低売値は、仕入れ値（同じ便で買う町の今の値）を割らない値
+  const minFor = (g, from) => Math.floor((from ? avgBuy(from, g) : m.cost[g] || GOODS[g].base * 0.6) * 1.03 * 10) / 10;
   let stops;
+  // その品を便の中で買う、ほかの停泊地（最低売値の基準）
+  const buyerOf = (g, i) => stops.find((st, j) => j !== i && st.buy?.some((x) => x.good === g))?.city;
+  // その品を売る停泊地。なければ、次の停泊地（上限買値の基準）
+  const sellerOf = (g, i) => stops.find((st, j) => j !== i && st.sell?.some((x) => x.good === g))?.city || stops[(i + 1) % stops.length]?.city;
   if (m.order) stops = JSON.parse(JSON.stringify(m.order.stops));
   else {
     const recent = (m.recent || []).slice(-2);
     if (recent.length === 2 && recent[0].city !== recent[1].city) {
       stops = recent.map((r) => ({
         city: r.city,
-        buy: Object.entries(r.buy).map(([g, q]) => ({ good: g, qty: q, max: Math.ceil(GOODS[g].base * 1.1 * 10) / 10 })),
-        sell: Object.keys(r.sell).map((g) => ({ good: g, min: Math.floor((m.cost[g] || GOODS[g].base * 0.6) * 1.1 * 10) / 10 })),
+        buy: Object.entries(r.buy).map(([g, q]) => ({ good: g, qty: q, max: maxFor(r.city, g, q, recent.find((x) => x.city !== r.city)?.city) })),
+        sell: [],
       }));
-      // 片方で買った品は、もう片方で売る
-      for (let i = 0; i < 2; i++) for (const b of stops[i].buy) if (!stops[1 - i].sell.some((x) => x.good === b.good)) stops[1 - i].sell.push({ good: b.good, min: Math.floor(GOODS[b.good].base * 0.8 * 10) / 10 });
+      // 片方で買った品は、もう片方で売る（最低売値は買う町の今の値から）。自分で売った品で、便の中で買わないものは平均の仕入れ値から
+      for (let i = 0; i < 2; i++) for (const b of stops[i].buy) stops[1 - i].sell.push({ good: b.good, min: minFor(b.good, stops[i].city) });
+      recent.forEach((r, i) => { for (const g of Object.keys(r.sell)) if (!stops[i].sell.some((x) => x.good === g)) stops[i].sell.push({ good: g, min: minFor(g) }); });
     } else {
       const here = m.city || m.travel?.to;
       const nb = G.neighbors(world, here).map((e) => (e.a === here ? e.b : e.a))[0];
@@ -354,23 +416,28 @@ export function orderDialog(app, mid) {
   const goodOpts = (sel) => goods.map((g) => h('option', { value: g, selected: g === sel || undefined }, GOODS[g].name));
   const draw = () => {
     clear(body);
-    add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。'));
+    add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。値は今の相場から: 上限買値は今の買値の15%増しか、売る町の売値の9割の高いほう。最低売値は、買う町の今の買値。'));
     stops.forEach((st, i) => {
       const box = h('div', { class: 'order-stop' });
       add(box, h('div', { class: 'row' }, h('b', {}, `${i + 1}.`), h('select', { onchange: (e) => { st.city = e.target.value; if (!world.player.warehouses[st.city]) { st.unload = []; st.load = []; } draw(); } }, cityOpts(st.city)),
         h('span', { style: { flex: 1 } }), stops.length > 2 ? h('button', { class: 'btn tiny danger', onclick: () => { stops.splice(i, 1); draw(); } }, '削除') : null));
-      (st.sell ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '売る', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), '最低', h('input', { type: 'number', step: '0.1', value: x.min, onchange: (e) => { x.min = Number(e.target.value); } }), '銀', ' 残す', h('input', { type: 'number', value: x.keep || 0, title: '売らずに手元に残す数（砂漠の食料など）', onchange: (e) => { x.keep = Number(e.target.value) || 0; } }), '個', h('button', { class: 'btn tiny ghost', onclick: () => { st.sell.splice(j, 1); draw(); } }, '✕'))));
-      (st.buy ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '買う', h('select', { onchange: (e) => { x.good = e.target.value; } }, goodOpts(x.good)), h('input', { type: 'number', value: x.qty, onchange: (e) => { x.qty = Number(e.target.value); } }), '個まで、上限', h('input', { type: 'number', step: '0.1', value: x.max === Infinity ? '' : x.max, onchange: (e) => { x.max = e.target.value === '' ? Infinity : Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.buy.splice(j, 1); draw(); } }, '✕'))));
+      (st.sell ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '売る', h('select', { onchange: (e) => { x.good = e.target.value; x.min = minFor(x.good, buyerOf(x.good, i)); draw(); } }, goodOpts(x.good)), '最低', h('input', { type: 'number', step: '0.1', value: x.min, onchange: (e) => { x.min = Number(e.target.value); } }), '銀', ' 残す', h('input', { type: 'number', value: x.keep || 0, title: '売らずに手元に残す数（砂漠の食料など）', onchange: (e) => { x.keep = Number(e.target.value) || 0; } }), '個', h('button', { class: 'btn tiny ghost', onclick: () => { st.sell.splice(j, 1); draw(); } }, '✕'))));
+      (st.buy ||= []).forEach((x, j) => add(box, h('div', { class: 'row' }, '買う', h('select', { onchange: (e) => { x.good = e.target.value; x.max = maxFor(st.city, x.good, x.qty, sellerOf(x.good, i)); draw(); } }, goodOpts(x.good)), h('input', { type: 'number', value: x.qty, onchange: (e) => { x.qty = Number(e.target.value); } }), '個まで、上限', h('input', { type: 'number', step: '0.1', value: x.max === Infinity ? '' : x.max, onchange: (e) => { x.max = e.target.value === '' ? Infinity : Number(e.target.value); } }), '銀', h('button', { class: 'btn tiny ghost', onclick: () => { st.buy.splice(j, 1); draw(); } }, '✕'))));
       if (world.player.warehouses[st.city]) {
         add(box, h('div', { class: 'row' }, '倉庫:', h('label', {}, '下ろす ', h('select', { onchange: (e) => { st.unload = e.target.value ? [e.target.value] : []; } }, h('option', { value: '' }, '—'), goodOpts((st.unload || [])[0]))),
           h('label', {}, ' 積む ', h('select', { onchange: (e) => { st.load = e.target.value ? [e.target.value] : []; } }, h('option', { value: '' }, '—'), goodOpts(String((st.load || [])[0] || '').split('*')[0])))));
       }
-      add(box, h('div', { class: 'row' },
-        h('button', { class: 'btn tiny', onclick: () => { st.sell.push({ good: goods[0], min: GOODS[goods[0]].base * 0.8 }); draw(); } }, '+ 売る品'),
-        h('button', { class: 'btn tiny', onclick: () => { st.buy.push({ good: goods[0], qty: 20, max: GOODS[goods[0]].base }); draw(); } }, '+ 買う品')));
+      // 品はボタンで足す（プルダウンだけでは操作が多かった。第15回テスト）。値は今の相場から
+      const c = world.cities[st.city];
+      const canBuy = c ? goods.filter((g) => (c.stock[g] || 0) >= 1 && !st.buy.some((x) => x.good === g)) : [];
+      const canSell = c ? goods.filter((g) => G.cityWants(c, g) && !st.sell.some((x) => x.good === g)).sort((a, b) => (buyerOf(b, i) ? 1 : 0) - (buyerOf(a, i) ? 1 : 0)) : [];
+      if (canBuy.length) add(box, h('div', { class: 'row chips' }, h('span', { class: 'dim' }, '＋買う品:'), canBuy.map((g) => h('button', { class: 'btn tiny', onclick: () => { st.buy.push({ good: g, qty: 20, max: maxFor(st.city, g, 20, sellerOf(g, i)) }); draw(); } }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${fmt(G.unitBuy(world, c, g), 1)}`))));
+      if (canSell.length) add(box, h('div', { class: 'row chips' }, h('span', { class: 'dim' }, '＋売る品:'), canSell.slice(0, 10).map((g) => h('button', { class: `btn tiny ${buyerOf(g, i) ? '' : 'ghost'}`, onclick: () => { st.sell.push({ good: g, min: minFor(g, buyerOf(g, i)) }); draw(); } }, goodIcon(g, 'icon-sm'), `${GOODS[g].name} ${fmt(G.unitSell(world, c, g), 1)}`))));
       add(body, box);
     });
-    add(body, h('button', { class: 'btn small', onclick: () => { stops.push({ city: Object.keys(world.cities)[0], buy: [], sell: [] }); draw(); } }, '+ 停泊地を追加'));
+    // 停泊地も、知っている町のボタンで足す
+    const known = Object.values(world.cities).filter((c) => G.isVisited(world, c.id) && !stops.some((st) => st.city === c.id));
+    add(body, h('div', { class: 'row chips' }, h('span', { class: 'dim' }, '＋停泊地:'), known.length ? known.map((c) => h('button', { class: 'btn tiny', onclick: () => { stops.push({ city: c.id, buy: [], sell: [] }); draw(); } }, c.name)) : h('span', { class: 'dim' }, 'ほかに知っている町がない')));
   };
   draw();
   modal(app, `${m.name}の定期便`, body, (close) => [
@@ -533,6 +600,17 @@ export function hireDialog(app, cityId, cost, max) {
 }
 
 // 技術: 買う・使用料を払う
+// 技術で開く品の作り方と、作るのに要るもの（買ったあと何をすればよいか分からなかった。第15回テスト）
+function techHow(world, t) {
+  const goods = (t.unlocks?.goods || []).filter((g) => world.scenario.goods.includes(g));
+  const lines = goods.map((g) => {
+    const w = G.howToMake(world, g).find((x) => !x.lock || x.lock === t.name);
+    return w ? `${GOODS[g].name}: ${w.building}で ${G.recipeLine({ ...w.recipe, lock: null })}` : null;
+  }).filter(Boolean);
+  if (!lines.length) return null;
+  return h('div', { class: 'dim', style: { fontSize: '11px' } }, `作り方 ${lines.join(' / ')}。工房は${G.isPioneer(world) ? `「${G.gradeName(1)}」以上の交易所に` : '町の区画に'}建てる（町の欄の「区画を見る」）`);
+}
+
 export function techDialog(app) {
   const world = app.world;
   app.state.modals++;
@@ -543,7 +621,7 @@ export function techDialog(app) {
       const st = t.owner === 'player' ? '持っている（独占）' : t.owner === 'licensed' ? '使用料を払って使っている' : !t.available ? `${t.from}日目から買える` : t.owner === 'rival' ? `ライバルが独占中 — 使用料 ${t.price}銀` : `${t.price}銀`;
       const can = t.available && !['player', 'licensed'].includes(t.owner);
       add(body, h('div', { class: 'tech-row' },
-        h('div', {}, h('b', {}, t.name), h('div', { class: 'muted' }, t.text)),
+        h('div', {}, h('b', {}, t.name), h('div', { class: 'muted' }, t.text), techHow(world, t)),
         h('div', { class: 'dim' }, st),
         can ? h('button', { class: 'btn primary small', onclick: () => { const r = app.run(() => G.buyTech(world, t.id), 'build'); if (r.ok) draw(); } }, t.owner === 'rival' ? '使用料を払う' : '買う') : h('span')));
     }

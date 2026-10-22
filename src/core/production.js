@@ -20,6 +20,18 @@ export function recipeList(world, type) {
     .filter((r) => [...Object.keys(r.in), ...Object.keys(r.out)].every((g) => world.scenario.goods.includes(g)))
     .map((r) => ({ ...r, lock: neededTech(world, 'recipes', r.name) }));
 }
+// その品の作り方（工房・作り方・要る技術）。町の欄と技術の画面に「どこで何から作れるか」を出す（技術を買っても作り方が辿れなかった。第15回テスト）
+export function howToMake(world, good) {
+  const out = [];
+  for (const type of world.scenario.buildings || []) {
+    if (!BUILDINGS[type]?.recipes) continue;
+    for (const r of recipeList(world, type)) {
+      if (!r.out[good]) continue;
+      out.push({ type, building: BUILDINGS[type].name, recipe: r, lock: neededTech(world, 'buildings', type) || r.lock });
+    }
+  }
+  return out;
+}
 export const recipeLine = (r) => `${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}${r.lock ? `（要: ${r.lock}）` : ''}`;
 
 function tryBatch(world, b, recipe, wh, city) {

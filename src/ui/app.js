@@ -470,7 +470,9 @@ function renderTop(force = false) {
     clear(top);
     app.els.posts = null;
     app.els.silverNum = h('span', { class: 'big num' }, fmt(pl.silver));
-    app.els.silver = h('div', { class: 'stat silver-stat', title: '銀（お金）' }, icon('ui/silver'), app.els.silverNum);
+    // 毎日の出費を銀の横に出す（何もしていないのに銀が減る理由が分からなかった。第15回テスト）
+    app.els.cost = h('small', { class: 'faint num daily-cost' });
+    app.els.silver = h('div', { class: 'stat silver-stat', title: '銀（お金）' }, icon('ui/silver'), app.els.silverNum, app.els.cost);
     app.els.rep = h('div', { class: 'stat', title: '評判（上がると手数料が下がる）' }, icon('ui/trophy', 'icon-sm'), h('span'));
     app.els.streak = h('div', { class: 'stat streak', title: '連続黒字' }, '🔥', h('span'));
     app.els.date = h('div', { class: 'date' });
@@ -484,6 +486,9 @@ function renderTop(force = false) {
       h('button', { class: 'btn ghost small', onclick: () => { app.state.modals++; setSpeed(0); helpDialog(app); } }, '遊び方'),
       h('button', { class: 'btn ghost small', onclick: () => { app.state.modals++; setSpeed(0); settingsDialog(app); } }, '設定'));
   }
+  const dc = G.dailyCost(w, { guards: true });
+  app.els.cost.textContent = dc > 0 ? ` −${fmt(dc, 1)}/日` : '';
+  app.els.silver.title = `銀（お金）。毎日 ${fmt(dc, 1)}銀かかる: 商人の給金と輸送手段の維持費${pl.buildings.length ? '・工房の維持費' : ''}${pl.branches?.length ? '・商館' : ''}（止まっていてもかかる）`;
   // 所持金はカウントアップで動かす
   const target = Math.floor(pl.silver);
   if (target !== Math.floor(app.shownSilver)) {
@@ -588,7 +593,7 @@ function renderTutorial() {
   if (idx < 0) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
   clear(el);
-  add(el, h('span', { class: 'tog' }, el.classList.contains('mini') ? '全部見る' : '小さくする'), h('b', {}, '手引き'), h('ol', { class: 'steps' }, steps.map((s, i) => h('li', { class: i < idx ? 'done' : i === idx ? 'now' : '' }, s.text))));
+  add(el, h('span', { class: 'tog' }, el.classList.contains('mini') ? '全部見る' : '小さくする'), h('b', {}, '手引き'), h('ol', { class: 'steps' }, steps.map((s, i) => h('li', { class: i < idx ? 'done' : i === idx ? 'now' : '' }, typeof s.text === 'function' ? s.text(w) : s.text))));
   if (!el.dataset.bound) { el.dataset.bound = '1'; el.addEventListener('click', () => { el.classList.toggle('mini'); renderTutorial(); }); }
 }
 

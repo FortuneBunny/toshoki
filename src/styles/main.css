@@ -88,6 +88,7 @@ img { user-select: none; }
 .stat { display: flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 20px; padding: 3px 12px 3px 6px; font-weight: 700; }
 .stat .big { font-size: 18px; }
 .silver-stat { min-width: 120px; }
+.daily-cost { font-size: 11px; margin-left: 4px; }
 .silver-stat.flash-up { animation: flashUp 0.6s; }
 .silver-stat.flash-down { animation: flashDown 0.6s; }
 @keyframes flashUp { 0% { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.9); background: #5a4316; } 100% { box-shadow: 0 0 0 14px rgba(255, 209, 102, 0); } }
@@ -194,6 +195,9 @@ img { user-select: none; }
 .outlook .ol.rush, .outlook .ol.rushSoon { color: var(--amber); }
 .outlook .ol.crash, .outlook .ol.down { color: var(--bad); }
 .outlook .ol.up { color: var(--good); }
+/* 交易所の格上げ（町の欄の上） */
+.upgrade-box { background: var(--panel-3); border-radius: 8px; padding: 6px 8px; margin: 4px 0 6px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.upgrade-box.hot { border: 1px solid #6b5223; background: #2d2416; }
 
 .age-old { color: #e0a24a; }
 .age-stale { color: var(--bad); }
@@ -268,7 +272,7 @@ img { user-select: none; }
 @keyframes shake { 20% { transform: translate(-4px, 2px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, -1px); } 80% { transform: translate(2px, 2px); } }
 .flash { position: fixed; inset: 0; background: radial-gradient(circle, rgba(255, 240, 190, 0.55), rgba(255, 200, 80, 0) 70%); animation: flash 0.5s forwards; pointer-events: none; z-index: 69; }
 @keyframes flash { to { opacity: 0; } }
-#toasts { position: fixed; top: 108px; left: 50%; transform: translateX(-50%); z-index: 75; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+#toasts { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); z-index: 75; display: flex; flex-direction: column-reverse; gap: 6px; align-items: center; pointer-events: none; }
 /* ダイアログを開いている間は、知らせを下に出す（見出しや「買う」欄の上に重なって読めなかった） */
 body:has(.modal-back) #toasts { display: none; } /* 出来事の欄には残る。ダイアログのボタンに重なっていた */
 .toast { background: linear-gradient(#3b2d18, #241a10); border: 1px solid #c79a42; border-radius: 30px; padding: 8px 18px 8px 8px; display: flex; align-items: center; gap: 10px; font-weight: 900; box-shadow: var(--shadow); animation: toastIn 0.35s cubic-bezier(0.2, 1.5, 0.4, 1), toastOut 0.4s 3.2s forwards; }
@@ -344,7 +348,7 @@ input[type=number] { width: 70px; }
   .brand { font-size: 17px; }
   .stat { padding: 2px 8px 2px 4px; }
   .stat .big { font-size: 15px; }
-  .silver-stat { min-width: 0; }
+  .silver-stat { min-width: 0; } .daily-cost { display: none; }
   .speed { margin-left: 0; }
   .speed .btn { min-width: 30px; padding: 4px 6px; }
   .goal .bar { width: 70px; }

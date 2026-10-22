@@ -243,7 +243,7 @@ function statusText(world) {
   }
   if (world.scenario.tutorial) {
     const next = world.scenario.tutorial.find((t) => !t.done(world));
-    if (next) out.push(`手引き: ${next.text}`);
+    if (next) out.push(`手引き: ${typeof next.text === "function" ? next.text(world) : next.text}`);
   }
   if (world.finished) out.push(world.finished.win ? `🏆 達成！ランク ${world.finished.rank}（${world.finished.day}日目）` : `期限切れ（ランク C）`);
   return out.join('\n');

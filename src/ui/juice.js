@@ -95,7 +95,7 @@ export function flash() {
 // sticky: 自分で消すまで残す（行き先を選んでいる間の案内など）。消すときは返した要素を remove する
 export function toast(text, { icon, kind = '', sticky = false } = {}) {
   const box = document.getElementById('toasts');
-  while (box.children.length >= 4) box.firstChild.remove();
+  while (box.children.length >= 2) box.firstChild.remove(); // 重なって地図を隠さないよう、2枚まで（第15回テスト）
   const el = h('div', { class: `toast ${kind}` }, icon ? h('img', { src: `assets/svg/${icon}.svg`, alt: '' }) : null, text);
   box.append(el);
   if (!sticky) setTimeout(() => el.remove(), 3700);

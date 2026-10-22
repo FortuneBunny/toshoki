@@ -9,6 +9,9 @@ export async function selftest(app) {
   const click = (sel, text) => {
     const els = [...document.querySelectorAll(sel)].filter((el) => !text || el.textContent.includes(text));
     if (!els.length) throw new Error(`見つからない: ${sel} ${text || ''}`);
+    // 開いた直後の画面はクリックを受けない（誤タップよけ）。自己テストでは待たずに押す
+    const back = els[0].closest('.modal-back');
+    if (back) back.__openedAt = 0;
     els[0].click();
   };
   const step = async (name, fn) => {
@@ -95,7 +98,7 @@ async function selftestWorkshop(app, { step, click, wait, log, errors }) {
   await step('町パネルを開く', () => { app.state.selCity = 'toumitsu'; app.render(); });
   await step('製糖所を建てるボタン', () => click('.side .btn', '製糖所'));
   await step('確認して建てる', () => click('footer .btn', '決定'));
-  await step('製糖所ができた', () => { if (!w().player.buildings.length) throw new Error('なし'); });
+  await step('製糖所ができた', () => { if (!w().player.buildings.length) throw new Error(`なし（通知: ${document.getElementById('toasts')?.textContent || '—'}・画面: ${document.querySelector('.modal header')?.textContent || '—'}）`); });
   await step('粗糖を倉庫に入れる', () => { w().player.warehouses.toumitsu.stock.rawsugar = 10; });
   await step('数日進める', async () => { app.state.speed = 3; await wait(2500); app.state.speed = 0; });
   await step('道を敷く: ボタンから相手の町を選んで確定', () => {

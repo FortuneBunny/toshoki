@@ -1,6 +1,9 @@
 // シナリオ定義。座標は 1000×600 の地図上。道の長さは座標の距離から計算する。
 // 新しいギミックは「安全な状況で一度触らせてから、本番に置く」順に出す。
 
+// 手引き用: その食べ物を採る交易所の名前
+const tutPost = (w, g) => Object.values(w.cities).find((c) => c.founded && (c.produces?.[g] || 0) > 0)?.name || `${g === 'wheat' ? '麦' : 'なつめやし'}の交易所`;
+
 const s1 = {
   id: 's1', no: 1, title: 'はじまりの甘み',
   // 版4: 町のない土地から始める手引き。違う食べ物の集落のそばに交易所を2つ置き、食べ物を運び合う
@@ -25,12 +28,14 @@ const s1 = {
   maxPosts: 2, postCost: 250, maxPaths: 1,
   events: false, contracts: false, bandits: false,
   district: false, // 区画は見るだけ（建物を置くのは s2 から）
+  // 手引きは、実際に置いた交易所に合わせて文を変える（なつめやし側から始めても「麦の集落のそば」と出ていた。第15回テスト）
   tutorial: [
-    { text: '麦の集落のそば（緑の印）に、最初の交易所を置く（無料）', done: (w) => Object.values(w.cities).some((c) => c.founded) },
-    { text: '上の「交易所」から、なつめやしの集落のそばに2つ目の交易所を開く', done: (w) => Object.values(w.cities).filter((c) => c.founded).length >= 2 },
-    { text: '麦を買って、なつめやしの交易所へ運んで売る（相場は品の少ない町ほど高い）', done: (w) => (w.stats.soldTotal.wheat || 0) > 0 },
-    { text: 'なつめやしを買って、麦の交易所で売る（古い寺院も毎日なつめやしを買う）', done: (w) => (w.stats.soldTotal.dates || 0) > 0 },
+    { text: '集落のそば（緑の印）に、最初の交易所を置く（無料）。麦か、なつめやしの集落を圏に入れる', done: (w) => Object.values(w.cities).some((c) => c.founded) },
+    { text: (w) => `上の「交易所」から、${(w.hamlets || []).find((hm) => !hm.absorbedBy)?.name || 'もう一つの集落'}のそばに2つ目の交易所を開く`, done: (w) => Object.values(w.cities).filter((c) => c.founded).length >= 2 },
+    { text: (w) => `${tutPost(w, 'wheat')}で麦を買い、${tutPost(w, 'dates')}へ運んで売る（相場は品の少ない町ほど高い）`, done: (w) => (w.stats.soldTotal.wheat || 0) > 0 },
+    { text: (w) => `${tutPost(w, 'dates')}でなつめやしを買い、${tutPost(w, 'wheat')}で売る${(w.wilds || []).some((x) => x.absorbedBy) ? '（古い寺院も毎日なつめやしを買う）' : ''}`, done: (w) => (w.stats.soldTotal.dates || 0) > 0 },
     { text: '交易所の糖度ゲージを見る。食卓が2種類になると糖度が上がり、家が建つ。往復を「定期便」にしよう', done: (w) => w.player.merchants.some((m) => m.order) },
+    { text: '早く育てるには: 交易所の欄の「止めているもの」を見て、足りない食べ物を定期便で多めに運ぶ（買う個数を増やす）', done: (w) => !!w.finished },
   ],
 };
 

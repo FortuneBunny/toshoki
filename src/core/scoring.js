@@ -182,16 +182,15 @@ export function rankFor(world, day) {
 export function checkGoals(world) {
   if (world.finished) return;
   const st = goalsStatus(world);
-  // 目標の節目（25/50/75%）で小さな演出を出す
+  // 目標の節目（25/50/75%）で小さな演出を出す。一度に越えた節目は、いちばん上の1つだけ知らせる（25・50・75%が重なって地図を隠した。第15回テスト）
   world.milestones = world.milestones || {};
   st.forEach((g, i) => {
+    let top = 0;
     for (const q of [0.25, 0.5, 0.75]) {
       const key = `${i}:${q}`;
-      if (g.p >= q && !world.milestones[key] && !g.done) {
-        world.milestones[key] = true;
-        emit(world, { type: 'milestone', text: `目標「${g.text.split('（')[0]}」が ${q * 100}% に到達` });
-      }
+      if (g.p >= q && !world.milestones[key] && !g.done) { world.milestones[key] = true; top = q; }
     }
+    if (top) emit(world, { type: 'milestone', text: `目標「${g.text.split('（')[0]}」が ${top * 100}% に到達` });
   });
   if (st.every((g) => g.done)) {
     const rank = rankFor(world, world.day);
