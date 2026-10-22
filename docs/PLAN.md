@@ -2,6 +2,8 @@
 
 > Trade Empires（Frog City Software, 2001）に着想を得た交易シミュレーション。
 > ブラウザとCLIの両方で遊べるようにし、GitHub Pages（公開リポジトリ）で公開する。
+>
+> 次の版（開拓と糖度の版、版4）の計画は `docs/PLAN-pioneer.md`。柱1の書き直し案もそちらにある。
 
 ### タイトルについて
 - **糖商記** = 糖を商う一族の年代記。副題の *Great Glucose Empire* は、原作の *Trade **Empires*** への目配せ。
