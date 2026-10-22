@@ -383,7 +383,7 @@ export function orderDialog(app, mid) {
   // 下書き: 既存の定期便 → 直近の取引 → 今いる町と隣町
   // 上限買値・最低売値は今の相場から入れる（基準値から入れていたので、相場が上がると買わずに素通りした。第15回テスト）
   const avgBuy = (cid, g, q = 20) => { const c = world.cities[cid]; return c ? G.quote(world, c, g, Math.max(1, q)) / Math.max(1, q) : GOODS[g].base; };
-  const avgSell = (cid, g, q = 20) => { const c = world.cities[cid]; return c && G.cityWants(c, g) ? -G.quote(world, c, g, -Math.max(1, q)) / Math.max(1, q) : 0; };
+  const avgSell = (cid, g, q = 20) => { const c = world.cities[cid]; return c && G.cityWants(c, g) ? G.quote(world, c, g, -Math.max(1, q)) / Math.max(1, q) : 0; };
   // 上限買値: 今の買値の15%増しか、売る町の今の売値の9割（赤字にならない線）の高いほう
   const maxFor = (cid, g, q, to) => Math.ceil(Math.max(avgBuy(cid, g, q) * 1.15, to ? avgSell(to, g, q) * 0.9 : 0) * 10) / 10;
   // 最低売値は、仕入れ値（同じ便で買う町の今の値）を割らない値

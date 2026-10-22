@@ -6,6 +6,7 @@ import { SCENARIOS } from '../data/scenarios.js';
 import { HEIRLOOMS } from '../data/heirlooms.js';
 import { generateFreeplay } from '../data/freeplay.js';
 import { generateFreeplayV3 } from '../data/freeplay-v3.js';
+import { SCENARIOS_V3 } from '../data/scenarios-v3.js';
 import { hashSeed } from './rng.js';
 import { updateCity, dailyDemand, cityTier } from './city.js';
 import { targetStock, midPrice } from './market.js';
@@ -49,16 +50,20 @@ function hopTable(cities, edges) {
 }
 
 // シナリオの定義を引く。フリープレイはシードから生成する
-// v3: 版3までのフリープレイのセーブ（町のある地図）
+// v3: 版3までの定義（フリープレイは町のある地図、s2〜s8 は最初から町がある形）。古いセーブと、町のある形を確かめるテスト用
 export function resolveScenario(id, seed, { v3 = false } = {}) {
   if (id === 'free') return v3 ? generateFreeplayV3(seed) : generateFreeplay(seed);
-  return SCENARIOS[id];
+  return (v3 && SCENARIOS_V3[id]) || SCENARIOS[id];
+}
+// セーブがどちらの定義で作られたか（フリープレイは freeVersion、s2〜s8 は scenVersion）
+export function savedAsV3(data) {
+  return data.scenarioId === 'free' ? data.freeVersion !== 4 : data.scenVersion !== 5;
 }
 
-export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms = [] } = {}) {
+export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms = [], v3 = false } = {}) {
   // 家訓は1つだけ（古い呼び出しの heirlooms 配列は先頭だけ使う）
   const chosen = heirloom || heirlooms[0] || null;
-  const sc = resolveScenario(scenarioId, seed);
+  const sc = resolveScenario(scenarioId, seed, { v3 });
   if (!sc) throw new Error(`不明なシナリオ: ${scenarioId}`);
   const world = {
     version: SAVE_VERSION,
@@ -90,6 +95,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
     nextId: 1,
     finished: null,
     freeVersion: 4, // フリープレイの地図の作り方の版（版4から町のない地図）
+    ...(v3 ? {} : { scenVersion: 5 }), // s2〜s8 の定義の版（5 から町のない始まり方。なければ版3の定義）
   };
   Object.defineProperty(world, 'scenario', { value: sc, enumerable: false, writable: true });
 
@@ -146,7 +152,8 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
     world.rivals.push({
       // 工房は複製する（技術で処理量を増やすと、シナリオの定義まで変わり、次に遊ぶ世界のライバルが最初から強くなっていた）
       name: rd.name, silver: rd.silver, skill: rd.skill, goods: rd.goods, sold: {}, workshop: rd.workshop ? { ...rd.workshop } : null, store: {},
-      merchants: rd.merchants.map((rm) => ({ city: sc.pioneer ? null : rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home })),
+      // 町のないシナリオでは、古い町から始める商人のほかは、ライバルの交易所ができてから出てくる
+      merchants: rd.merchants.map((rm) => ({ city: sc.pioneer && !sc.cities.some((c) => c.id === rm.city) ? null : rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home })),
     });
   }
 

@@ -10,7 +10,8 @@ createServer(async (req, res) => {
   const file = join(process.cwd(), path || 'index.html');
   try {
     const body = await readFile(/[\\/]$/.test(file) ? join(file, 'index.html') : file);
-    res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
+    // 開発用なので、キャッシュさせない（古いモジュールが残り、直したはずの版で動いていた）
+    res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
     res.end(body);
   } catch {
     res.writeHead(404);

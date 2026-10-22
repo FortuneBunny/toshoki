@@ -1,6 +1,6 @@
 // セーブとロード（JSON）。シナリオの定義は保存せず、ID から引き直す。
 import { SCENARIOS } from '../data/scenarios.js';
-import { SAVE_VERSION, resolveScenario } from './world.js';
+import { SAVE_VERSION, resolveScenario, savedAsV3 } from './world.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
 import { buildGrid } from './grid.js';
 import { linkPostHops } from './posts.js';
@@ -8,7 +8,7 @@ import { BALANCE } from '../data/balance.js';
 const tierOf = (pop) => BALANCE.tierPops.reduce((t, p, i) => (pop >= p ? i : t), 0);
 
 export function serialize(world) {
-  const base = resolveScenario(world.scenarioId, world.seed, { v3: world.freeVersion !== 4 });
+  const base = resolveScenario(world.scenarioId, world.seed, { v3: savedAsV3(world) });
   return JSON.stringify({ ...world, scenarioOverrides: world.scenario.infoNetwork !== base.infoNetwork ? { infoNetwork: world.scenario.infoNetwork } : null });
 }
 
@@ -32,7 +32,7 @@ function hopTable(world) {
 
 // 版1 → 版2: 区画がないので、今の生産量から区画を作る
 function migrateV1(data) {
-  const sc = resolveScenario(data.scenarioId, data.seed, { v3: data.freeVersion !== 4 });
+  const sc = resolveScenario(data.scenarioId, data.seed, { v3: savedAsV3(data) });
   for (const c of Object.values(data.cities)) {
     if (!c.district) {
       c.district = generateDistrict(c, { seed: data.seed, scenarioGoods: sc?.goods || [] });
@@ -53,7 +53,7 @@ export function deserialize(json) {
   if (data.version === 1) migrateV1(data);
   if (data.version !== SAVE_VERSION) throw new Error(`セーブデータの版が違う（${data.version}）`);
   ensureNative(data);
-  const sc = resolveScenario(data.scenarioId, data.seed, { v3: data.freeVersion !== 4 });
+  const sc = resolveScenario(data.scenarioId, data.seed, { v3: savedAsV3(data) });
   if (!sc) throw new Error(`不明なシナリオ: ${data.scenarioId}`);
   // 版4で町のない始まり方に作り替えたシナリオ（s1）の、前の版のセーブ
   if (sc.pioneer && !data.hamlets) throw new Error(`このセーブは前の版の「${sc.title}」のもので、町のない土地から始める新しい版では続きを遊べない。最初から始め直してほしい（達成の記録と家訓は残っている）`);

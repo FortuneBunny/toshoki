@@ -41,28 +41,38 @@ const s1 = {
 
 const s2 = {
   id: 's2', no: 2, title: 'なつめやしの谷',
-  intro: '谷には4つの町がある。相場は日々動き、運んでいる間にも町は変わる。糖度の流れを見て「着いたとき、まだ高いか？」を読み切れ。麦の里を「町」に育て、一族の資産を3000銀にせよ。',
-  goods: ['wheat', 'dates', 'honey', 'rawsugar'],
-  start: { silver: 220, merchants: [{ name: 'ハサン', portrait: 'merchant-1', city: 'mugi' }] },
+  // 版4: 谷の村は集落になった。東の琥珀京だけが古い町。琥珀京は麦となつめやしの入荷に波があり、細る時期を読んで運ぶ
+  // 谷の集落は、食べ物を多めに作る（自分の食卓の倍の3倍。余りを琥珀京へ売る谷）
+  intro: '谷には集落が点々とある。東の砂漠の向こうには、古い大きな町・琥珀京。交易所を開いて谷の集落を町に育てよ。琥珀京は麦となつめやしを遠くから仕入れていて、入荷には波がある──町の欄の「これから」で細る時期を読み、高くなる頃に着くように運べ。交易所を「町」（人口1000）に育て、一族の資産を3000銀にせよ。',
+  goods: ['wheat', 'millet', 'dates', 'honey', 'rawsugar'],
+  start: { silver: 500, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }] },
   cities: [
-    { id: 'mugi', name: '麦の里', x: 170, y: 390, pop: 640, produces: { wheat: 10 } },
-    { id: 'natsume', name: 'ナツメ泉', x: 470, y: 170, pop: 380, produces: { dates: 7 }, tags: ['desert'] },
-    { id: 'kanbi', name: '甘蔗の浜', x: 520, y: 470, pop: 470, produces: { rawsugar: 2.6, wheat: 2 } },
-    { id: 'kohaku', name: '琥珀京', x: 830, y: 300, pop: 3300, produces: { wheat: 9, dates: 2, honey: 1.4 } },
+    // 入荷の波: 麦は90日、なつめやしは70日で一回り。いちばん細ると、ふだんの半分（麦）・4割（なつめやし）になる
+    { id: 'kohaku', name: '琥珀京', x: 640, y: 340, pop: 3300, produces: { wheat: 18, dates: 6, honey: 1.4 }, waves: { wheat: { period: 90, amp: 0.5 }, dates: { period: 70, amp: 0.6, phase: 30 } } },
   ],
-  shapes: [{ kind: 'desert', points: [[420, 60], [920, 80], [900, 220], [600, 250], [430, 260]] }],
-  edges: [
-    { a: 'mugi', b: 'natsume', kind: 'trail' },
-    { a: 'mugi', b: 'kanbi', kind: 'trail' },
-    { a: 'natsume', b: 'kanbi', kind: 'trail' },
-    { a: 'natsume', b: 'kohaku', kind: 'desert' },
-    { a: 'kanbi', b: 'kohaku', kind: 'trail' },
-  ],
-  goals: [{ type: 'cityTier', city: 'mugi', tier: 2 }, { type: 'networth', amount: 3000 }],
-  deadline: 400, rankS: 0.36,
+  edges: [],
+  pioneer: {
+    families: [{ id: 'hasan', name: 'ハサン家', x: 230, y: 380, text: '谷の西、麦の集落のそばに館がある。' }],
+    hamlets: [
+      { name: '麦の集落', x: 170, y: 395, pop: 460, foods: { wheat: 13 } },
+      { name: 'ナツメ泉', x: 455, y: 235, pop: 320, foods: { dates: 6.5 } },
+      { name: '蜜蜂の集落', x: 360, y: 440, pop: 220, foods: { honey: 1.1 } },
+      { name: 'キビの集落', x: 265, y: 500, pop: 300, foods: { millet: 7 } },
+      { name: '甘蔗の浜', x: 520, y: 480, pop: 380, foods: { rawsugar: 1.9, wheat: 2.1 } },
+    ],
+    // 古い寺院は、麦の集落の北。隊商宿は、砂漠のふちのナツメ泉のそば（砂漠の交易所ではラクダが買える）
+    wilds: [{ type: 'shrine', x: 300, y: 330 }, { type: 'inn', x: 472, y: 248 }],
+    rivalPosts: [],
+  },
+  shapes: [{ kind: 'desert', points: [[420, 60], [920, 80], [900, 240], [640, 260], [430, 250]] }],
+  goals: [{ type: 'postTier', tier: 2, pop: 1000 }, { type: 'networth', amount: 3000 }],
+  deadline: 400, rankS: 0.55,
+  maxPosts: 4, postCost: 300, maxPaths: 3,
+  knownAtStart: ['kohaku'], // 名の知れた古い町。相場は最初から聞こえてくる
   events: true, contracts: true, bandits: false, newsDaysPerHop: 4,
   disabledEvents: ['sandstorm', 'plague'],
-  maxMerchants: 2,
+  transports: ['donkey', 'camel'],
+  maxMerchants: 3,
 };
 
 const s3 = {

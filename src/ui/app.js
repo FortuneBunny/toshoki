@@ -80,7 +80,8 @@ app.startScenario = (id, heirloom) => {
   if (heirloom === undefined && unlocked.length) return heirloomPicker(id, unlocked);
   // 開発・テスト用: #play=free&seed=7 でシードを決められる
   const seed = Number(location.hash.match(/seed=(\d+)/)?.[1]) || Math.floor(Math.random() * 1e9);
-  const w = G.createWorld(id, { seed, heirloom: heirloom || null });
+  // 開発用: #play=s2&v3 で、版3の町のある形（自己テストと、古い画面の撮影用）
+  const w = G.createWorld(id, { seed, heirloom: heirloom || null, v3: /[&#]v3(&|$)/.test(location.hash) });
   mount(w);
   fx.banner(`${w.scenario.no}. ${w.scenario.title}`, heirloom ? `家訓「${G.HEIRLOOMS[heirloom].name}」を胸に` : '目標を確かめて、最初の商いへ', 'ui/logo');
 };

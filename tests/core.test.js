@@ -13,7 +13,7 @@ function s1Posts(seed = 1) {
 
 test('同じシードなら同じ結果になる', () => {
   const run = () => {
-    const w = G.createWorld('s2', { seed: 42 });
+    const w = G.createWorld('s2', { seed: 42, v3: true });
     G.trade(w, 1, [{ good: 'wheat', qty: 10 }]);
     G.travel(w, 1, 'natsume');
     G.advance(w, 80, silent);
@@ -23,7 +23,7 @@ test('同じシードなら同じ結果になる', () => {
 });
 
 test('買うほど値段が上がり、売るほど下がる', () => {
-  const w = G.createWorld('s2', { seed: 1 });
+  const w = G.createWorld('s2', { seed: 1, v3: true });
   const c = w.cities.mugi;
   assert.ok(G.quote(w, c, 'wheat', 20) / 20 > G.quote(w, c, 'wheat', 1));
   assert.ok(-G.quote(w, c, 'wheat', -20) / 20 < -G.quote(w, c, 'wheat', -1) || true);
@@ -37,7 +37,7 @@ test('積載量と銀を超える取引はできない', () => {
 });
 
 test('出発して到着し、売れば利益が出る', () => {
-  const w = G.createWorld('s2', { seed: 3 });
+  const w = G.createWorld('s2', { seed: 3, v3: true });
   assert.ok(G.trade(w, 1, [{ good: 'wheat', qty: 20 }]).ok);
   const t = G.travel(w, 1, 'natsume');
   assert.ok(t.ok);
@@ -49,7 +49,7 @@ test('出発して到着し、売れば利益が出る', () => {
 });
 
 test('セーブとロードで状態が保たれる', () => {
-  const w = G.createWorld('s3', { seed: 5 });
+  const w = G.createWorld('s3', { seed: 5, v3: true });
   G.advance(w, 30, silent);
   const w2 = G.deserialize(G.serialize(w));
   assert.equal(w2.day, w.day);
@@ -72,7 +72,7 @@ test('全シナリオが作れて、1年進めても壊れない', () => {
 });
 
 test('製糖所は粗糖から白糖をつくる', () => {
-  const w = G.createWorld('s3', { seed: 1 });
+  const w = G.createWorld('s3', { seed: 1, v3: true });
   w.player.silver = 5000;
   assert.ok(G.build(w, 'toumitsu', 'mill').ok);
   w.player.warehouses.toumitsu.stock.rawsugar = 20;
@@ -81,7 +81,7 @@ test('製糖所は粗糖から白糖をつくる', () => {
 });
 
 test('通れる道のない輸送手段は買えない', () => {
-  const w = G.createWorld('s5', { seed: 1 });
+  const w = G.createWorld('s5', { seed: 1, v3: true });
   w.player.silver = 5000;
   const r = G.buyTransport(w, 1, 'cart');
   assert.equal(r.ok, false);
@@ -95,7 +95,7 @@ test('目標を満たすと勝ちになる', () => {
 });
 
 test('倉庫との積み下ろしは整数だけ受け付ける（NaN で倉庫が壊れない）', () => {
-  const w = G.createWorld('s3', { seed: 1 });
+  const w = G.createWorld('s3', { seed: 1, v3: true });
   w.player.silver = 5000;
   G.build(w, 'toumitsu', 'mill');
   assert.equal(G.warehouse(w, 1, 'cane', NaN).ok, false);
@@ -118,7 +118,7 @@ test('区画: 町の生産は区画の建物の合計で、シナリオの指定
 });
 
 test('区画: 版1のセーブは読み込み時に区画を作って移す', () => {
-  const w = G.createWorld('s2', { seed: 4 });
+  const w = G.createWorld('s2', { seed: 4, v3: true });
   G.advance(w, 10, silent);
   const old = JSON.parse(G.serialize(w));
   old.version = 1;
@@ -130,7 +130,7 @@ test('区画: 版1のセーブは読み込み時に区画を作って移す', ()
 });
 
 test('区画: 生産施設を置くと町の生産が増え、条件に合わないマスには置けない', () => {
-  const w = G.createWorld('s2', { seed: 2 });
+  const w = G.createWorld('s2', { seed: 2, v3: true });
   w.player.silver = 5000;
   const c = w.cities.mugi;
   const before = c.produces.wheat;
@@ -159,7 +159,7 @@ test('区画: シナリオ1では建物を置けない（見るだけ）', () =>
 });
 
 test('住居: 人口に合わせて家が建ち、空き地がなければ人口は頭打ちになる', () => {
-  const w = G.createWorld('s2', { seed: 5 });
+  const w = G.createWorld('s2', { seed: 5, v3: true });
   const c = w.cities.mugi;
   assert.ok(G.housingCap(c, G.cityTier(c)) >= c.pop, '開始時は住める');
   // 区画を全部埋めてしまう（家以外で）
@@ -173,7 +173,7 @@ test('住居: 人口に合わせて家が建ち、空き地がなければ人口
 });
 
 test('労働力: 働き手が足りないと生産が落ちる', () => {
-  const w = G.createWorld('s2', { seed: 6 });
+  const w = G.createWorld('s2', { seed: 6, v3: true });
   const c = w.cities.natsume;
   assert.equal(G.staffing(c), 1);
   for (let i = 0; i < 20; i++) c.district.buildings.push({ id: c.district.nextId++, type: 'date_grove', x: 0, y: 0, owner: 'town', rate: 0, virtual: true });
@@ -181,7 +181,7 @@ test('労働力: 働き手が足りないと生産が落ちる', () => {
 });
 
 test('需要施設: 建てると需要が増え、求める品を届け続けると満足度が上がる', () => {
-  const w = G.createWorld('s6', { seed: 2 });
+  const w = G.createWorld('s6', { seed: 2, v3: true });
   w.player.silver = 9999;
   const c = w.cities.byakudan;
   const before = G.dailyDemand(c, 'tea', false);
@@ -197,7 +197,7 @@ test('需要施設: 建てると需要が増え、求める品を届け続ける
 });
 
 test('区画: 食べ物と甘味は、町が元から作っている品の増産だけ', () => {
-  const w = G.createWorld('s8', { seed: 1 });
+  const w = G.createWorld('s8', { seed: 1, v3: true });
   w.player.silver = 99999;
   const c = w.cities.kohaku; // 元は麦と陶器
   const tier = G.cityTier(c);
@@ -218,7 +218,7 @@ test('マス目: シナリオの道はすべて経路としてつながってい
 });
 
 test('マス目: 移動中の商人は経路のマスを進み、到着する', () => {
-  const w = G.createWorld('s2', { seed: 1 });
+  const w = G.createWorld('s2', { seed: 1, v3: true });
   const r = G.travel(w, 1, 'kohaku');
   assert.ok(r.ok);
   const m = w.player.merchants[0];
@@ -229,7 +229,7 @@ test('マス目: 移動中の商人は経路のマスを進み、到着する', 
 });
 
 test('道を敷く: 新しい街道で日数が縮み、セーブとロードで残る', () => {
-  const w = G.createWorld('s3', { seed: 1 });
+  const w = G.createWorld('s3', { seed: 1, v3: true });
   w.player.silver = 5000;
   const before = G.findPath(w, 'hachi', 'suitou', 'donkey').days;
   assert.equal(G.findPath(w, 'hachi', 'suitou', 'cart'), null, '最初は荷車で行けない');
@@ -239,11 +239,11 @@ test('道を敷く: 新しい街道で日数が縮み、セーブとロードで
   assert.ok(G.findPath(w, 'hachi', 'suitou', 'donkey').days <= before);
   const w2 = G.deserialize(G.serialize(w));
   assert.ok(G.findPath(w2, 'hachi', 'suitou', 'cart'), 'ロード後も街道がある');
-  assert.equal(G.buildPath(G.createWorld('s2', { seed: 1 }), 'mugi', 'kohaku', 'road').ok, false, 's2 では道を敷けない');
+  assert.equal(G.buildPath(G.createWorld('s2', { seed: 1, v3: true }), 'mugi', 'kohaku', 'road').ok, false, 's2 では道を敷けない');
 });
 
 test('交易所: 候補地に開くと新しい町ができ、育ち、セーブとロードで地形が変わらない', () => {
-  const w = G.createWorld('s3', { seed: 1 });
+  const w = G.createWorld('s3', { seed: 1, v3: true });
   w.player.silver = 9000;
   const site = G.foundSites(w)[0];
   assert.ok(site);
@@ -258,11 +258,11 @@ test('交易所: 候補地に開くと新しい町ができ、育ち、セーブ
   const w2 = G.deserialize(G.serialize(w));
   assert.equal(Array.from(w2.grid.terrain).join(''), before);
   assert.equal(w2.grid.cityAt.get(G.gridKey(site.x, site.y)), r.id);
-  assert.equal(G.foundPost(G.createWorld('s2', { seed: 1 }), 40, 40).ok, false, 's2 では開けない');
+  assert.equal(G.foundPost(G.createWorld('s2', { seed: 1, v3: true }), 40, 40).ok, false, 's2 では開けない');
 });
 
 test('商人の才能: 候補3人から選ぶと才能がつき、値切り上手は買値が安い', () => {
-  const w = G.createWorld('s2', { seed: 1 });
+  const w = G.createWorld('s2', { seed: 1, v3: true });
   w.player.silver = 5000;
   const cands = G.hireCandidates(w);
   assert.equal(cands.length, 3);
@@ -278,13 +278,13 @@ test('商人の才能: 候補3人から選ぶと才能がつき、値切り上�
 });
 
 test('技術: 先に買えば独占し、ライバルの使用料が入る。ライバルに独占されたら使用料を払う', () => {
-  const w = G.createWorld('s7', { seed: 1 });
+  const w = G.createWorld('s7', { seed: 1, v3: true });
   w.player.silver = 9999;
   assert.ok(G.buyTech(w, 'refinery').ok);
   const before = w.player.silver;
   G.advance(w, 50);
   assert.ok(w.log.some((e) => /使用料/.test(e.text)), 'ライバルが使用料を払う');
-  const w2 = G.createWorld('s7', { seed: 1 });
+  const w2 = G.createWorld('s7', { seed: 1, v3: true });
   G.advance(w2, 70);
   assert.equal(w2.techs.wheel, 'rival', 'ライバルが車輪を独占');
   w2.player.silver = 9999;
@@ -295,7 +295,7 @@ test('技術: 先に買えば独占し、ライバルの使用料が入る。ラ
 });
 
 test('目標「網」: 街道を敷くと町がつながる。目標「結ぶ」: 定期便の往復を数える', () => {
-  const w = G.createWorld('s3', { seed: 1 });
+  const w = G.createWorld('s3', { seed: 1, v3: true });
   w.player.silver = 9999;
   const g = { type: 'network', cities: ['kibi', 'toumitsu', 'hachi'], mode: 'road' };
   const before = G.goalProgress(w, g).p;
@@ -310,7 +310,7 @@ test('目標「網」: 街道を敷くと町がつながる。目標「結ぶ」
 });
 
 test('住居の求める品: そろっていないと家が建たず、届けると建つ', () => {
-  const w = G.createWorld('s8', { seed: 1 });
+  const w = G.createWorld('s8', { seed: 1, v3: true });
   const c = w.cities.kohaku;
   const tier = G.cityTier(c);
   assert.equal(c.dwellWants.length, 3);
@@ -331,7 +331,7 @@ test('家: 次の段階に近づくほど大きくなり、段階の境目で頭
 });
 
 test('借金のときでも売れる。商人に暇を出すと下取りで銀が戻る', () => {
-  const w = G.createWorld('s2', { seed: 1 });
+  const w = G.createWorld('s2', { seed: 1, v3: true });
   const m = w.player.merchants[0];
   m.cargo.wheat = 10;
   w.player.silver = -300;
@@ -349,7 +349,7 @@ test('借金のときでも売れる。商人に暇を出すと下取りで銀�
 });
 
 test('商館: 雇える商人が1人ずつ増え、2つ目からは倍々に高くなる', () => {
-  const w = G.createWorld('s8', { seed: 5 });
+  const w = G.createWorld('s8', { seed: 5, v3: true });
   w.player.silver = 50000;
   assert.equal(G.merchantCap(w), 6);
   assert.equal(G.buildBranch(w, 'kohaku').cost, 3000);
@@ -363,13 +363,13 @@ test('商館: 雇える商人が1人ずつ増え、2つ目からは倍々に高�
   assert.ok(G.knowledgeAge(w, 'kohaku') < 5);
   assert.deepEqual(G.deserialize(G.serialize(w)).player.branches, ['kohaku']);
   // 商館のないシナリオでは建てられない
-  const w2 = G.createWorld('s2', { seed: 5 });
+  const w2 = G.createWorld('s2', { seed: 5, v3: true });
   w2.player.silver = 50000;
   assert.equal(G.buildBranch(w2, w2.player.merchants[0].city).ok, false);
 });
 
 test('同じ売りの行を何度書いても、積んでいる数より多くは売れない（12回目 Sol）', () => {
-  const w = G.createWorld('s7', { seed: 121 });
+  const w = G.createWorld('s7', { seed: 121, v3: true });
   const m = w.player.merchants[0];
   m.cargo.whitesugar = 1;
   m.cost.whitesugar = 30;
@@ -383,7 +383,7 @@ test('同じ売りの行を何度書いても、積んでいる数より多く�
 
 test('評判と才能があっても、同じ町で買って売るだけでは儲からない（12回目 Sol）', () => {
   for (const talent of ['sweettooth', 'appraiser', 'haggler']) {
-    const w = G.createWorld('s8', { seed: 121 });
+    const w = G.createWorld('s8', { seed: 121, v3: true });
     w.player.repLevel = 5;
     w.player.silver = 5000;
     const m = w.player.merchants[0];
@@ -401,7 +401,7 @@ test('評判と才能があっても、同じ町で買って売るだけでは�
 });
 
 test('全部売っても、同じ町での売り戻しは目標の取引量に数えない（12回目 Sol）', () => {
-  const w = G.createWorld('s7', { seed: 121 });
+  const w = G.createWorld('s7', { seed: 121, v3: true });
   const m = w.player.merchants[0];
   w.cities[m.city].stock.wheat = 30;
   G.trade(w, m.id, [{ good: 'wheat', qty: 2 }]);
@@ -411,7 +411,7 @@ test('全部売っても、同じ町での売り戻しは目標の取引量に�
 });
 
 test('暇を出したあとに雇っても、番号と名前が重ならない（12回目 Sol）', () => {
-  const w = G.createWorld('s8', { seed: 121 });
+  const w = G.createWorld('s8', { seed: 121, v3: true });
   w.player.silver = 99999;
   const at = w.player.merchants[0].city;
   for (let i = 0; i < 4; i++) G.hireMerchant(w, at);
@@ -427,7 +427,7 @@ test('暇を出したあとに雇っても、番号と名前が重ならない�
 });
 
 test('開拓団: 町から交易所へ60人を運び、続けて食卓がそろうと住みつく', () => {
-  const w = G.createWorld('s8', { seed: 5 });
+  const w = G.createWorld('s8', { seed: 5, v3: true });
   w.player.silver = 60000;
   const site = G.foundSites(w)[0];
   const post = G.foundPost(w, site.x, site.y).id;
@@ -485,7 +485,7 @@ test('開拓団: 町から交易所へ60人を運び、続けて食卓がそろ�
 });
 
 test('小数の個数では売れない。売り戻しは、よそで買った品を混ぜても個数で差し引く（13回目）', () => {
-  const w = G.createWorld('s7', { seed: 121 });
+  const w = G.createWorld('s7', { seed: 121, v3: true });
   const m = w.player.merchants[0];
   const city = w.cities[m.city];
   const good = Object.keys(city.stock).find((g) => city.stock[g] > 30 && G.cityWants(city, g));
@@ -505,16 +505,16 @@ test('小数の個数では売れない。売り戻しは、よそで買った�
 });
 
 test('前に遊んだ世界の状態が、次に作る世界に漏れない（ライバルの工房・町の印）', () => {
-  const play = () => { const w = G.createWorld('s7', { seed: 1 }); G.advance(w, 150, silent); return [Math.round(w.rivals[0].silver), w.rivals[0].sold.whitesugar]; };
+  const play = () => { const w = G.createWorld('s7', { seed: 1, v3: true }); G.advance(w, 150, silent); return [Math.round(w.rivals[0].silver), w.rivals[0].sold.whitesugar]; };
   const first = play();
-  const other = G.createWorld('s7', { seed: 2 });
+  const other = G.createWorld('s7', { seed: 2, v3: true });
   G.advance(other, 300, silent);
   assert.deepEqual(play(), first);
   assert.ok(!G.SCENARIOS.s7.cities.some((c) => c.tags?.includes('port')));
 });
 
 test('砂漠で食料が尽きても、足りなかった分は次の旅に持ち越さない（画面だけのテスト Sol）', () => {
-  const w = G.createWorld('s8', { seed: 1 });
+  const w = G.createWorld('s8', { seed: 1, v3: true });
   const m = w.player.merchants[0];
   m.cargo = {};
   assert.ok(G.travel(w, m.id, 'natsume').ok);
@@ -525,7 +525,7 @@ test('砂漠で食料が尽きても、足りなかった分は次の旅に持�
 });
 
 test('一度訪れた町は、離れてもいつでも今の相場が分かる（版4 H0）', () => {
-  const w = G.createWorld('s2', { seed: 5 });
+  const w = G.createWorld('s2', { seed: 5, v3: true });
   const m = w.player.merchants[0];
   const start = m.city;
   assert.ok(G.isVisited(w, start));
@@ -538,7 +538,7 @@ test('一度訪れた町は、離れてもいつでも今の相場が分かる�
 });
 
 test('交易所は安く開けて、格上げで圏が広がる（版4 H1）', () => {
-  const w = G.createWorld('s8', { seed: 1 });
+  const w = G.createWorld('s8', { seed: 1, v3: true });
   w.player.silver = 99999;
   const site = G.foundSites(w, 1)[0];
   const cost = G.postCost(w);
@@ -558,7 +558,7 @@ test('交易所は安く開けて、格上げで圏が広がる（版4 H1）', (
 });
 
 test('技術で開く品は、だれかが技術を買うまで求められない（版4 H3）', () => {
-  const w = G.createWorld('s8', { seed: 1 });
+  const w = G.createWorld('s8', { seed: 1, v3: true });
   const kohaku = w.cities.kohaku;
   assert.ok(G.goodLocked(w, 'spicesugar'));
   assert.equal(G.dailyDemand(kohaku, 'spicesugar', false), 0);
@@ -625,7 +625,7 @@ test('町のない土地: 野の需要施設は決まった量を買い、ライ
 });
 
 test('定期便を別の商人に写せる（版4 H5）', () => {
-  const w = G.createWorld('s2', { seed: 2 });
+  const w = G.createWorld('s2', { seed: 2, v3: true });
   w.player.silver = 5000;
   const a = w.player.merchants[0];
   const h = G.hireMerchant(w, a.city);
@@ -640,7 +640,7 @@ test('定期便を別の商人に写せる（版4 H5）', () => {
 });
 
 test('定期便は仕入れ値を割って売らない。長く売れなければ最低売値で売る', () => {
-  const w = G.createWorld('s2', { seed: 3 });
+  const w = G.createWorld('s2', { seed: 3, v3: true });
   assert.ok(G.trade(w, 1, [{ good: 'wheat', qty: 20 }]).ok);
   const m = G.getMerchant(w, 1);
   m.cost.wheat = 100; // 高く仕入れたことにする

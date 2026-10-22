@@ -336,6 +336,53 @@ export function pioneerManage(world) {
 }
 BOTS.pioneer = (world, m) => trader(world, m, { cheat: false, keep: true });
 
+// 定期便を組むボット（版4のシナリオ用）。今の相場で、1日あたりの儲けが一番大きい往復を選んで定期便にする。
+//   wait:   一度組んだら任せきり（15回目の Opus の遊び方の近似）。これで S に届かないことを確かめる
+//   manage: 45日ごとに、町の今の様子（入荷の波・糖度）を見て組み直す。読んで動く遊び手の近似。これで S に届くことを確かめる
+export function bestLeg(world, from, to, m, taken) {
+  const a = world.cities[from];
+  const b = world.cities[to];
+  const cap = G.cargoCap(m);
+  let best = null;
+  for (const g of world.scenario.goods) {
+    if (!G.cityWants(b, g) || taken.has(`${from}>${g}`)) continue;
+    const spare = Math.floor((a.stock[g] || 0) - (a.founded ? G.targetStock(a, g) * 0.6 : 0));
+    const n = Math.min(Math.floor(cap / GOODS[g].weight), spare);
+    if (n < 4) continue;
+    const buy = G.quote(world, a, g, n);
+    const p = G.quote(world, b, g, -n) - buy;
+    if (p > 0 && (!best || p > best.p)) best = { good: g, n, p, max: (buy / n) * 1.15, min: (buy / n) * 1.03 };
+  }
+  return best;
+}
+export function planOrder(world, m) {
+  const ids = Object.keys(world.cities).filter((id) => G.isVisited(world, id) && !world.cities[id].rivalPost);
+  const taken = new Set(world.player.merchants.filter((x) => x !== m && x.order).flatMap((x) => x.order.stops.flatMap((st) => st.buy.map((bb) => `${st.city}>${bb.good}`))));
+  let best = null;
+  for (const a of ids) for (const b of ids) {
+    if (a >= b) continue;
+    const r = G.findPath(world, a, b, m.transport);
+    if (!r) continue;
+    const go = bestLeg(world, a, b, m, taken);
+    const back = bestLeg(world, b, a, m, taken);
+    const perDay = ((go?.p || 0) + (back?.p || 0)) / (2 * r.days + 2) - (r.desertDays ? 0.3 : 0);
+    if (perDay > 0.5 && (!best || perDay > best.perDay)) best = { a, b, go, back, perDay };
+  }
+  if (!best) return false;
+  const stop = (city, buyL, sellL) => ({ city, buy: buyL ? [{ good: buyL.good, qty: buyL.n, max: buyL.max }] : [], sell: sellL ? [{ good: sellL.good, min: sellL.min }] : [] });
+  return G.setOrder(world, m.id, { stops: [stop(best.a, best.go, best.back), stop(best.b, best.back, best.go)], guards: world.scenario.bandits ? 2 : 0 }).ok;
+}
+function orderBot(world, m, replan) {
+  if (m.order && !(replan && world.day - (m.order.since ?? 0) >= replan)) return;
+  if (!m.travel) upgrade(world, m);
+  // 最初の30日は手で売り買いして、町と相場を知る（遊び手も、まず手で往復してから定期便にする）
+  if (world.day < 30) { if (!m.travel) trader(world, m, { cheat: false, keep: true }); return; }
+  if (planOrder(world, m)) return;
+  if (!m.order && !m.travel) trader(world, m, { cheat: false, keep: true });
+}
+BOTS.wait = (world, m) => orderBot(world, m, 0);
+BOTS.manage = (world, m) => orderBot(world, m, 45);
+
 export function playBot(scenarioId, seed, botName, heirloom = null, fam = null) {
   const world = G.createWorld(scenarioId, { seed, heirloom });
   if (G.isPioneer(world)) pioneerStart(world, fam ?? seed);
@@ -343,7 +390,14 @@ export function playBot(scenarioId, seed, botName, heirloom = null, fam = null) 
   const bot = BOTS[botName];
   let guard = 0;
   while (!world.finished && guard++ < 20000) {
-    if (botName === 'pioneer') pioneerManage(world);
+    if (['pioneer', 'wait', 'manage'].includes(botName) && G.isPioneer(world)) pioneerManage(world);
+    // 定期便の商人は町で止まらないので、組み直しは毎日ここで見る
+    if (botName === 'manage') for (const m of world.player.merchants) if (m.order) orderBot(world, m, 45);
+    // 定期便の商人は町に止まらないので、雇うのはここで（儲かって銀がたまったら）
+    if (['wait', 'manage'].includes(botName) && world.day >= 30 && world.player.merchants.length < G.merchantCap(world) && world.player.silver > G.hireCost(world) * 3 + 300) {
+      const at = Object.values(world.cities).find((c) => c.founded && G.hasPresence(world, c.id));
+      if (at) G.hireMerchant(world, at.id);
+    }
     for (const m of world.player.merchants) if (!m.travel) bot(world, m);
     G.advance(world, 1, { stopOn: new Set() });
   }

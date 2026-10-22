@@ -3,7 +3,7 @@ import { GOODS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
 import { midPrice, targetStock } from './market.js';
 import { jitter } from './rng.js';
-import { emit } from './events.js';
+import { emit, supplyWave, waveTrough } from './events.js';
 import { districtProduction, staffing, housingCap, updateHousing, civicDemand, civicsIn, civicSatisfaction, wildDemand } from './district.js';
 import { CIVICS } from '../data/district.js';
 import { dwellingDemand, updateDwellingSat, dwellingStatus, assignDwelling } from './dwelling.js';
@@ -275,6 +275,22 @@ export function cityOutlook(world, city) {
   // 食卓にない食べ物は、在庫が尽きていて高い。届ければ高く売れ、糖度も伸びる
   const missing = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && dailyDemand(city, g, false) > 0 && !((city.diet?.[g] || 0) > 0.05) && !((city.produces?.[g] || 0) > 0));
   if (missing.length) out.push({ kind: 'hungry', text: `食卓にない: ${missing.slice(0, 3).map((g) => GOODS[g].name).join('・')}（高く売れ、糖度も伸びる）` });
+  // 古い町の食べ物の入荷の波: これから細る品と、戻る品
+  for (const g of Object.keys(world.scenario.cities?.find((x) => x.id === city.id)?.waves || {})) {
+    const now = supplyWave(world, city.id, g);
+    const soon = supplyWave(world, city.id, g, world.day + 10);
+    const t = waveTrough(world, city.id, g);
+    if (soon < now - 0.05) out.push({ kind: 'down', text: `${GOODS[g].name}の入荷が細っていく（いちばん少ないのは約${t}日後。そのころ${GOODS[g].name}が高くなる）` });
+    else if (soon > now + 0.05) out.push({ kind: 'up', text: `${GOODS[g].name}の入荷が戻ってくる（今${Math.round(now * 100)}%。これから${GOODS[g].name}は安くなる）` });
+  }
+  // ライバルの隊商が、この町へ品を運んでいる（着くと、その品の値が下がる）。ライバルの動きも読む材料（柱1）
+  for (const r of world.rivals || []) {
+    for (const m of r.merchants) {
+      if (!(m.travelDays > 0) || m.dest !== city.id) continue;
+      const load = Object.entries(m.cargo || {}).filter(([, n]) => n >= 1).sort((a, b) => b[1] - a[1]);
+      if (load.length) out.push({ kind: 'rival', text: `${r.name}の隊商が${load.slice(0, 2).map(([g, n]) => `${GOODS[g].name}${Math.floor(n)}`).join('・')}を積んで向かっている（あと約${m.travelDays}日。着くと値が下がる）` });
+    }
+  }
   return out;
 }
 

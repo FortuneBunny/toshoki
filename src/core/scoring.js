@@ -38,8 +38,10 @@ export function netWorth(world) {
   return netWorthParts(world).total;
 }
 
-// 指定した町が、1つ目の町から道（または水）だけでどれだけつながっているか
-export function networkReach(world, cities, mode) {
+const ownPosts = (world) => Object.values(world.cities).filter((c) => c.founded && !c.rivalPost);
+
+// 指定した町が、1つ目の町から道（または水）だけでどれだけつながっているか（list: つながった町の一覧を返す）
+export function networkReach(world, cities, mode, list = false) {
   const grid = world.grid;
   const W = GRID_W;
   const ok = (k) => grid.cityAt.has(k) || (mode === 'sea' ? grid.terrain[k] === T.WATER : grid.path[k] >= (mode === 'trail' ? 1 : 2));
@@ -61,7 +63,8 @@ export function networkReach(world, cities, mode) {
       q.push(nk);
     }
   }
-  return cities.filter((id) => { const [x, y] = grid.cityTiles[id]; return seen[y * W + x]; }).length;
+  const got = cities.filter((id) => { const [x, y] = grid.cityTiles[id]; return seen[y * W + x]; });
+  return list ? got : got.length;
 }
 
 // 目標1つの進み具合（0〜1）と説明
@@ -77,15 +80,23 @@ export function goalProgress(world, g) {
       return { p: v / g.amount, text: `資産を ${g.amount} 銀にする（今 ${Math.floor(v)}）` };
     }
     case 'link': {
-      // 定期便で2つの町を結ぶ（往復の回数。片道2回で1往復）
-      const legs = world.stats.legs?.[[g.a, g.b].sort().join('|')] || 0;
-      const v = Math.floor(legs / 2);
-      return { p: v / g.count, text: `定期便で${world.cities[g.a].name}と${world.cities[g.b].name}を結ぶ（往復 ${v}/${g.count} 回）` };
+      // 定期便で2つの町を結ぶ（往復の回数。片道2回で1往復）。a が 'post' なら、自分の交易所のどれか（版4のシナリオ）
+      const legsOf = (a) => world.stats.legs?.[[a, g.b].sort().join('|')] || 0;
+      const from = g.a === 'post' ? ownPosts(world).sort((x, y) => legsOf(y.id) - legsOf(x.id))[0]?.id : g.a;
+      const v = from ? Math.floor(legsOf(from) / 2) : 0;
+      const aName = g.a === 'post' ? (from ? `自分の交易所（${world.cities[from].name}）` : '自分の交易所') : world.cities[g.a].name;
+      return { p: v / g.count, text: `定期便で${aName}と${world.cities[g.b].name}を結ぶ（往復 ${v}/${g.count} 回）` };
     }
     case 'network': {
-      const got = networkReach(world, g.cities, g.mode || 'road');
-      const names = g.cities.map((id) => world.cities[id].name).join('・');
-      return { p: got / g.cities.length, text: `${names}を${g.mode === 'trail' ? '道' : g.mode === 'sea' ? '航路' : '街道'}でつなぐ（${got}/${g.cities.length}町）` };
+      // posts: 自分の交易所をいくつ入れるか（版4のシナリオ。交易所はどれでもよい）
+      const posts = g.posts ? ownPosts(world).map((c) => c.id) : [];
+      const list = [...g.cities, ...posts];
+      const got = networkReach(world, list, g.mode || 'road', true);
+      const gotCities = got.filter((id) => g.cities.includes(id)).length;
+      const gotPosts = Math.min(g.posts || 0, got.filter((id) => posts.includes(id)).length);
+      const need = g.cities.length + (g.posts || 0);
+      const names = g.cities.map((id) => world.cities[id].name).join('・') + (g.posts ? `と自分の交易所${g.posts}つ` : '');
+      return { p: (gotCities + gotPosts) / need, text: `${names}を${g.mode === 'trail' ? '道' : g.mode === 'sea' ? '航路' : '街道'}でつなぐ（${gotCities + gotPosts}/${need}）` };
     }
     case 'postTier': {
       // 自分で開いた交易所を育てる
