@@ -2,16 +2,20 @@
 //   node tools/shots/fixtures.js  → tools/shots/out/fixtures/*.json
 import { mkdirSync, writeFileSync } from 'node:fs';
 import * as G from '../../src/core/index.js';
-import { BOTS } from '../sim-bots.js';
+import { BOTS, pioneerStart, pioneerManage } from '../sim-bots.js';
 
 const OUT = 'tools/shots/out/fixtures';
 mkdirSync(OUT, { recursive: true });
 
 function play(id, days, seed = 7) {
   const world = G.createWorld(id, { seed });
+  // 町のない土地では、一族を選んで最初の交易所を置き、開拓のボットで進める
+  const pio = G.isPioneer(world);
+  if (pio) pioneerStart(world, 0);
   G.drainEvents(world);
   for (let d = 0; d < days && !world.finished; d++) {
-    for (const m of world.player.merchants) if (!m.travel) BOTS.goal(world, m);
+    if (pio) pioneerManage(world);
+    for (const m of world.player.merchants) if (!m.travel) (pio ? BOTS.pioneer : BOTS.goal)(world, m);
     G.advance(world, 1, { stopOn: new Set() });
   }
   world.finished = null;
@@ -81,8 +85,5 @@ save('s7-mid', play('s7', 200));
 }
 {
   const w = play('free', 300);
-  w.player.silver = 999999;
-  const s = G.foundSites(w)[0];
-  if (s) { const r = G.foundPost(w, s.x, s.y); if (r.id) G.buildPath(w, here(w), r.id, 'road'); }
   save('free-post', w);
 }

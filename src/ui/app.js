@@ -330,7 +330,12 @@ app.setupFlow = () => {
   const W = app.world;
   if (!W.setup) return;
   if (G.setupStage(W) === 'family') return familyDialog();
-  if (!app.state.found) app.startFound();
+  if (!app.state.found) {
+    app.startFound();
+    // 一番良い候補地を画面の真ん中に（スマホでは手引きの枠に隠れていた）
+    const s = app.state.found?.sites?.[0];
+    if (s) requestAnimationFrame(() => app.map.centerTile(s.x, s.y, 0.9));
+  }
 };
 function familyDialog() {
   const W = app.world;

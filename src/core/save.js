@@ -55,6 +55,8 @@ export function deserialize(json) {
   ensureNative(data);
   const sc = resolveScenario(data.scenarioId, data.seed, { v3: data.freeVersion !== 4 });
   if (!sc) throw new Error(`不明なシナリオ: ${data.scenarioId}`);
+  // 版4で町のない始まり方に作り替えたシナリオ（s1）の、前の版のセーブ
+  if (sc.pioneer && !data.hamlets) throw new Error(`このセーブは前の版の「${sc.title}」のもので、町のない土地から始める新しい版では続きを遊べない。最初から始め直してほしい（達成の記録と家訓は残っている）`);
   const overrides = data.scenarioOverrides;
   delete data.scenarioOverrides;
   Object.defineProperty(data, 'scenario', { value: overrides ? { ...sc, ...overrides } : sc, enumerable: false, writable: true });
