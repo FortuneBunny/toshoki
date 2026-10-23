@@ -11,6 +11,7 @@ import { quote, cityWants } from './market.js';
 import { cargoUsed, cargoCap, startTravel, findPath, edgeDays, foodNeeded } from './caravan.js';
 import { PROVISIONS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
+import { knownShifts } from './shifts.js';
 
 export function arriveAt(world, m) {
   observe(world, m.city);
@@ -84,6 +85,13 @@ export function runOrder(world, m, { depart = true } = {}) {
       executeTrade(world, m, [{ good, qty: -m.cargo[good] }], { auto: true });
       notes.push(`便で扱わない${GOODS[good].name}を売り払った`);
     }
+    // 予告された隊商市の町に、市が立つ前に着いたら、立つまで待つ（12日まで）。途中の町で臨時の便に切り替わると早く着き、素通りした（21回目の Opus）
+    const early = knownShifts(world).find((x) => x.fair === city.id && world.day < x.start && x.start - world.day <= 12 && (stop.sell || []).some((v) => v.good === x.good && (m.cargo[x.good] || 0) >= 1));
+    if (early) {
+      if (!o.holding) emit(world, { type: 'orderNote', merchant: m.id, city: m.city, text: `${m.name}（定期便）: ${city.name}の隊商市が立つ${early.start}日目まで待つ` });
+      o.holding = true;
+      return;
+    }
     // 売り: 最低価格を下回るなら売らずに持ち越す（赤字売りを防ぐ）
     for (const s of stop.sell || []) {
       const have = (m.cargo[s.good] || 0) - (s.keep || 0);
@@ -127,7 +135,9 @@ export function runOrder(world, m, { depart = true } = {}) {
       executeTrade(world, m, [{ good: b.good, qty: n }], { auto: true });
     }
     // 待つ指定（wait:品*数）: 積荷がその数になるまで、この町で待つ（最大30日。毎日、積む・買うをやり直す）
-    if (stop.waitFor && (m.cargo[stop.waitFor.good] || 0) < stop.waitFor.qty) {
+    // ただし、この町の工房が銀不足で止まっているなら待たない（待つ便と止まった工房で、売り上げも銀も戻らず全部止まった。21回目の Opus）
+    const starved = world.player.buildings.some((b) => b.city === m.city && b.active && b.silverStall);
+    if (stop.waitFor && (m.cargo[stop.waitFor.good] || 0) < stop.waitFor.qty && !starved) {
       o.holdSince = o.holdSince ?? world.day;
       if (world.day - o.holdSince < 30) { o.holding = true; return; }
       notes.push(`${GOODS[stop.waitFor.good].name}が${stop.waitFor.qty}個そろわないまま30日たったので出発`);

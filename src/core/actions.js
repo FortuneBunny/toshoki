@@ -424,14 +424,20 @@ export function setOrderAlt(world, mid, { stops, from, until }) {
   const o = m.order;
   const overlap = (a) => a.from < until && a.until > from;
   const cut = [];
+  const tails = [];
   for (const a of o.alts || []) {
     if (!overlap(a)) continue;
-    if (a.from < from && from > world.day) { a.until = from; cut.push(`#${a.id}を${from}日目までに縮めた`); }
+    if (a.from < from && from > world.day) {
+      // 中に短い予約を入れたときは、後ろに残る分も別の予約として残す（後半が消えていた。21回目の Opus）
+      if (a.until > until) { o.altSeq = (o.altSeq || 0) + 1; tails.push({ id: o.altSeq, stops: JSON.parse(JSON.stringify(a.stops)), from: until, until: a.until }); }
+      a.until = from;
+      cut.push(`#${a.id}を${from}日目までに縮めた`);
+    }
     else { a.gone = true; cut.push(`#${a.id}を置き換えた`); }
   }
   if (o.altOn && (o.alts || []).some((a) => a.id === o.altOn && a.gone)) { o.stops = o.base || o.stops; o.base = null; o.altOn = null; const i = o.stops.findIndex((s) => s.city === (m.travel ? m.travel.to : m.city)); o.next = Math.max(0, i); }
   o.altSeq = (o.altSeq || 0) + 1;
-  o.alts = [...(o.alts || []).filter((a) => !a.gone), { id: o.altSeq, stops: r.stops, from, until }].sort((a, b) => a.from - b.from);
+  o.alts = [...(o.alts || []).filter((a) => !a.gone), ...tails, { id: o.altSeq, stops: r.stops, from, until }].sort((a, b) => a.from - b.from);
   emit(world, { type: 'order', merchant: m.id, text: `${m.name}の臨時の便を予約した（${from}〜${until}日目: ${r.stops.map((s) => world.cities[s.city].name).join('→')}）。期間に入ってから町を出るとき切り替わり、過ぎたら元の便に戻る${cut.length ? `（重なる予約: ${cut.join('、')}）` : ''}` });
   if (!m.travel && !o.paused && !o.holding) switchAlt(world, m);
   return { ok: true };

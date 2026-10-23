@@ -421,6 +421,7 @@ export function orderDialog(app, mid, { alt: startAlt = false, shift = null } = 
   let altUntil;
   let tab = startAlt && m.order ? 'alt' : 'base';
   const shifts = G.knownShifts(world);
+  const win0 = (x) => G.fairEnd(x) - 1;
   const fit = (x) => {
     // その予告にかかる予約があれば、それを書き直す。なければ下書きから
     const have = G.altCovering(m, x);
@@ -456,7 +457,7 @@ export function orderDialog(app, mid, { alt: startAlt = false, shift = null } = 
       for (const a of m.order.alts || []) add(body, h('div', { class: 'row', style: { fontSize: '12px' } }, `予約: ${a.from}〜${a.until}日目 ${a.stops.map((x) => world.cities[x.city].name).join('→')}${m.order.altOn === a.id ? '（今はこちらを回っている）' : ''}`, h('button', { class: 'btn tiny ghost', onclick: () => { altStops = clone(a.stops); altFrom = a.from; altUntil = a.until; draw(); } }, '開く'), h('button', { class: 'btn tiny ghost', onclick: () => { G.clearOrderAlt(world, mid, a.id); app.toast('臨時の便の予約を消した'); draw(); } }, '消す')));
       add(body, h('div', { class: 'row' }, '期間', h('input', { type: 'number', value: altFrom, onchange: (e) => { altFrom = Number(e.target.value); } }), '日目から', h('input', { type: 'number', value: altUntil, onchange: (e) => { altUntil = Number(e.target.value); } }), '日目まで'));
       // 予告に合わせる: 隊商市に着く日が期間に入るよう、行く日数だけ前へずらす
-      if (shifts.length) add(body, h('div', { class: 'row chips' }, h('span', { class: 'dim' }, '予告に合わせる:'), shifts.map((x) => h('button', { class: 'btn tiny', onclick: () => { fit(x); draw(); } }, `${world.cities[x.low].name}が安い→${world.cities[x.fair].name}の隊商市（${x.start}〜${x.end - 1}日目に売れる）`))));
+      if (shifts.length) add(body, h('div', { class: 'row chips' }, h('span', { class: 'dim' }, '予告に合わせる:'), shifts.map((x) => h('button', { class: 'btn tiny', onclick: () => { fit(x); draw(); } }, `${world.cities[x.low].name}が安い→${world.cities[x.fair].name}の隊商市（${x.start}〜${win0(x)}日目に売れる）`))));
       add(body, h('div', { class: 'row', style: { margin: '6px 0' } },
         h('button', { class: 'btn primary small', onclick: () => { const r = G.setOrderAlt(world, mid, { stops: altStops, from: altFrom, until: altUntil }); if (!r.ok) return app.error(r.error); app.toast(`臨時の便を予約した（${altFrom}〜${altUntil}日目）`); flushOut(); } }, '臨時の便を予約する'),
         null));
@@ -517,7 +518,7 @@ export function shiftDialog(app, sid) {
       const booked = G.altCovering(m, x);
       add(list, h('div', { class: 'tech-row' },
         h('div', {}, h('b', {}, m.name), h('div', { class: 'muted' }, `いつもの便: ${G.baseStops(m.order).map((s) => world.cities[s.city].name).join('→')}${hit && !booked ? `（${low}で${g}を売る）` : ''}`),
-          draft && win.late && !booked ? h('div', { class: 'bad', style: { fontSize: '12px' } }, `${fair}まで約${win.days}日かかり、今から出ても市が閉じる前に着けない`) : draft ? h('div', { class: 'dim', style: { fontSize: '12px' } }, booked ? `予約ずみ: ${booked.from}〜${booked.until}日目 ${booked.stops.map((s) => world.cities[s.city].name).join('→')}` : `臨時の便: ${draft.map((s) => world.cities[s.city].name).join('→')}（${win.from}〜${win.until}日目に町を出る便。${fair}まで約${win.days}日なので、${x.end - 1}日目までに着く）`) : h('div', { class: 'dim' }, `この便は${g}を売らない`)),
+          draft && win.late && !booked ? h('div', { class: 'bad', style: { fontSize: '12px' } }, `${win.ready > world.day ? `${world.cities[G.baseStops(m.order)[0].city].name}に戻れるのは${win.ready}日目。` : ''}${fair}まで約${win.days}日かかり、市が閉じる前に着けない`) : draft ? h('div', { class: 'dim', style: { fontSize: '12px' } }, booked ? `予約ずみ: ${booked.from}〜${booked.until}日目 ${booked.stops.map((s) => world.cities[s.city].name).join('→')}` : `臨時の便: ${draft.map((s) => world.cities[s.city].name).join('↔')}（${win.from}〜${win.until}日目に町を出る便。${fair}まで約${win.days}日なので、${win.lastSale}日目までに着く${win.ready > win.from ? `。今の旅から戻るのは${win.ready}日目` : ''}）`) : h('div', { class: 'dim' }, `この便は${g}を売らない`)),
         h('span'),
         draft && !booked && !win.late ? h('button', { class: 'btn primary small', onclick: () => { const r = app.run(() => G.setOrderAlt(world, m.id, { stops: draft, from: win.from, until: win.until })); if (r.ok) draw(); } }, '臨時の便にする') : null,
         h('button', { class: 'btn ghost small', onclick: () => { md.close(); app.state.modals++; orderDialog(app, m.id, { alt: true, shift: x.id }); } }, '中身を見て組む')));
@@ -525,7 +526,7 @@ export function shiftDialog(app, sid) {
   };
   draw();
   const body = h('div', {},
-    h('p', {}, `${x.start - world.day > 0 ? `${x.start - world.day}日後` : '今'}（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${low}に${g}が大量に入り、安くしか売れなくなる。同じ期間、${fair}に隊商市が立ち、${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。`),
+    h('p', {}, `${x.start - world.day > 0 ? `${x.start - world.day}日後` : '今'}（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${low}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に${fair}に隊商市が立ち、${G.fairEnd(x) - 1}日目まで${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。市は安値より早く閉じるので、始まってから出たのでは間に合わない。`),
     h('p', { class: 'dim', style: { fontSize: '12px' } }, `その期間だけ便の売り先を${fair}に回すと、安値を避けて高く売れる。全部の便を回すと、隊商市でも値が崩れる（売れていく速さに限りがある）。下の日付は、臨時の便に切り替わって町を出る期間（着く日が市の期間に入るよう、行く日数だけ前にずらしてある）。何人を回すか、回さずにそのままにするかを決める。臨時の便は期間が過ぎると、いつもの便に戻る。`),
     list);
   const md = modal(app, `📣 予告: ${fair}に隊商市`, body, (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn', onclick: close }, '閉じる')]);

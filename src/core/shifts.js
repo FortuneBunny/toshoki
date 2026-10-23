@@ -33,7 +33,7 @@ export function planShifts(world) {
     const fairs = sc.fairs.length > 1 ? sc.fairs.filter((f) => f !== prevFair) : sc.fairs;
     const fair = fairs[Math.floor(rnd() * fairs.length)];
     prevFair = fair;
-    list.push({ id: list.length + 1, good: sc.good, low, fair, announce: Math.max(1, start - sc.lead), start, end: start + sc.days, sold: 0, value: 0, lowValue: 0 });
+    list.push({ id: list.length + 1, good: sc.good, low, fair, announce: Math.max(1, start - sc.lead), start, end: start + sc.days, fairEnd: start + (sc.fairDays ?? sc.days), sold: 0, value: 0, lowValue: 0 });
     start += sc.days + between(sc.gap);
   }
   world.shifts = list;
@@ -44,6 +44,9 @@ export function knownShifts(world) {
   return (world.shifts || []).filter((x) => world.day >= x.announce && world.day < x.end);
 }
 export const shiftActive = (world, x) => world.day >= x.start && world.day < x.end;
+// 隊商市は、安値の期間より短い（fairDays）。始まってから動いても間に合わず、予告を読んで先に出た便が取る（21回目の Sol: 始まってから回す手が S 68/90）
+export const fairEnd = (x) => x.fairEnd ?? x.end;
+export const fairActive = (world, x) => world.day >= x.start && world.day < fairEnd(x);
 
 // 毎日の補正（applyModifiers のあと）
 export function applyShifts(world) {
@@ -53,10 +56,17 @@ export function applyShifts(world) {
   for (const x of world.shifts || []) {
     if (!shiftActive(world, x)) continue;
     const low = world.cities[x.low];
-    const fair = world.cities[x.fair];
+    const fair = fairActive(world, x) ? world.cities[x.fair] : null;
     if (low) {
       low.demandMods[x.good] = (low.demandMods[x.good] ?? 1) * sc.low.demand;
       low.priceMods[x.good] = (low.priceMods[x.good] ?? 1) * sc.low.price;
+    }
+    // 余波（lowOthers）: 大量入荷は、ほかのいつもの売り場の値も少し下げる（2町を回って安い町を避ける固定の便が、低迷をほぼ受け流した。21回目の Sol）
+    if (sc.lowOthers) for (const id of sc.markets) {
+      const c = id !== x.low ? world.cities[id] : null;
+      if (!c) continue;
+      c.demandMods[x.good] = (c.demandMods[x.good] ?? 1) * sc.lowOthers.demand;
+      c.priceMods[x.good] = (c.priceMods[x.good] ?? 1) * sc.lowOthers.price;
     }
     if (fair) {
       fair.fairDemand = { ...(fair.fairDemand || {}), [x.good]: sc.fair.demand };
@@ -74,7 +84,7 @@ export function updateShifts(world) {
   for (const x of world.shifts || []) {
     const g = GOODS[x.good].name;
     if (world.day === x.announce) {
-      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${nm(world, x.low)}に${g}が大量に入り、安くしか売れなくなる。同じ期間、${nm(world, x.fair)}に隊商市が立ち、${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。定期便の「臨時の便（期間予約）」で、その期間だけ売り先を変えられる` });
+      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${nm(world, x.low)}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に、${nm(world, x.fair)}に隊商市が立ち、${fairEnd(x) - x.start}日間（${fairEnd(x) - 1}日目まで）${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。始まってから出たのでは市に間に合わない。定期便の「臨時の便（期間予約）」で、先に売り先を変えておける` });
     }
     if (world.day === x.start) {
       // 隊商市は、よその商人の白糖も少し持って始まる（空の市場は値が基準の3倍近くになり、隊商市の町をいつも通る固定の便が強すぎた）
@@ -82,14 +92,15 @@ export function updateShifts(world) {
       const want = sc.fair.demand * B.targetStockDays * (sc.fair.stock ?? 0);
       if (fair) fair.stock[x.good] = Math.max(fair.stock[x.good] || 0, want);
     }
-    if (world.day === x.start) emit(world, { type: 'shiftStart', city: x.fair, text: `${nm(world, x.fair)}に隊商市が立った（${sc.days}日間）。${nm(world, x.low)}の${g}は安値になった` });
-    if (world.day === x.end) {
+    if (world.day === x.start) emit(world, { type: 'shiftStart', city: x.fair, text: `${nm(world, x.fair)}に隊商市が立った（${fairEnd(x) - 1}日目まで）。${nm(world, x.low)}の${g}は安値になった（${x.end - 1}日目まで）` });
+    if (world.day === x.end && x.end !== fairEnd(x)) emit(world, { type: 'shiftOver', city: x.low, quiet: false, text: `${nm(world, x.low)}の${g}の値が戻った` });
+    if (world.day === fairEnd(x)) {
       // 閉じた市の残りの白糖は、よその商人が持ち帰る（閉じると値が下限まで落ち、安く買い戻して売り直すと売った額に2回数えられた。20回目の Opus）
       const fair = world.cities[x.fair];
       if (fair) fair.stock[x.good] = 0;
       const txt = x.sold > 0
         ? `${nm(world, x.fair)}の隊商市が閉じた。${g}を${x.sold}個売って${Math.round(x.value)}銀（同じ日に${nm(world, x.low)}で売っていたら約${Math.round(x.lowValue)}銀）`
-        : `${nm(world, x.fair)}の隊商市が閉じた。${nm(world, x.low)}の${g}の値も戻る`;
+        : `${nm(world, x.fair)}の隊商市が閉じた`;
       emit(world, { type: 'shiftEnd', city: x.fair, rare: x.sold > 0 && x.value > x.lowValue * 1.2, text: txt });
     }
   }
@@ -98,7 +109,7 @@ export function updateShifts(world) {
 // 隊商市で売った分を記録する（終わりの知らせで、読んだ得を数字で見せる）
 export function noteShiftSale(world, city, good, n, gain) {
   for (const x of world.shifts || []) {
-    if (x.fair !== city.id || x.good !== good || !shiftActive(world, x)) continue;
+    if (x.fair !== city.id || x.good !== good || !fairActive(world, x)) continue;
     x.sold += n;
     x.value += gain;
     const low = world.cities[x.low];
@@ -114,8 +125,10 @@ export function shiftNotes(world, city) {
     const g = GOODS[x.good].name;
     const on = shiftActive(world, x);
     const when = on ? `あと${x.end - world.day}日` : `${x.start - world.day}日後から${sc.days}日間`;
+    const fon = fairActive(world, x);
+    const fwhen = fon ? `あと${fairEnd(x) - world.day}日` : `${x.start - world.day}日後から${fairEnd(x) - x.start}日間`;
     if (x.low === city.id) out.push({ kind: on ? 'down' : 'shift', text: on ? `📉${g}の大量入荷中（${when}）。${g}は安くしか売れない。隊商市は${nm(world, x.fair)}` : `📉${when}、${g}が大量に入って安くなる（${x.start}〜${x.end - 1}日目）。そのあいだ${nm(world, x.fair)}の隊商市が高く買う` });
-    if (x.fair === city.id) out.push({ kind: on ? 'up' : 'shift', text: on ? `🎪隊商市が立っている（${when}）。${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく）` : `🎪${when}、隊商市が立つ（${x.start}〜${x.end - 1}日目）。${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく）` });
+    if (x.fair === city.id && world.day < fairEnd(x)) out.push({ kind: fon ? 'up' : 'shift', text: fon ? `🎪隊商市が立っている（${fwhen}）。${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく）` : `🎪${fwhen}、隊商市が立つ（${x.start}〜${fairEnd(x) - 1}日目）。${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく）` });
   }
   return out;
 }
@@ -143,26 +156,29 @@ export function orderShiftWarnings(world, m) {
 // 臨時の便の期間の目安（これは「町を出る」期間。隊商市で売れる期間とは別）: 便の最初の停泊地から隊商市まで行く日数だけ、
 // 始まりと終わりを前へずらす。着くのが始まりより早いと、まだ買ってもらえないので1日あとに着くようにし、
 // 終わりは2日の余裕をみる（最後の日に出た便が、市の閉じた日に着いて売れなかった。20回目の Sol）。
-// late: 今から出ても間に合わない
+// ready: 商人が今の旅を終えて、便の最初の停泊地に戻れる日（帰り道の商人に、間に合わない予約を勧めていた。21回目の Sol）。
+// late: 戻ってから出ても間に合わない
 export function altWindowFor(world, m, x, stops) {
-  const from = stops?.[0]?.city || baseStopsOf(m.order)[0]?.city || m.city;
-  const d = findPath(world, from, x.fair, m.transport)?.days ?? 0;
-  const until = x.end - d - 2;
+  const home = stops?.[0]?.city || baseStopsOf(m.order)[0]?.city || m.city;
+  const d = findPath(world, home, x.fair, m.transport)?.days ?? 0;
+  const until = fairEnd(x) - d - 2;
   const start = Math.max(world.day, x.start - d + 1);
-  return { from: start, until: Math.max(start + 1, until), days: d, late: until <= start, lastSale: x.end - 1 };
+  let ready = world.day;
+  const at = m.travel ? m.travel.to : m.city;
+  if (m.travel) ready += Math.max(0, Math.ceil(m.travel.totalDays - m.travel.elapsed));
+  if (at !== home) ready += findPath(world, at, home, m.transport)?.days ?? 0;
+  return { from: start, until: Math.max(start + 1, until), days: d, ready, late: until <= Math.max(start, ready), lastSale: fairEnd(x) - 1 };
 }
 
-// 臨時の便の下書き: いつもの便の停泊地のうち、低迷する町（なければ、その品を売る停泊地）を隊商市の町に替える
+// 臨時の便の下書き: 便の最初の停泊地（積む町）と、隊商市の町の往復。隊商市では、低迷する町（なければ、その品を売る停泊地）で売っていた品を売る。
+// （いつもの巡回の1つだけを替えていたので、市のあとに遠回りし、読んでも速くならなかった。21回目の Sol）
 export function altDraftFor(world, m, x) {
   const base = m.order ? baseStopsOf(m.order) : null;
   if (!base?.length) return null;
-  const stops = JSON.parse(JSON.stringify(base));
   const sells = (s) => (s.sell || []).some((v) => v.good === x.good);
-  let i = stops.findIndex((s) => s.city === x.low && sells(s));
-  if (i < 0) i = stops.findIndex(sells);
-  if (i < 0) return null;
-  stops[i].city = x.fair;
-  stops[i].buy = []; // 隊商市の町では仕入れない（いつもの売り先の仕入れは、そこにしかない）
-  stops[i].sell = (stops[i].sell || []).map((v) => ({ ...v, min: 0 }));
-  return stops.filter((s, j) => j === 0 || s.city !== stops[j - 1].city);
+  const at = base.find((s) => s.city === x.low && sells(s)) || base.find(sells);
+  if (!at) return null;
+  const home = JSON.parse(JSON.stringify(base[0]));
+  if (home.city === x.fair) return null;
+  return [home, { city: x.fair, buy: [], sell: (at.sell || []).map((v) => ({ ...v, min: 0 })), unload: [], load: [] }];
 }

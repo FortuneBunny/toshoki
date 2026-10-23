@@ -776,7 +776,9 @@ test('未来の臨時の便を足しても、今回っている臨時の便は�
   assert.ok(m.order.altOn, '今の臨時の便が消えた');
   assert.equal(m.order.stops[m.order.next].city, to);
   assert.equal(m.order.alts[0].until, w.day + 15);
-  assert.equal(m.order.alts.length, 2);
+  // 中に入れた予約のあとは、前の予約の後ろの分が残る
+  assert.equal(m.order.alts.length, 3);
+  assert.deepEqual([m.order.alts[2].from, m.order.alts[2].until], [w.day + 45, 80]);
 });
 
 test('セーブには、予告前の売り場の交代を書かない。ロードすると同じ予定に戻る', () => {
@@ -789,4 +791,22 @@ test('セーブには、予告前の売り場の交代を書かない。ロー�
   assert.equal(JSON.parse(json).shifts.length, 1);
   const w2 = G.deserialize(json);
   assert.deepEqual(w2.shifts.map((x) => [x.low, x.fair, x.start]), full);
+});
+
+test('臨時の便の下書きは、積む町と隊商市の往復。隊商市は安値より早く閉じ、帰り道の商人には間に合わないと出す', () => {
+  const w = G.createWorld('s3', { seed: 11 });
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const p = Object.values(w.cities).find((c) => c.founded).id;
+  const st = (city, sell = [], load = []) => ({ city, buy: [], sell: sell.map((good) => ({ good, min: 35 })), load });
+  assert.ok(G.setOrder(w, 1, { stops: [st(p, [], ['whitesugar']), st('toumitsu', ['whitesugar']), st('suitou', ['whitesugar'])] }).ok);
+  const x = w.shifts[0];
+  assert.ok(G.fairEnd(x) < x.end);
+  const m = w.player.merchants[0];
+  const draft = G.altDraftFor(w, m, x);
+  assert.deepEqual(draft.map((y) => y.city), [p, x.fair]);
+  assert.equal(draft[1].sell[0].min, 0);
+  // 隊商市が閉じる間際に、遠くの町から戻る途中なら「間に合わない」
+  while (w.day < G.fairEnd(x) - 8) G.advance(w, 1, { stopOn: new Set() });
+  assert.equal(G.altWindowFor(w, m, x, draft).late, true);
 });

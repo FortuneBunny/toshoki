@@ -598,7 +598,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   order add ... --reserve <銀>          仕入れで手元に残す銀（最初は50。砂漠の食料だけは割っても買う）
   order pause [町]                     次に町に着いたら（町を書けばその町で）定期便を止める
   order alt ["<町 ...>" "<町 ...>"] --shift <予告の番号> | --from <日> --until <日>
-                                       （--shift で停泊地を省くと、いつもの便の安くなる町を隊商市の町に替えた便）
+                                       （--shift で停泊地を省くと、いつもの便の最初の停泊地と隊商市の町を往復する便）
                                        臨時の便（期間予約）: その期間だけ別の停泊地を回り、過ぎたら元の便に戻る。
                                        --shift で、予告（shifts で一覧）に合わせて期間を入れる（隊商市に着く日が期間に入るよう、行く日数だけ前へずらす）
   order alt clear [予約の番号]          臨時の便の予約を消す（番号は order list。省くと全部）。期間が重なる予約を足すと、前の予約は置き換わる
@@ -635,12 +635,12 @@ function run(world, cmd, pos, opts) {
       const list = G.knownShifts(world);
       if (!list.length) { out.push(world.scenario.shifts ? '今、予告された売り場の交代はない（予告は始まる約26日前に出る）' : 'このシナリオには、予告された売り場の交代はない'); break; }
       for (const x of list) {
-        out.push(`#${x.id} ${G.shiftActive(world, x) ? `今（あと${x.end - world.day}日）` : `${x.start - world.day}日後から`}: ${x.start}〜${x.end - 1}日目、${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い / ${world.cities[x.fair].name}(${x.fair})に隊商市（${GOODS[x.good].name}を高く買う。毎日約${world.scenario.shifts.fair.demand}個ずつ売れていき、まとめて売ると値が下がる）`);
+        out.push(`#${x.id} ${G.shiftActive(world, x) ? `今（あと${x.end - world.day}日）` : `${x.start - world.day}日後から`}: ${x.start}〜${x.end - 1}日目、${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い / ${x.start}〜${G.fairEnd(x) - 1}日目、${world.cities[x.fair].name}(${x.fair})に隊商市（${GOODS[x.good].name}を高く買う。毎日約${world.scenario.shifts.fair.demand}個ずつ売れていき、まとめて売ると値が下がる）`);
         for (const m of world.player.merchants.filter((y) => y.order)) {
           const win = G.altWindowFor(world, m, x, m.order.stops);
           const base = G.baseStops(m.order);
           const have = G.altCovering(m, x);
-          out.push(`    #${m.id} ${m.name}: ${base[0] ? world.cities[base[0].city].name : ''}から${world.cities[x.fair].name}まで約${win.days}日 → ${have ? `予約ずみ（${have.from}〜${have.until}日目）` : win.late ? '今から出ても市が閉じる前に着けない' : `臨時の便に切り替えて町を出る期間の目安 ${win.from}〜${win.until}日目（${x.end - 1}日目までに着く）。order alt --shift ${x.id} -m ${m.id} で、いつもの便の${world.cities[x.low].name}を${world.cities[x.fair].name}に替えた便を予約`}`);
+          out.push(`    #${m.id} ${m.name}: ${base[0] ? world.cities[base[0].city].name : ''}から${world.cities[x.fair].name}まで約${win.days}日 → ${have ? `予約ずみ（${have.from}〜${have.until}日目）` : win.late ? `${win.ready > world.day ? `${base[0] ? world.cities[base[0].city].name : ''}に戻れるのは${win.ready}日目。` : ''}市が閉じる前に着けない` : `臨時の便に切り替えて町を出る期間の目安 ${win.from}〜${win.until}日目（${win.lastSale}日目までに着く${win.ready > win.from ? `。今の旅から戻るのは${win.ready}日目` : ''}）。order alt --shift ${x.id} -m ${m.id} で、${base[0] ? world.cities[base[0].city].name : ''}と${world.cities[x.fair].name}を往復する便を予約`}`);
         }
       }
       break;
@@ -1037,7 +1037,7 @@ function run(world, cmd, pos, opts) {
           // 停泊地を省くと、いつもの便の低迷する町を隊商市の町に替えた下書き（同じ長い停泊地を商人ごとに打ち直していた。20回目の Sol）
           if (!stops.length) { stops = G.altDraftFor(world, m, x); if (!stops) throw new Error(`この便は${GOODS[x.good].name}を売らない。停泊地を書いて予約する`); }
           const win = G.altWindowFor(world, m, x, stops);
-          if (win.late && opts.from === undefined) throw new Error(`${world.cities[x.fair].name}まで約${win.days}日かかり、今から出ても市が閉じる前に着けない`);
+          if (win.late && opts.from === undefined) throw new Error(`${win.ready > world.day ? `${world.cities[stops[0].city].name}に戻れるのは${win.ready}日目。` : ''}${world.cities[x.fair].name}まで約${win.days}日かかり、市が閉じる前に着けない`);
           if (opts.from === undefined) from = win.from;
           if (opts.until === undefined) until = win.until;
         }
@@ -1179,7 +1179,7 @@ function run(world, cmd, pos, opts) {
       for (const b of world.player.buildings) {
         const def = BUILDINGS[b.type];
         const wh = world.player.warehouses[b.city];
-        out.push(`#${b.id} ${def.name}（${world.cities[b.city].name}）${b.active ? '稼働中' : '停止中'}  自動仕入れ${b.autoBuy ? 'あり（手元の銀が100を切ると止まる）' : 'なし'}  昨日 ${b.lastMade || 0}回  累計 ${Object.entries(b.made || {}).map(([g, n]) => `${GOODS[g].name}${n}`).join(' ') || 'なし'}`);
+        out.push(`#${b.id} ${def.name}（${world.cities[b.city].name}）${b.active ? '稼働中' : '停止中'}  自動仕入れ${b.autoBuy ? `あり（手元の銀が${G.BALANCE.autoBuyReserve}を切ると止まる）` : 'なし'}  昨日 ${b.lastMade || 0}回  累計 ${Object.entries(b.made || {}).map(([g, n]) => `${GOODS[g].name}${n}`).join(' ') || 'なし'}`);
         out.push(`   レシピ（${b.recipe ? `「${b.recipe}」だけ` : '上から順に試す'}。1日${def.batches + (world.player.mods?.batchBonus || 0)}回。固定するには workshop ${b.id} recipe <名前>）: ${def.recipes.map((r) => `「${r.name}」${Object.entries(r.in).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}→${Object.entries(r.out).map(([g, n]) => `${GOODS[g].name}${n}`).join('+')}`).join(' / ')}`);
         out.push(`   材料は倉庫から使い、足りなければ町の市場で買う（基準価格の${b.priceCap ?? 1.5}倍まで。変えるには workshop ${b.id} maxprice <倍率>）。できた品は倉庫に入る（load で積む）。${b.why ? `\n   ⚠ 止まっている理由: ${b.why}` : ''}`);
         out.push(`   倉庫: ${Object.entries(wh?.stock || {}).filter(([, q]) => q >= 1).map(([g, q]) => `${GOODS[g].name}${Math.floor(q)}`).join(' ') || '空'}`);

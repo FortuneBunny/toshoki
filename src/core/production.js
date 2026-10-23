@@ -42,6 +42,7 @@ function tryBatch(world, b, recipe, wh, city) {
     if (lack > 0) missing[id] = lack;
   }
   // 足りない材料を市場から買う（基準価格の1.5倍まで）
+  b.silverStall = false;
   if (Object.keys(missing).length) {
     const names = Object.keys(missing).map((id) => GOODS[id].name).join('・');
     if (!b.autoBuy) { b.why = `倉庫に${names}がない（自動仕入れは切ってある）`; return false; }
@@ -53,7 +54,7 @@ function tryBatch(world, b, recipe, wh, city) {
       if (cost / n > GOODS[id].base * cap) { b.why = `${GOODS[id].name}の相場（${(cost / n).toFixed(1)}）が自動仕入れの上限（基準の${cap}倍 = ${(GOODS[id].base * cap).toFixed(1)}）を超えている。上げるには workshop ${b.id} maxprice <倍率>`; return false; }
       total += cost;
     }
-    if (world.player.silver - total < B.autoBuyReserve) { b.why = `手元の銀が少ないので自動仕入れを控えている（${B.autoBuyReserve}銀を残す）`; return false; }
+    if (world.player.silver - total < B.autoBuyReserve) { b.why = `手元の銀が少ないので自動仕入れを控えている（${B.autoBuyReserve}銀を残す）`; b.silverStall = true; return false; }
     for (const [id, n] of Object.entries(missing)) {
       const cost = quote(world, city, id, n);
       city.stock[id] -= n;
