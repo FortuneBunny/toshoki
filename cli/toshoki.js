@@ -640,7 +640,7 @@ function run(world, cmd, pos, opts) {
           const win = G.altWindowFor(world, m, x, m.order.stops);
           const base = G.baseStops(m.order);
           const have = G.altCovering(m, x);
-          out.push(`    #${m.id} ${m.name}: ${base[0] ? world.cities[base[0].city].name : ''}から${world.cities[x.fair].name}まで約${win.days}日 → ${have ? `予約ずみ（${have.from}〜${have.until}日目）` : win.late ? `${win.ready > world.day ? `${base[0] ? world.cities[base[0].city].name : ''}に戻れるのは${win.ready}日目。` : ''}市が閉じる前に着けない` : `臨時の便に切り替えて町を出る期間の目安 ${win.from}〜${win.until}日目（${win.lastSale}日目までに着く${win.ready > win.from ? `。今の旅から戻るのは${win.ready}日目` : ''}）。order alt --shift ${x.id} -m ${m.id} で、${base[0] ? world.cities[base[0].city].name : ''}と${world.cities[x.fair].name}を往復する便を予約`}`);
+          out.push(`    #${m.id} ${m.name}: ${base[0] ? world.cities[base[0].city].name : ''}から${world.cities[x.fair].name}まで約${win.days}日 → ${have ? `予約ずみ（${have.from}〜${have.until}日目）` : win.late ? `${win.ready > world.day ? `${base[0] ? world.cities[base[0].city].name : ''}に戻れるのは${win.ready}日目。` : ''}市が閉じる前に着けない` : `臨時の便に切り替えて町を出る期間の目安 ${win.from}〜${win.until}日目（${win.lastSale}日目までに着く${win.ready > win.from ? `。今の旅から戻るのは${win.ready}日目` : ''}。今予約すると早ければ${win.arrive}日目着、始まってから切り替えると${win.afterStart}日目着で${win.afterStart > win.lastSale ? '市は閉じている' : `市の残り${win.lastSale - win.afterStart + 1}日`}）。order alt --shift ${x.id} -m ${m.id} で、${base[0] ? world.cities[base[0].city].name : ''}と${world.cities[x.fair].name}を往復する便を予約`}`);
         }
       }
       break;

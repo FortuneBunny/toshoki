@@ -26,13 +26,16 @@ export function planShifts(world) {
   const between = ([lo, hi]) => lo + Math.floor(rnd() * (hi - lo + 1));
   const list = [];
   let start = between(sc.first);
-  let prevFair = null;
+  // lowBag: 低迷する町を袋から引く（どの町も一巡で1回ずつ。2回とも同じ町になるくじが大きかった。22回目の Opus）
+  let bag = [];
   while (start < (world.scenario.deadline || 600)) {
-    const low = sc.markets[Math.floor(rnd() * sc.markets.length)];
-    // 隊商市は、前回と違う町に立ちやすくする（同じ町を回る固定の便で受けきれないように）
-    const fairs = sc.fairs.length > 1 ? sc.fairs.filter((f) => f !== prevFair) : sc.fairs;
+    let low;
+    if (sc.lowBag) { if (!bag.length) bag = [...sc.markets]; low = bag.splice(Math.floor(rnd() * bag.length), 1)[0]; }
+    else low = sc.markets[Math.floor(rnd() * sc.markets.length)];
+    // 隊商市の町は毎回の抽選（前回の町を外していたので、候補が2町の s3 では必ず交互になり、場所を読む必要がなかった。22回目の Sol）
+    // fairAlt: 前回と違う町（比べるための古い決め方）
+    const fairs = sc.fairAlt && list.length ? sc.fairs.filter((f) => f !== list.at(-1).fair) : sc.fairs;
     const fair = fairs[Math.floor(rnd() * fairs.length)];
-    prevFair = fair;
     list.push({ id: list.length + 1, good: sc.good, low, fair, announce: Math.max(1, start - sc.lead), start, end: start + sc.days, fairEnd: start + (sc.fairDays ?? sc.days), sold: 0, value: 0, lowValue: 0 });
     start += sc.days + between(sc.gap);
   }
@@ -84,7 +87,7 @@ export function updateShifts(world) {
   for (const x of world.shifts || []) {
     const g = GOODS[x.good].name;
     if (world.day === x.announce) {
-      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${nm(world, x.low)}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に、${nm(world, x.fair)}に隊商市が立ち、${fairEnd(x) - x.start}日間（${fairEnd(x) - 1}日目まで）${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。始まってから出たのでは市に間に合わない。定期便の「臨時の便（期間予約）」で、先に売り先を変えておける` });
+      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${nm(world, x.low)}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に、${nm(world, x.fair)}に隊商市が立ち、${fairEnd(x) - x.start}日間（${fairEnd(x) - 1}日目まで）${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。市は安値より早く閉じる。商人ごとの着く日は予告の画面で分かる。定期便の「臨時の便（期間予約）」で、先に売り先を変えておける` });
     }
     if (world.day === x.start) {
       // 隊商市は、よその商人の白糖も少し持って始まる（空の市場は値が基準の3倍近くになり、隊商市の町をいつも通る固定の便が強すぎた）
@@ -158,6 +161,8 @@ export function orderShiftWarnings(world, m) {
 // 終わりは2日の余裕をみる（最後の日に出た便が、市の閉じた日に着いて売れなかった。20回目の Sol）。
 // ready: 商人が今の旅を終えて、便の最初の停泊地に戻れる日（帰り道の商人に、間に合わない予約を勧めていた。21回目の Sol）。
 // late: 戻ってから出ても間に合わない
+// arrive: 今予約したときに隊商市へ着く日の目安。afterStart: 始まってから切り替えたときに着く日（「始まってからでは間に合わない」と一律に書いていたが、
+// 近い商人は間に合った。22回目の Sol。商人ごとの見込みに替えた）。どちらも積み待ちは入らない
 export function altWindowFor(world, m, x, stops) {
   const home = stops?.[0]?.city || baseStopsOf(m.order)[0]?.city || m.city;
   const d = findPath(world, home, x.fair, m.transport)?.days ?? 0;
@@ -167,7 +172,8 @@ export function altWindowFor(world, m, x, stops) {
   const at = m.travel ? m.travel.to : m.city;
   if (m.travel) ready += Math.max(0, Math.ceil(m.travel.totalDays - m.travel.elapsed));
   if (at !== home) ready += findPath(world, at, home, m.transport)?.days ?? 0;
-  return { from: start, until: Math.max(start + 1, until), days: d, ready, late: until <= Math.max(start, ready), lastSale: fairEnd(x) - 1 };
+  return { from: start, until: Math.max(start + 1, until), days: d, ready, late: until <= Math.max(start, ready), lastSale: fairEnd(x) - 1,
+    arrive: Math.max(start, ready) + d, afterStart: Math.max(x.start, ready, world.day) + d };
 }
 
 // 臨時の便の下書き: 便の最初の停泊地（積む町）と、隊商市の町の往復。隊商市では、低迷する町（なければ、その品を売る停泊地）で売っていた品を売る。

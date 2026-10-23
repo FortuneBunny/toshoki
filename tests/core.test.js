@@ -714,6 +714,12 @@ test('目標「結ぶ」は、空荷の便を数えない', () => {
   assert.equal(G.goalProgress(w, { type: 'link', a: 'kibi', b: 'suitou', count: 2 }).p, 0);
 });
 
+test('s3 の隊商市の町は毎回の抽選で、同じ町が続くこともある', () => {
+  let same = 0;
+  for (let seed = 1; seed <= 40; seed++) { const xs = G.createWorld('s3', { seed }).shifts; if (xs[0].fair === xs[1].fair) same++; }
+  assert.ok(same > 5 && same < 35);
+});
+
 test('s3 の売り場の交代: 予定は行動で変わらず、予告から始まりまで日があり、隊商市はふだん買わない白糖を高く買う', () => {
   const a = G.createWorld('s3', { seed: 4 });
   const b = G.createWorld('s3', { seed: 4 });
@@ -806,6 +812,10 @@ test('臨時の便の下書きは、積む町と隊商市の往復。隊商市�
   const draft = G.altDraftFor(w, m, x);
   assert.deepEqual(draft.map((y) => y.city), [p, x.fair]);
   assert.equal(draft[1].sell[0].min, 0);
+  // 商人ごとの着く日の目安: 今予約したときと、始まってから切り替えたとき
+  const win = G.altWindowFor(w, m, x, draft);
+  assert.ok(win.arrive >= x.start && win.arrive <= win.afterStart);
+  assert.ok(win.afterStart >= x.start + win.days);
   // 隊商市が閉じる間際に、遠くの町から戻る途中なら「間に合わない」
   while (w.day < G.fairEnd(x) - 8) G.advance(w, 1, { stopOn: new Set() });
   assert.equal(G.altWindowFor(w, m, x, draft).late, true);
