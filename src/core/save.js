@@ -1,4 +1,5 @@
 // セーブとロード（JSON）。シナリオの定義は保存せず、ID から引き直す。
+import { planShifts } from './shifts.js';
 import { SCENARIOS } from '../data/scenarios.js';
 import { SAVE_VERSION, resolveScenario, savedAsV3 } from './world.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
@@ -9,7 +10,9 @@ const tierOf = (pop) => BALANCE.tierPops.reduce((t, p, i) => (pop >= p ? i : t),
 
 export function serialize(world) {
   const base = resolveScenario(world.scenarioId, world.seed, { v3: savedAsV3(world) });
-  return JSON.stringify({ ...world, scenarioOverrides: world.scenario.infoNetwork !== base.infoNetwork ? { infoNetwork: world.scenario.infoNetwork } : null });
+  // 売り場の交代は、予告ずみの分だけを書く（先の予定がセーブに平文で入っていた。20回目の Opus）。続きはロードのときに同じ乱数で作り直す
+  const shifts = world.shifts ? world.shifts.filter((x) => x.announce <= world.day) : undefined;
+  return JSON.stringify({ ...world, shifts, scenarioOverrides: world.scenario.infoNetwork !== base.infoNetwork ? { infoNetwork: world.scenario.infoNetwork } : null });
 }
 
 function hopTable(world) {
@@ -66,6 +69,11 @@ export function deserialize(json) {
   Object.defineProperty(data, 'grid', { value: buildGrid(data), enumerable: false, writable: true });
   Object.defineProperty(data, 'routeCache', { value: new Map(), enumerable: false, writable: true });
   for (const c of Object.values(data.cities)) if (c.grade !== undefined || c.founded) linkPostHops(data, c.id);
+  if (data.shifts) {
+    const saved = data.shifts;
+    planShifts(data);
+    data.shifts = (data.shifts || []).map((x) => saved.find((y) => y.id === x.id) || x);
+  }
   // 古い版で暇を出したあとに雇うと、同じ番号の商人が2人いることがある。後の方に新しい番号を付ける
   const seen = new Set();
   for (const m of data.player.merchants) {

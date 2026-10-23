@@ -218,7 +218,7 @@ function statusText(world) {
   if (ab.length && pl.silver < G.BALANCE.autoBuyReserve * 2) out.push(`⚠ 手元の銀 ${Math.floor(pl.silver)}。${G.BALANCE.autoBuyReserve}銀を切ると工房の自動仕入れが止まる（倉庫の製品を売って銀に戻そう）`);
   for (const m of pl.merchants) out.push('  ' + merchantLine(world, m));
   // 予告された売り場の交代（詳しくは shifts）
-  for (const x of G.knownShifts(world)) out.push(`📣 予告#${x.id}: ${x.start}〜${x.end}日目、${world.cities[x.low].name}で${GOODS[x.good].name}が安い / ${world.cities[x.fair].name}に隊商市${G.shiftActive(world, x) ? `（今。あと${x.end - world.day}日）` : `（${x.start - world.day}日後から）`}。臨時の便の期間の目安は shifts`);
+  for (const x of G.knownShifts(world)) out.push(`📣 予告#${x.id}: ${x.start}〜${x.end - 1}日目、${world.cities[x.low].name}で${GOODS[x.good].name}が安い / ${world.cities[x.fair].name}に隊商市${G.shiftActive(world, x) ? `（今。あと${x.end - world.day}日）` : `（${x.start - world.day}日後から）`}。臨時の便の期間の目安は shifts`);
   // 町にいて定期便のない商人には、次の一手の例を1つ（詳しくは advice）
   for (const m of pl.merchants) if (!m.travel && !m.order && world.day < 120) out.push(`  💡 #${m.id} 次の一手の例: ${G.adviceText(world, m.id)[0]}（ほかの案は advice）`);
   // 銀が眠っていれば、目標に効く使い方を
@@ -257,7 +257,7 @@ function merchantLine(world, m) {
   const where = m.travel
     ? `移動中 → ${world.cities[m.travel.to].name}（あと約${Math.max(1, Math.ceil(m.travel.totalDays - m.travel.elapsed))}日${m.guards ? `、護衛${m.guards}` : ''}）`
     : `${world.cities[m.city].name}(${m.city})に滞在`;
-  const order = (m.order ? (m.order.paused ? ' [定期便:停止中]' : m.order.altOn ? ` [臨時の便〜${m.order.alts.find((a) => a.id === m.order.altOn)?.until}日目]` : ' [定期便]') : '') + G.orderShiftWarnings(world, m).map((w) => ` ⚠${w.text}`).join('') + (m.settlers ? ` [開拓団${m.settlers.n}人→${world.cities[m.settlers.to].name}]` : '');
+  const order = (m.order ? (m.order.paused ? ' [定期便:停止中]' : m.order.altOn ? ` [臨時の便〜${m.order.alts.find((a) => a.id === m.order.altOn)?.until}日目]` : ' [定期便]') : '') + G.orderShiftWarnings(world, m).map((w) => w.covered ? ` [${w.text}]` : ` ⚠${w.text}`).join('') + (m.settlers ? ` [開拓団${m.settlers.n}人→${world.cities[m.settlers.to].name}]` : '');
   return `#${m.id} ${m.name}${m.talent ? `【${G.TALENTS[m.talent].name}】` : ''} ${t.name} ${G.cargoUsed(m)}/${G.cargoCap(m)}  ${where}${order}  積荷: ${cargo}  累計損益 ${Math.round(m.lifetime)}`;
 }
 
@@ -597,7 +597,8 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   order add ... --hold                  設定だけして、すぐには出発しない（order resume で動き出す）
   order add ... --reserve <銀>          仕入れで手元に残す銀（最初は50。砂漠の食料だけは割っても買う）
   order pause [町]                     次に町に着いたら（町を書けばその町で）定期便を止める
-  order alt "<町 ...>" "<町 ...>" --shift <予告の番号> | --from <日> --until <日>
+  order alt ["<町 ...>" "<町 ...>"] --shift <予告の番号> | --from <日> --until <日>
+                                       （--shift で停泊地を省くと、いつもの便の安くなる町を隊商市の町に替えた便）
                                        臨時の便（期間予約）: その期間だけ別の停泊地を回り、過ぎたら元の便に戻る。
                                        --shift で、予告（shifts で一覧）に合わせて期間を入れる（隊商市に着く日が期間に入るよう、行く日数だけ前へずらす）
   order alt clear [予約の番号]          臨時の便の予約を消す（番号は order list。省くと全部）。期間が重なる予約を足すと、前の予約は置き換わる
@@ -632,12 +633,14 @@ function run(world, cmd, pos, opts) {
     case 'status': out.push(statusText(world)); break;
     case 'shifts': {
       const list = G.knownShifts(world);
-      if (!list.length) { out.push(world.scenario.shifts ? '今、予告された売り場の交代はない（予告は始まる約20日前に出る）' : 'このシナリオには、予告された売り場の交代はない'); break; }
+      if (!list.length) { out.push(world.scenario.shifts ? '今、予告された売り場の交代はない（予告は始まる約26日前に出る）' : 'このシナリオには、予告された売り場の交代はない'); break; }
       for (const x of list) {
-        out.push(`#${x.id} ${G.shiftActive(world, x) ? `今（あと${x.end - world.day}日）` : `${x.start - world.day}日後から`}: ${x.start}〜${x.end}日目、${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い / ${world.cities[x.fair].name}(${x.fair})に隊商市（${GOODS[x.good].name}を1日に約${world.scenario.shifts.fair.demand}個まで高く買う）`);
+        out.push(`#${x.id} ${G.shiftActive(world, x) ? `今（あと${x.end - world.day}日）` : `${x.start - world.day}日後から`}: ${x.start}〜${x.end - 1}日目、${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い / ${world.cities[x.fair].name}(${x.fair})に隊商市（${GOODS[x.good].name}を高く買う。毎日約${world.scenario.shifts.fair.demand}個ずつ売れていき、まとめて売ると値が下がる）`);
         for (const m of world.player.merchants.filter((y) => y.order)) {
           const win = G.altWindowFor(world, m, x, m.order.stops);
-          out.push(`    #${m.id} ${m.name}: ${m.order.stops[0] ? world.cities[m.order.stops[0].city].name : ''}から${world.cities[x.fair].name}まで約${win.days}日 → 臨時の便の期間の目安 ${win.from}〜${win.until}日目（order alt "..." "..." --shift ${x.id} -m ${m.id}）`);
+          const base = G.baseStops(m.order);
+          const have = G.altCovering(m, x);
+          out.push(`    #${m.id} ${m.name}: ${base[0] ? world.cities[base[0].city].name : ''}から${world.cities[x.fair].name}まで約${win.days}日 → ${have ? `予約ずみ（${have.from}〜${have.until}日目）` : win.late ? '今から出ても市が閉じる前に着けない' : `臨時の便に切り替えて町を出る期間の目安 ${win.from}〜${win.until}日目（${x.end - 1}日目までに着く）。order alt --shift ${x.id} -m ${m.id} で、いつもの便の${world.cities[x.low].name}を${world.cities[x.fair].name}に替えた便を予約`}`);
         }
       }
       break;
@@ -997,7 +1000,7 @@ function run(world, cmd, pos, opts) {
           const days = Math.max(1, world.day - x.order.since);
           out.push(`#${x.id} ${x.name}: ${x.order.paused ? '（停止中）' : ''}${days}日で損益 ${Math.round(x.order.profit || 0)}銀（1日あたり ${fmt((x.order.profit || 0) / days)}）`);
           for (const a of x.order.alts || []) out.push(`    臨時の便#${a.id} ${a.from}〜${a.until}日目${x.order.altOn === a.id ? '（今はこちらを回っている）' : ''}: ${a.stops.map((s) => world.cities[s.city].name).join(' → ')}（消すなら order alt clear ${a.id} -m ${x.id}）`);
-          for (const w of G.orderShiftWarnings(world, x)) out.push(`    ⚠ ${w.text}`);
+          for (const w of G.orderShiftWarnings(world, x)) out.push(`    ${w.covered ? "✔" : "⚠"} ${w.text}`);
           for (const st of G.baseStops(x.order)) out.push(`    ${world.cities[st.city].name}(${st.city}): ${[...(st.sell || []).map((v) => `売 ${GOODS[v.good].name}(最低${v.min})`), ...(st.buy || []).map((v) => `買 ${GOODS[v.good].name}×${v.qty}(上限${v.max === Infinity || v.max === null ? 'なし' : v.max})`), ...(st.unload || []).map((g) => `下ろす ${GOODS[g].name}`), ...(st.load || []).map((g) => { const [id, n] = String(g).split('*'); return `積む ${GOODS[id]?.name || id}${n ? `（${n}個まで）` : ''}`; }), ...(st.waitFor ? [`${GOODS[st.waitFor.good]?.name || st.waitFor.good}が${st.waitFor.qty}個積めるまで待つ`] : [])].join('、') || '何もしない'}`);
         }
         break;
@@ -1026,13 +1029,19 @@ function run(world, cmd, pos, opts) {
       if (pos[0] === 'pause') { const r = after(G.pauseOrderAtNext(world, m.id, pos[1] || null)); out.push(r.now ? '定期便を止めた（今いる町で待機）' : pos[1] ? `${world.cities[pos[1]].name}に着いたら止まる（売買は済ませる）` : '次に町に着いたら止まる'); break; }
       if (pos[0] === 'alt') {
         if (pos[1] === 'clear') { after(G.clearOrderAlt(world, m.id, pos[2] ?? null)); out.push(pos[2] ? `臨時の便#${pos[2]}の予約を消した` : '臨時の便の予約を全部消した'); break; }
-        const stops = pos.slice(1).map((p) => parseStop(p, world));
+        let stops = pos.slice(1).map((p) => parseStop(p, world));
         let from = opts.from, until = opts.until;
         if (opts.shift !== undefined) {
           const x = G.knownShifts(world).find((s) => s.id === Number(opts.shift));
           if (!x) throw new Error(`予告 #${opts.shift} はない（shifts で一覧）`);
-          ({ from, until } = G.altWindowFor(world, m, x, stops));
+          // 停泊地を省くと、いつもの便の低迷する町を隊商市の町に替えた下書き（同じ長い停泊地を商人ごとに打ち直していた。20回目の Sol）
+          if (!stops.length) { stops = G.altDraftFor(world, m, x); if (!stops) throw new Error(`この便は${GOODS[x.good].name}を売らない。停泊地を書いて予約する`); }
+          const win = G.altWindowFor(world, m, x, stops);
+          if (win.late && opts.from === undefined) throw new Error(`${world.cities[x.fair].name}まで約${win.days}日かかり、今から出ても市が閉じる前に着けない`);
+          if (opts.from === undefined) from = win.from;
+          if (opts.until === undefined) until = win.until;
         }
+        if (!stops.length) throw new Error('停泊地を書く（--shift なら省ける）');
         if (from === undefined || until === undefined) throw new Error('order alt "<町 ...>" "<町 ...>" --shift <予告の番号>（または --from <日> --until <日>）');
         after(G.setOrderAlt(world, m.id, { stops, from, until }));
         out.push(`臨時の便: ${from}〜${until}日目に ${stops.map((s) => world.cities[s.city].name).join(' → ')}（今は${world.day}日目。期間に入ってから町を出るとき切り替わり、過ぎたら元の便に戻る）`);

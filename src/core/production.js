@@ -59,6 +59,9 @@ function tryBatch(world, b, recipe, wh, city) {
       city.stock[id] -= n;
       world.player.silver -= cost;
       world.stats.spent += cost;
+      // 工房が市場から買った分も、目標「売った額」から差し引く（自分の菓子工房へ白糖を売ると、売った額だけが積み上がった。20回目の Opus）
+      world.stats.boughtValue = world.stats.boughtValue || {};
+      world.stats.boughtValue[id] = (world.stats.boughtValue[id] || 0) + cost;
       wh.basis[id] = ((wh.basis[id] || 0) * (wh.stock[id] || 0) + cost) / ((wh.stock[id] || 0) + n);
       wh.stock[id] = (wh.stock[id] || 0) + n;
     }

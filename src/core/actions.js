@@ -419,13 +419,20 @@ export function setOrderAlt(world, mid, { stops, from, until }) {
   if (until <= world.day) return fail('期間がもう過ぎている');
   const r = prepareStops(world, m, stops);
   if (r.error) return fail(r.error);
-  // 期間が重なる予約は置き換える（今回っているものなら、いつもの便に戻してから）
+  // 期間が重なる予約: 先に始まるものは、新しい予約の始まりで終わりにする（今回っている便は、そこまでそのまま）。
+  // あとから始まるものは置き換える（未来の予約を足すと、今の臨時の便まで消えていた。20回目の Sol）
   const o = m.order;
   const overlap = (a) => a.from < until && a.until > from;
-  if (o.altOn && (o.alts || []).some((a) => a.id === o.altOn && overlap(a))) { o.stops = o.base || o.stops; o.base = null; o.altOn = null; o.next = 0; }
+  const cut = [];
+  for (const a of o.alts || []) {
+    if (!overlap(a)) continue;
+    if (a.from < from && from > world.day) { a.until = from; cut.push(`#${a.id}を${from}日目までに縮めた`); }
+    else { a.gone = true; cut.push(`#${a.id}を置き換えた`); }
+  }
+  if (o.altOn && (o.alts || []).some((a) => a.id === o.altOn && a.gone)) { o.stops = o.base || o.stops; o.base = null; o.altOn = null; const i = o.stops.findIndex((s) => s.city === (m.travel ? m.travel.to : m.city)); o.next = Math.max(0, i); }
   o.altSeq = (o.altSeq || 0) + 1;
-  o.alts = [...(o.alts || []).filter((a) => !overlap(a)), { id: o.altSeq, stops: r.stops, from, until }].sort((a, b) => a.from - b.from);
-  emit(world, { type: 'order', merchant: m.id, text: `${m.name}の臨時の便を予約した（${from}〜${until}日目: ${r.stops.map((s) => world.cities[s.city].name).join('→')}）。期間に入ってから町を出るとき切り替わり、過ぎたら元の便に戻る` });
+  o.alts = [...(o.alts || []).filter((a) => !a.gone), { id: o.altSeq, stops: r.stops, from, until }].sort((a, b) => a.from - b.from);
+  emit(world, { type: 'order', merchant: m.id, text: `${m.name}の臨時の便を予約した（${from}〜${until}日目: ${r.stops.map((s) => world.cities[s.city].name).join('→')}）。期間に入ってから町を出るとき切り替わり、過ぎたら元の便に戻る${cut.length ? `（重なる予約: ${cut.join('、')}）` : ''}` });
   if (!m.travel && !o.paused && !o.holding) switchAlt(world, m);
   return { ok: true };
 }

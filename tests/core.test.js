@@ -760,3 +760,33 @@ test('臨時の便（期間予約）は、期間に入ると切り替わり、�
   const win = G.altWindowFor(w, m, x, draft);
   assert.equal(win.from + win.days, x.start + 1); // 予告は、遠い隊商市にも間に合う日数より前に出る
 });
+
+test('未来の臨時の便を足しても、今回っている臨時の便は、新しい予約の始まりまで続く', () => {
+  const w = G.createWorld('s3', { seed: 11 });
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const p = Object.values(w.cities).find((c) => c.founded).id;
+  const st = (city, sell = []) => ({ city, buy: [], sell: sell.map((good) => ({ good, min: 0 })) });
+  assert.ok(G.setOrder(w, 1, { stops: [st(p), st('suitou', ['wheat'])] }).ok);
+  assert.ok(G.setOrderAlt(w, 1, { stops: [st(p), st('natsume', ['wheat'])], from: 0, until: 80 }).ok);
+  const m = w.player.merchants[0];
+  while (!(m.order.altOn && m.travel)) G.advance(w, 1, { stopOn: new Set() });
+  const to = m.travel.to;
+  assert.ok(G.setOrderAlt(w, 1, { stops: [st(p), st('hachi', ['wheat'])], from: w.day + 15, until: w.day + 45 }).ok);
+  assert.ok(m.order.altOn, '今の臨時の便が消えた');
+  assert.equal(m.order.stops[m.order.next].city, to);
+  assert.equal(m.order.alts[0].until, w.day + 15);
+  assert.equal(m.order.alts.length, 2);
+});
+
+test('セーブには、予告前の売り場の交代を書かない。ロードすると同じ予定に戻る', () => {
+  const w = G.createWorld('s3', { seed: 9 });
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const full = w.shifts.map((x) => [x.low, x.fair, x.start]);
+  while (w.day < w.shifts[0].announce) G.advance(w, 1, { stopOn: new Set() });
+  const json = G.serialize(w);
+  assert.equal(JSON.parse(json).shifts.length, 1);
+  const w2 = G.deserialize(json);
+  assert.deepEqual(w2.shifts.map((x) => [x.low, x.fair, x.start]), full);
+});

@@ -11,12 +11,16 @@ const range = (s) => { const [a, b] = s.split('-').map(Number); return Array.fro
 const SEEDS = range(opt('seeds', '1-10'));
 const SCEN = opt('scen', 's3');
 const NO_SHIFTS = args.includes('--no-shifts');
+// 値を試すとき: --set '{"low":{"demand":0.2,"price":0.5}}'（シナリオの shifts に重ねる）
+if (opt('set')) Object.assign(G.SCENARIOS[SCEN].shifts, JSON.parse(opt('set')));
+const WAIT = Number(opt('wait', 16)); // 白糖を何個そろえて出発するか（20回目の Sol: 固定の手は12個待ちで強くなった）
 
-const stop = (city, sell = [], load = [], min = 0) => ({ city, buy: [], sell: sell.map((good) => ({ good, min })), load });
+const L = ['toumitsu', 'suitou', 'toumitsu'];
+const stop = (city, sell = [], load = [], min = 0) => ({ city, buy: [], sell: sell.map((good) => ({ good, min: good === 'whitesugar' ? min : 0 })), load });
 const post = (w) => Object.values(w.cities).find((c) => c.founded).id;
 // 製糖所の白糖を16個待って積み、売り先を回る
 function route(w, dests, min = 0) {
-  return [{ ...stop(post(w), [], ['whitesugar', 'molasses*4']), waitFor: { good: 'whitesugar', qty: 16 } }, ...dests.map((d) => stop(d, ['whitesugar', 'molasses'], [], min))];
+  return [{ ...stop(post(w), [], ['whitesugar', 'molasses*4']), waitFor: { good: 'whitesugar', qty: WAIT } }, ...dests.map((d) => stop(d, ['whitesugar', 'molasses'], [], min))];
 }
 
 // 商人ごとの売り先（1人目、2人目、3人目）
@@ -34,7 +38,15 @@ const PLANS = {
   minprice: [['suitou'], ['toumitsu'], ['suitou']],
   react: [['suitou'], ['toumitsu'], ['suitou']],
   read: [['suitou'], ['toumitsu'], ['suitou']],
+  // 20回目の Opus の固定の手: 糖蜜町へ小道を1本敷き、2つの売り先を1便で回って最低売値35で売る（安い町では持ち越す）
+  loop35: [L, L, L],
+  // 1人目だけ、蜜蜂の丘も毎回通る（隊商市が立っていれば売れる）
+  hill35: [['toumitsu', 'hachi', 'toumitsu', 'suitou', 'toumitsu'], L, L],
+  // 同じ土台に、予告を読む手と、始まってから回す手
+  readL: [L, L, L],
+  reactL: [L, L, L],
 };
+const STRONG = new Set(['loop35', 'hill35', 'readL', 'reactL']);
 
 // 読む手: 予告を見て、低迷する町へ売る便を、その期間だけ隊商市へ回す。1つの予告につき2人まで（あとから雇った商人も、予告のあいだなら組む）
 function reader(w, seen, lead) {
@@ -63,19 +75,21 @@ function play(seed, bot) {
   G.expandMarket(w, p);
   G.build(w, p, 'mill');
   const plan = PLANS[bot];
-  const min = bot === 'minprice' ? 34 : 0;
+  const min = bot === 'minprice' ? 34 : STRONG.has(bot) ? 35 : 0;
+  let trail = STRONG.has(bot);
   G.setOrder(w, 1, { stops: route(w, plan[0], min), reserve: 30 });
   const seen = new Set();
   let changes = 0;
   while (!w.finished && w.day <= w.scenario.deadline) {
+    if (trail) { const pl = G.planPath(w, p, 'toumitsu', 'trail'); if (!pl) trail = false; else if (w.player.silver > pl.cost + 300) { G.buildPath(w, p, 'toumitsu', 'trail'); trail = false; } }
     if (w.player.silver > G.hireCost(w) + 220 && w.player.merchants.length < 3) {
       const r = G.hireMerchant(w, p);
       if (r.ok) { const m = w.player.merchants.at(-1); G.setOrder(w, m.id, { stops: route(w, plan[w.player.merchants.length - 1], min), reserve: 30, keepAlt: true }); }
     }
     if (w.player.silver > 950 && !['player', 'licensed'].includes(w.techs?.refinery)) G.buyTech(w, 'refinery');
-    if (bot === 'read' || bot === 'react') {
+    if (['read', 'react', 'readL', 'reactL'].includes(bot)) {
       const before = seen.size;
-      reader(w, seen, bot === 'read');
+      reader(w, seen, bot === 'read' || bot === 'readL');
       changes += seen.size - before;
     }
     for (const e of G.drainEvents(w)) if (args.includes('--trace') && /orderAlt|orderNote|shift/.test(e.type)) console.log(w.day, e.text.slice(0, 120));

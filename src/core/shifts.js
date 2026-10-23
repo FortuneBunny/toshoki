@@ -74,7 +74,7 @@ export function updateShifts(world) {
   for (const x of world.shifts || []) {
     const g = GOODS[x.good].name;
     if (world.day === x.announce) {
-      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}日目）から${sc.days}日間、${nm(world, x.low)}に${g}が大量に入り、安くしか売れなくなる。同じ期間、${nm(world, x.fair)}に隊商市が立ち、${g}を高く買う（1日に約${sc.fair.demand}個まで）。定期便の「臨時の便（期間予約）」で、その期間だけ売り先を変えられる` });
+      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${nm(world, x.low)}に${g}が大量に入り、安くしか売れなくなる。同じ期間、${nm(world, x.fair)}に隊商市が立ち、${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。定期便の「臨時の便（期間予約）」で、その期間だけ売り先を変えられる` });
     }
     if (world.day === x.start) {
       // 隊商市は、よその商人の白糖も少し持って始まる（空の市場は値が基準の3倍近くになり、隊商市の町をいつも通る固定の便が強すぎた）
@@ -84,6 +84,9 @@ export function updateShifts(world) {
     }
     if (world.day === x.start) emit(world, { type: 'shiftStart', city: x.fair, text: `${nm(world, x.fair)}に隊商市が立った（${sc.days}日間）。${nm(world, x.low)}の${g}は安値になった` });
     if (world.day === x.end) {
+      // 閉じた市の残りの白糖は、よその商人が持ち帰る（閉じると値が下限まで落ち、安く買い戻して売り直すと売った額に2回数えられた。20回目の Opus）
+      const fair = world.cities[x.fair];
+      if (fair) fair.stock[x.good] = 0;
       const txt = x.sold > 0
         ? `${nm(world, x.fair)}の隊商市が閉じた。${g}を${x.sold}個売って${Math.round(x.value)}銀（同じ日に${nm(world, x.low)}で売っていたら約${Math.round(x.lowValue)}銀）`
         : `${nm(world, x.fair)}の隊商市が閉じた。${nm(world, x.low)}の${g}の値も戻る`;
@@ -111,8 +114,8 @@ export function shiftNotes(world, city) {
     const g = GOODS[x.good].name;
     const on = shiftActive(world, x);
     const when = on ? `あと${x.end - world.day}日` : `${x.start - world.day}日後から${sc.days}日間`;
-    if (x.low === city.id) out.push({ kind: on ? 'down' : 'shift', text: on ? `📉${g}の大量入荷中（${when}）。${g}は安くしか売れない。隊商市は${nm(world, x.fair)}` : `📉${when}、${g}が大量に入って安くなる（${x.start}〜${x.end}日目）。そのあいだ${nm(world, x.fair)}の隊商市が高く買う` });
-    if (x.fair === city.id) out.push({ kind: on ? 'up' : 'shift', text: on ? `🎪隊商市が立っている（${when}）。${g}を1日に約${sc.fair.demand}個まで高く買う` : `🎪${when}、隊商市が立つ（${x.start}〜${x.end}日目）。${g}を1日に約${sc.fair.demand}個まで高く買う` });
+    if (x.low === city.id) out.push({ kind: on ? 'down' : 'shift', text: on ? `📉${g}の大量入荷中（${when}）。${g}は安くしか売れない。隊商市は${nm(world, x.fair)}` : `📉${when}、${g}が大量に入って安くなる（${x.start}〜${x.end - 1}日目）。そのあいだ${nm(world, x.fair)}の隊商市が高く買う` });
+    if (x.fair === city.id) out.push({ kind: on ? 'up' : 'shift', text: on ? `🎪隊商市が立っている（${when}）。${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく）` : `🎪${when}、隊商市が立つ（${x.start}〜${x.end - 1}日目）。${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく）` });
   }
   return out;
 }
@@ -137,12 +140,16 @@ export function orderShiftWarnings(world, m) {
   return out;
 }
 
-// 臨時の便の期間の目安: 便の最初の停泊地から隊商市まで行く日数だけ、始まりと終わりを前へずらす（着く日が隊商市の期間に入るように）。
-// 着くのが始まりより早いと、まだ買ってもらえないので、1日あとに着くようにする
+// 臨時の便の期間の目安（これは「町を出る」期間。隊商市で売れる期間とは別）: 便の最初の停泊地から隊商市まで行く日数だけ、
+// 始まりと終わりを前へずらす。着くのが始まりより早いと、まだ買ってもらえないので1日あとに着くようにし、
+// 終わりは2日の余裕をみる（最後の日に出た便が、市の閉じた日に着いて売れなかった。20回目の Sol）。
+// late: 今から出ても間に合わない
 export function altWindowFor(world, m, x, stops) {
-  const from = stops?.[0]?.city || m.order?.stops?.[0]?.city || m.city;
+  const from = stops?.[0]?.city || baseStopsOf(m.order)[0]?.city || m.city;
   const d = findPath(world, from, x.fair, m.transport)?.days ?? 0;
-  return { from: Math.max(world.day, x.start - d + 1), until: Math.max(world.day + 1, x.end - d), days: d };
+  const until = x.end - d - 2;
+  const start = Math.max(world.day, x.start - d + 1);
+  return { from: start, until: Math.max(start + 1, until), days: d, late: until <= start, lastSale: x.end - 1 };
 }
 
 // 臨時の便の下書き: いつもの便の停泊地のうち、低迷する町（なければ、その品を売る停泊地）を隊商市の町に替える
