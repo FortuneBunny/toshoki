@@ -10,7 +10,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { tick, addMerchant, drainEvents } from './world.js';
 import { cityTier } from './city.js';
 import { executeTrade, previewTrade, moveWarehouse } from './trade.js';
-import { departWithExpectation, validateOrder, runOrder } from './orders.js';
+import { departWithExpectation, validateOrder, runOrder, switchAlt } from './orders.js';
 import { cargoUsed, findPath, canDepart } from './caravan.js';
 import { gridKey, P } from './grid.js';
 import { buildingInputs } from './production.js';
@@ -389,13 +389,11 @@ export function warehouse(world, mid, good, qty) {
   return r.ok ? r : fail(r.error);
 }
 
-export function setOrder(world, mid, order) {
-  const m = getMerchant(world, mid);
-  if (!m) return fail('その商人はいない');
-  if (m.settlers) return fail(`${m.name}は開拓団を連れている（交易所に住みつかせてから）`);
+// 停泊地をまとめて確かめる（setOrder と期間予約で共通）
+function prepareStops(world, m, stops) {
   // 続く停泊地が同じ町（最後と最初が同じも）なら1つにまとめる。同じ町が続くと便が先へ進まないため
   const merged = [];
-  for (const s of order.stops) {
+  for (const s of stops) {
     const prev = merged[merged.length - 1];
     if (prev && prev.city === s.city) { for (const k of ['sell', 'buy', 'unload', 'load']) prev[k] = [...(prev[k] || []), ...(s[k] || [])]; if (s.waitFor) prev.waitFor = s.waitFor; continue; }
     merged.push({ ...s });
@@ -404,15 +402,57 @@ export function setOrder(world, mid, order) {
     const last = merged.pop();
     for (const k of ['sell', 'buy', 'unload', 'load']) merged[0][k] = [...(last[k] || []), ...(merged[0][k] || [])];
   }
-  const mergedNote = merged.length < order.stops.length;
-  order = { ...order, stops: merged };
-  const problem = validateOrder(world, order);
-  if (problem) return fail(problem);
-  for (const s of order.stops) {
-    const r = findPath(world, order.stops[0].city, s.city, m.transport);
-    if (!r) return fail(`${world.cities[s.city].name}へは今の輸送手段で行けない`);
-  }
-  m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0, guards: Math.max(0, Math.min(12, Math.floor(order.guards || 0))), reserve: Math.max(0, Math.floor(order.reserve ?? 50)) };
+  const problem = validateOrder(world, { stops: merged });
+  if (problem) return { error: problem };
+  for (const s of merged) if (!findPath(world, merged[0].city, s.city, m.transport)) return { error: `${world.cities[s.city].name}へは今の輸送手段で行けない` };
+  return { stops: merged, merged: merged.length < stops.length };
+}
+
+// 期間予約（臨時の便）: from〜until日目のあいだだけ、別の停泊地を回る。町を出るときに切り替わり、過ぎたら元に戻る
+export function setOrderAlt(world, mid, { stops, from, until }) {
+  const m = getMerchant(world, mid);
+  if (!m?.order) return fail('先に、いつもの定期便を組む');
+  if (m.settlers) return fail(`${m.name}は開拓団を連れている（交易所に住みつかせてから）`);
+  from = Math.floor(Number(from));
+  until = Math.floor(Number(until));
+  if (!(until > from)) return fail('期間の終わりは、始まりより後にする');
+  if (until <= world.day) return fail('期間がもう過ぎている');
+  const r = prepareStops(world, m, stops);
+  if (r.error) return fail(r.error);
+  // 期間が重なる予約は置き換える（今回っているものなら、いつもの便に戻してから）
+  const o = m.order;
+  const overlap = (a) => a.from < until && a.until > from;
+  if (o.altOn && (o.alts || []).some((a) => a.id === o.altOn && overlap(a))) { o.stops = o.base || o.stops; o.base = null; o.altOn = null; o.next = 0; }
+  o.altSeq = (o.altSeq || 0) + 1;
+  o.alts = [...(o.alts || []).filter((a) => !overlap(a)), { id: o.altSeq, stops: r.stops, from, until }].sort((a, b) => a.from - b.from);
+  emit(world, { type: 'order', merchant: m.id, text: `${m.name}の臨時の便を予約した（${from}〜${until}日目: ${r.stops.map((s) => world.cities[s.city].name).join('→')}）。期間に入ってから町を出るとき切り替わり、過ぎたら元の便に戻る` });
+  if (!m.travel && !o.paused && !o.holding) switchAlt(world, m);
+  return { ok: true };
+}
+
+// 予約を消す（id を省くと全部）
+export function clearOrderAlt(world, mid, id = null) {
+  const m = getMerchant(world, mid);
+  const o = m?.order;
+  if (!o?.alts?.length) return fail('臨時の便の予約がない');
+  const gone = o.alts.filter((a) => id === null || a.id === Number(id));
+  if (!gone.length) return fail(`その予約はない（${o.alts.map((a) => `#${a.id} ${a.from}〜${a.until}日目`).join('、')}）`);
+  if (o.altOn && gone.some((a) => a.id === o.altOn)) { o.stops = o.base || o.stops; o.base = null; o.altOn = null; o.next = 0; }
+  o.alts = o.alts.filter((a) => !gone.includes(a));
+  return { ok: true };
+}
+
+export function setOrder(world, mid, order) {
+  const m = getMerchant(world, mid);
+  if (!m) return fail('その商人はいない');
+  if (m.settlers) return fail(`${m.name}は開拓団を連れている（交易所に住みつかせてから）`);
+  const prep = prepareStops(world, m, order.stops);
+  if (prep.error) return fail(prep.error);
+  const mergedNote = prep.merged;
+  order = { ...order, stops: prep.stops };
+  // 臨時の便の予約は、いつもの便を組み直しても残す（keepAlt）
+  const alts = order.keepAlt ? (m.order?.alts || []).filter((a) => a.until > world.day) : [];
+  m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0, guards: Math.max(0, Math.min(12, Math.floor(order.guards || 0))), reserve: Math.max(0, Math.floor(order.reserve ?? 50)), alts, altSeq: m.order?.altSeq || 0 };
   emit(world, { type: 'order', merchant: m.id, big: true, text: `${m.name}の定期便を設定した。あとは自動で回る${mergedNote ? '（同じ町が続く停泊地は1つにまとめた。最後に出発地を書かなくても、最初の町へ戻って繰り返す）' : ''}` });
   // 始める停泊地: 今いる町（移動中なら行き先）が停泊地ならそこ。違えば、積荷を売る停泊地、なければ一番近い停泊地
   const here = m.travel ? m.travel.to : m.city;
@@ -436,7 +476,9 @@ export function copyOrder(world, fromMid, toMid) {
   if (!to) return fail('写す先の商人がいない');
   if (from === to) return fail('同じ商人には写せない');
   const stops = JSON.parse(JSON.stringify(from.order.stops)).map(({ city, sell, buy, unload, load, waitFor, keep }) => ({ city, sell, buy, unload, load, waitFor, keep }));
-  const r = setOrder(world, to.id, { stops, guards: from.order.guards, reserve: from.order.reserve });
+  const r = setOrder(world, to.id, { stops: from.order.altOn ? JSON.parse(JSON.stringify(from.order.base)) : stops, guards: from.order.guards, reserve: from.order.reserve });
+  // 臨時の便の予約も写す
+  if (r.ok && from.order.alts?.length) { to.order.alts = JSON.parse(JSON.stringify(from.order.alts)); to.order.altSeq = from.order.altSeq; }
   if (r.ok) emit(world, { type: 'order', merchant: to.id, text: `${from.name}の定期便を${to.name}に写した` });
   return r;
 }
@@ -487,7 +529,7 @@ export function upgradeRoad(world, edgeId) {
 
 // 日を進める。重要な出来事が起きたら途中で止まる（CLI と自動進行の停止用）
 // 銀が底をついたこと（debt）では止めない（status と記録で分かる。止まりすぎて操作が増えるため）
-const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'settled', 'settlersLost']);
+const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'settled', 'settlersLost', 'shift']); // shift: 売り場の交代の予告（便を組み替える判断の時）
 export function advance(world, days, { stopOn = STOP_TYPES } = {}) {
   const collected = [];
   for (let i = 0; i < days; i++) {

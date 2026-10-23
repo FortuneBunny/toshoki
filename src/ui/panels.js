@@ -376,7 +376,7 @@ export function departDialog(app, mid, to) {
 }
 
 // ---------- 定期便 ----------
-export function orderDialog(app, mid) {
+export function orderDialog(app, mid, { alt: startAlt = false, shift = null } = {}) {
   const world = app.world;
   const m = G.getMerchant(world, mid);
   const goods = world.scenario.goods;
@@ -395,7 +395,8 @@ export function orderDialog(app, mid) {
   const buyerOf = (g, i) => stops.find((st, j) => j !== i && st.buy?.some((x) => x.good === g))?.city;
   // その品を売る停泊地。なければ、次の停泊地（上限買値の基準）
   const sellerOf = (g, i) => stops.find((st, j) => j !== i && st.sell?.some((x) => x.good === g))?.city || stops[(i + 1) % stops.length]?.city;
-  if (m.order) stops = JSON.parse(JSON.stringify(m.order.stops));
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+  if (m.order) stops = clone(G.baseStops(m.order));
   else {
     const recent = (m.recent || []).slice(-2);
     if (recent.length === 2 && recent[0].city !== recent[1].city) {
@@ -413,12 +414,54 @@ export function orderDialog(app, mid) {
       stops = [{ city: here, buy: [], sell: [] }, { city: nb, buy: [], sell: [] }];
     }
   }
+  // 臨時の便（期間予約）: 予告された売り場の交代のあいだだけ回る、別の停泊地（19回目の相談）
+  const baseStops = stops;
+  let altStops = null;
+  let altFrom;
+  let altUntil;
+  let tab = startAlt && m.order ? 'alt' : 'base';
+  const shifts = G.knownShifts(world);
+  const fit = (x) => {
+    // その予告にかかる予約があれば、それを書き直す。なければ下書きから
+    const have = G.altCovering(m, x);
+    if (have) { altStops = clone(have.stops); altFrom = have.from; altUntil = have.until; return; }
+    altStops = G.altDraftFor(world, m, x) || clone(baseStops);
+    const win = G.altWindowFor(world, m, x, altStops);
+    altFrom = win.from;
+    altUntil = win.until;
+  };
+  const openAlt = () => {
+    if (!altStops) {
+      const x = shifts.find((s) => s.id === shift) || shifts[0];
+      if (x) fit(x);
+      else if (m.order.alts?.length) { const a = m.order.alts[0]; altStops = clone(a.stops); altFrom = a.from; altUntil = a.until; }
+      else { altStops = clone(baseStops); altFrom = world.day + 10; altUntil = world.day + 40; }
+    }
+    tab = 'alt';
+  };
+  if (tab === 'alt') openAlt();
   const body = h('div', {});
   const cityOpts = (sel) => Object.values(world.cities).map((c) => h('option', { value: c.id, selected: c.id === sel || undefined }, c.name));
   const goodOpts = (sel) => goods.map((g) => h('option', { value: g, selected: g === sel || undefined }, GOODS[g].name));
   const draw = () => {
     clear(body);
-    add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。値は今の相場から: 上限買値は今の買値の15%増しか、売る町の売値の9割の高いほう。最低売値は、買う町の今の買値。定期便は、積荷の仕入れ値を割っては売らない（60日売れなければ最低売値で売る）。'));
+    stops = tab === 'alt' ? altStops : baseStops;
+    if (m.order) {
+      add(body, h('div', { class: 'row chips', style: { marginBottom: '8px' } },
+        h('button', { class: `btn small ${tab === 'base' ? 'primary' : 'ghost'}`, onclick: () => { tab = 'base'; draw(); } }, 'いつもの便'),
+        h('button', { class: `btn small ${tab === 'alt' ? 'primary' : 'ghost'}`, onclick: () => { openAlt(); draw(); } }, `臨時の便（期間予約）${m.order.alts?.length ? ` ${m.order.alts.length}件` : ''}`)));
+    }
+    if (tab === 'alt') {
+      add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, `決めた期間のあいだだけ、下の停泊地を回る。期間に入ってから町を出るときに切り替わり（積荷と旅程はそのまま）、期間が過ぎたら いつもの便に戻る。予約はいくつでも持てる（期間が重なる予約は置き換わる）。今は${world.day}日目。`));
+      for (const a of m.order.alts || []) add(body, h('div', { class: 'row', style: { fontSize: '12px' } }, `予約: ${a.from}〜${a.until}日目 ${a.stops.map((x) => world.cities[x.city].name).join('→')}${m.order.altOn === a.id ? '（今はこちらを回っている）' : ''}`, h('button', { class: 'btn tiny ghost', onclick: () => { altStops = clone(a.stops); altFrom = a.from; altUntil = a.until; draw(); } }, '開く'), h('button', { class: 'btn tiny ghost', onclick: () => { G.clearOrderAlt(world, mid, a.id); app.toast('臨時の便の予約を消した'); draw(); } }, '消す')));
+      add(body, h('div', { class: 'row' }, '期間', h('input', { type: 'number', value: altFrom, onchange: (e) => { altFrom = Number(e.target.value); } }), '日目から', h('input', { type: 'number', value: altUntil, onchange: (e) => { altUntil = Number(e.target.value); } }), '日目まで'));
+      // 予告に合わせる: 隊商市に着く日が期間に入るよう、行く日数だけ前へずらす
+      if (shifts.length) add(body, h('div', { class: 'row chips' }, h('span', { class: 'dim' }, '予告に合わせる:'), shifts.map((x) => h('button', { class: 'btn tiny', onclick: () => { fit(x); draw(); } }, `${world.cities[x.low].name}が安い→${world.cities[x.fair].name}の隊商市（${x.start}〜${x.end}日目）`))));
+      add(body, h('div', { class: 'row', style: { margin: '6px 0' } },
+        h('button', { class: 'btn primary small', onclick: () => { const r = G.setOrderAlt(world, mid, { stops: altStops, from: altFrom, until: altUntil }); if (!r.ok) return app.error(r.error); app.toast(`臨時の便を予約した（${altFrom}〜${altUntil}日目）`); flushOut(); } }, '臨時の便を予約する'),
+        null));
+    }
+    if (tab === 'base') add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。値は今の相場から: 上限買値は今の買値の15%増しか、売る町の売値の9割の高いほう。最低売値は、買う町の今の買値。定期便は、積荷の仕入れ値を割っては売らない（60日売れなければ最低売値で売る）。'));
     stops.forEach((st, i) => {
       const box = h('div', { class: 'order-stop' });
       add(box, h('div', { class: 'row' }, h('b', {}, `${i + 1}.`), h('select', { onchange: (e) => { st.city = e.target.value; if (!world.player.warehouses[st.city]) { st.unload = []; st.load = []; } draw(); } }, cityOpts(st.city)),
@@ -442,7 +485,7 @@ export function orderDialog(app, mid) {
     add(body, h('div', { class: 'row chips' }, h('span', { class: 'dim' }, '＋停泊地:'), known.length ? known.map((c) => h('button', { class: 'btn tiny', onclick: () => { stops.push({ city: c.id, buy: [], sell: [] }); draw(); } }, c.name)) : h('span', { class: 'dim' }, 'ほかに知っている町がない')));
   };
   draw();
-  modal(app, `${m.name}の定期便`, body, (close) => [
+  const md = modal(app, `${m.name}の定期便`, body, (close) => [
     m.order ? h('button', { class: 'btn danger', onclick: () => { G.clearOrder(world, mid); close(); app.render(); } }, '定期便を解除') : null,
     m.order && !m.order.paused ? h('button', { class: 'btn ghost', onclick: () => { const r = G.pauseOrderAtNext(world, mid); app.toast(r.now ? '定期便を止めた' : '次の町で止まる'); close(); app.render(); } }, '次の町で止める') : null,
     m.order?.paused ? h('button', { class: 'btn', onclick: () => { app.run(() => G.resumeOrder(world, mid)); close(); } }, '再開') : null,
@@ -450,8 +493,42 @@ export function orderDialog(app, mid) {
     m.order && world.player.merchants.length > 1 ? h('button', { class: 'btn ghost', onclick: () => { close(); copyOrderDialog(app, mid); } }, 'ほかの商人に写す') : null,
     h('span', { style: { flex: 1 } }),
     h('button', { class: 'btn ghost', onclick: close }, 'キャンセル'),
-    h('button', { class: 'btn primary', onclick: () => { const r = G.setOrder(world, mid, { stops, guards: m.order?.guards, reserve: m.order?.reserve }); if (!r.ok) return app.error(r.error); close(); app.afterOrder(mid); } }, '定期便を開始'),
+    h('button', { class: 'btn primary', onclick: () => { const r = G.setOrder(world, mid, { stops: baseStops, guards: m.order?.guards, reserve: m.order?.reserve, keepAlt: true }); if (!r.ok) return app.error(r.error); close(); app.afterOrder(mid); } }, tab === 'alt' ? 'いつもの便を開始' : '定期便を開始'),
   ], { wide: true });
+  function flushOut() { md.close(); app.render(); }
+}
+
+// 売り場の交代の予告（19回目の相談）: 商人ごとに、臨時の便を1回押すだけで予約できる。中身を見て組むこともできる
+export function shiftDialog(app, sid) {
+  const world = app.world;
+  const x = G.knownShifts(world).find((s) => s.id === sid) || G.knownShifts(world)[0];
+  if (!x) { app.modalClosed(); return; }
+  const sc = world.scenario.shifts;
+  const g = GOODS[x.good].name;
+  const low = world.cities[x.low].name;
+  const fair = world.cities[x.fair].name;
+  const list = h('div', { class: 'tech-list' });
+  const draw = () => {
+    clear(list);
+    for (const m of world.player.merchants.filter((y) => y.order)) {
+      const draft = G.altDraftFor(world, m, x);
+      const win = draft ? G.altWindowFor(world, m, x, draft) : null;
+      const hit = G.orderShiftWarnings(world, m).find((w) => w.shift.id === x.id);
+      const booked = G.altCovering(m, x);
+      add(list, h('div', { class: 'tech-row' },
+        h('div', {}, h('b', {}, m.name), h('div', { class: 'muted' }, `いつもの便: ${G.baseStops(m.order).map((s) => world.cities[s.city].name).join('→')}${hit && !booked ? `（${low}で${g}を売る）` : ''}`),
+          draft ? h('div', { class: 'dim', style: { fontSize: '12px' } }, booked ? `予約ずみ: ${booked.from}〜${booked.until}日目 ${booked.stops.map((s) => world.cities[s.city].name).join('→')}` : `臨時の便: ${draft.map((s) => world.cities[s.city].name).join('→')}（${win.from}〜${win.until}日目。${fair}まで約${win.days}日なので、着く日が隊商市の期間に入る）`) : h('div', { class: 'dim' }, `この便は${g}を売らない`)),
+        h('span'),
+        draft && !booked ? h('button', { class: 'btn primary small', onclick: () => { const r = app.run(() => G.setOrderAlt(world, m.id, { stops: draft, from: win.from, until: win.until })); if (r.ok) draw(); } }, '臨時の便にする') : null,
+        h('button', { class: 'btn ghost small', onclick: () => { md.close(); app.state.modals++; orderDialog(app, m.id, { alt: true, shift: x.id }); } }, '中身を見て組む')));
+    }
+  };
+  draw();
+  const body = h('div', {},
+    h('p', {}, `${x.start - world.day > 0 ? `${x.start - world.day}日後` : '今'}（${x.start}〜${x.end}日目の${sc.days}日間）、${low}に${g}が大量に入り、安くしか売れなくなる。同じ期間、${fair}に隊商市が立ち、${g}を1日に約${sc.fair.demand}個まで高く買う。`),
+    h('p', { class: 'dim', style: { fontSize: '12px' } }, `その期間だけ便の売り先を${fair}に回すと、安値を避けて高く売れる。全部の便を回すと、隊商市でも値が崩れる（1日に買う数に限りがある）。何人を回すか、回さずにそのままにするかを決める。臨時の便は期間が過ぎると、いつもの便に戻る。`),
+    list);
+  const md = modal(app, `📣 予告: ${fair}に隊商市`, body, (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn', onclick: close }, '閉じる')]);
 }
 
 function copyOrderDialog(app, mid) {

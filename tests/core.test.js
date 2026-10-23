@@ -713,3 +713,50 @@ test('目標「結ぶ」は、空荷の便を数えない', () => {
   for (let i = 0; i < 120; i++) G.advance(w, 1);
   assert.equal(G.goalProgress(w, { type: 'link', a: 'kibi', b: 'suitou', count: 2 }).p, 0);
 });
+
+test('s3 の売り場の交代: 予定は行動で変わらず、予告から始まりまで日があり、隊商市はふだん買わない白糖を高く買う', () => {
+  const a = G.createWorld('s3', { seed: 4 });
+  const b = G.createWorld('s3', { seed: 4 });
+  G.foundPost(b, ...Object.values(G.foundSites(b, 1)[0]).slice(0, 2));
+  for (let i = 0; i < 30; i++) G.advance(b, 1, { stopOn: new Set() });
+  assert.deepEqual(a.shifts.map((x) => [x.low, x.fair, x.start]), b.shifts.map((x) => [x.low, x.fair, x.start]));
+  const x = a.shifts[0];
+  assert.ok(x.start - x.announce >= 26);
+  assert.ok(['natsume', 'hachi'].includes(x.fair));
+  const w = G.createWorld('s3', { seed: 4 });
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const fair = w.cities[x.fair];
+  assert.equal(G.cityWants(fair, 'whitesugar'), false);
+  while (w.day < x.announce) G.advance(w, 1, { stopOn: new Set() });
+  assert.equal(G.knownShifts(w).length, 1);
+  assert.ok(G.cityOutlook(w, w.cities[x.low]).some((o) => o.text.includes('安くなる')));
+  while (w.day < x.start + 1) G.advance(w, 1, { stopOn: new Set() });
+  assert.equal(G.cityWants(fair, 'whitesugar'), true);
+  assert.ok(G.unitSell(w, fair, 'whitesugar') > G.unitSell(w, w.cities[x.low], 'whitesugar'));
+});
+
+test('臨時の便（期間予約）は、期間に入ると切り替わり、過ぎると元の便に戻る', () => {
+  const w = G.createWorld('s3', { seed: 4 });
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const p = Object.values(w.cities).find((c) => c.founded).id;
+  const st = (city, sell = []) => ({ city, buy: [], sell: sell.map((good) => ({ good, min: 0 })) });
+  assert.ok(G.setOrder(w, 1, { stops: [st(p), st('toumitsu', ['wheat'])] }).ok);
+  const from = w.day + 5;
+  assert.ok(G.setOrderAlt(w, 1, { stops: [st(p), st('hachi', ['wheat'])], from, until: from + 40 }).ok);
+  const m = w.player.merchants[0];
+  const seen = new Set();
+  for (let i = 0; i < 120; i++) { G.advance(w, 1, { stopOn: new Set() }); seen.add(m.order.altOn ? 'alt' : 'base'); if (m.order.altOn) assert.ok(m.order.stops.some((x) => x.city === 'hachi')); }
+  assert.ok(seen.has('alt'));
+  assert.equal(m.order.altOn, null);
+  assert.equal(m.order.alts.length, 0);
+  assert.ok(m.order.stops.some((x) => x.city === 'toumitsu'));
+  // 写すと予約も写る。CLI と同じく、予告に合わせた期間は着く日が期間に入る
+  const x = w.shifts.find((y) => y.announce > w.day);
+  while (w.day < x.announce) G.advance(w, 1, { stopOn: new Set() });
+  const draft = G.altDraftFor(w, m, { ...x, low: 'toumitsu', good: 'wheat' });
+  assert.equal(draft[1].city, x.fair);
+  const win = G.altWindowFor(w, m, x, draft);
+  assert.equal(win.from + win.days, x.start + 1); // 予告は、遠い隊商市にも間に合う日数より前に出る
+});

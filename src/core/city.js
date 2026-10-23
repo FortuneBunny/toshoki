@@ -8,6 +8,7 @@ import { districtProduction, staffing, housingCap, updateHousing, civicDemand, c
 import { CIVICS } from '../data/district.js';
 import { dwellingDemand, updateDwellingSat, dwellingStatus, assignDwelling } from './dwelling.js';
 import { gainRep } from './trade.js';
+import { shiftNotes } from './shifts.js';
 
 export function cityTier(city) {
   let t = 0;
@@ -22,7 +23,8 @@ export const tierName = (t) => B.tierNames[t];
 export function dailyDemand(city, id, withPrice = true, { wild = true } = {}) {
   const g = GOODS[id];
   // 需要施設と住居が求める品は、町の段階が低くても需要がある
-  const civic = civicDemand(city, id, { wild }) + dwellingDemand(city, id, cityTier(city));
+  // 隊商市（予告された売り場の交代）が立っている町は、ふだん買わない品も買う
+  const civic = civicDemand(city, id, { wild }) + dwellingDemand(city, id, cityTier(city)) + (city.fairDemand?.[id] || 0);
   if ((!g.rate || cityTier(city) < g.tier) && !civic) return 0;
   let d = (g.rate && cityTier(city) >= g.tier ? (g.rate * city.pop) / 1000 : 0) + civic;
   d *= city.demandMods?.[id] ?? 1;
@@ -302,6 +304,7 @@ export function cityOutlook(world, city) {
       if (load.length) out.push({ kind: 'rival', text: `${r.name}の隊商が${load.slice(0, 2).map(([g, n]) => `${GOODS[g].name}${Math.floor(n)}`).join('・')}を積んで向かっている（あと約${m.travelDays}日。着くと値が下がる）` });
     }
   }
+  out.unshift(...shiftNotes(world, city));
   return out;
 }
 

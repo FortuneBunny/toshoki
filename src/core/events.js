@@ -8,6 +8,7 @@ import { TRANSPORTS } from '../data/transports.js';
 import { isVisited } from './knowledge.js';
 import { goodLocked } from './techs.js';
 import { BUILDINGS } from '../data/buildings.js';
+import { applyShifts, updateShifts } from './shifts.js';
 
 // 通知を積む。UI と CLI はここから演出を取り出す。
 export function emit(world, ev) {
@@ -59,6 +60,7 @@ export function applyModifiers(world) {
     const table = m.kind === 'prod' ? c.prodMods : m.kind === 'demand' ? c.demandMods : c.priceMods;
     for (const id of m.goods) table[id] = (table[id] ?? 1) * m.mult;
   }
+  applyShifts(world); // 予告された売り場の交代（s3）
 }
 
 const EVENT_TYPES = [
@@ -244,6 +246,7 @@ function rollRumor(world) {
 
 export function updateEvents(world) {
   deliverNews(world);
+  updateShifts(world);
   rollEvent(world);
   rollContract(world);
   expireContracts(world);

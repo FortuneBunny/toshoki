@@ -2,7 +2,7 @@
 import { h, add, clear, icon, goodIcon, fmt, safeStorage } from './dom.js';
 import { createWorldView } from './world.js';
 import { openTrade } from './tradeDialog.js';
-import { renderSide, departDialog, orderDialog, ledgerDialog, helpDialog, settingsDialog, resultDialog, titleScreen, modal, techDialog, hireDialog } from './panels.js';
+import { renderSide, departDialog, orderDialog, shiftDialog, ledgerDialog, helpDialog, settingsDialog, resultDialog, titleScreen, modal, techDialog, hireDialog } from './panels.js';
 import { sfx, setSound } from './audio.js';
 import { setMusic, setMusicMood, regionFor } from './music.js';
 import { openDistrict } from './district.js';
@@ -274,6 +274,11 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': case 'place': case 'civic': case 'expand': case 'branch': case 'settlers': case 'settled': fx.toast(e.text, { icon: 'ui/star' }); break;
       case 'orderStuck': case 'debt': fx.toast(e.text, { kind: 'bad' }); sfx.bad(); break;
       case 'milestone': fx.toast(e.text, { icon: 'ui/star' }); sfx.rare(); break;
+      // 売り場の交代の予告: 便を組み替える判断の時なので、時間を止めて画面を開く
+      case 'shift': if (!app.state.modals) { setSpeed(0); app.state.modals++; shiftDialog(app, e.shift); } else fx.toast(e.text, { kind: 'rare', icon: 'ui/festival' }); sfx.rare(); break;
+      case 'shiftStart': fx.toast(e.text, { icon: 'ui/festival' }); break;
+      case 'shiftEnd': fx.toast(e.text, { kind: e.rare ? 'rare' : undefined, icon: 'ui/silver' }); if (e.rare) sfx.rare(); break;
+      case 'orderAlt': fx.toast(e.text, { icon: 'ui/star' }); break;
       case 'victory': setTimeout(() => { sfx.victory(); fx.flash(); fx.burst(innerWidth / 2, innerHeight / 3, 60, { size: 24 }); }, 100); break;
       default: break;
     }
@@ -539,7 +544,7 @@ function renderMerchants() {
       h('img', { class: 'portrait', src: `assets/svg/transport/${m.portrait}.svg`, alt: '' }),
       h('div', { class: 'info' },
         h('div', { class: 'name' }, h('span', { title: m.talent ? G.TALENTS[m.talent].text : '' }, `${m.id}. ${m.name}`, m.talent ? h('small', { class: 'talent' }, ` ${G.TALENTS[m.talent].name}`) : null), h('span', { class: 'dim', style: { fontWeight: 500, fontSize: '12px' } }, icon(`transport/${m.transport}`, 'icon-sm'), ` ${used}/${cap}`)),
-        h('div', { class: 'where' }, where, m.order ? (m.order.paused ? ' ・定期便(停止)' : ' ・定期便') : '', m.settlers ? ` ・開拓団${m.settlers.n}人→${w.cities[m.settlers.to].name}` : ''),
+        h('div', { class: 'where' }, where, m.order ? (m.order.paused ? ' ・定期便(停止)' : m.order.altOn ? ' ・臨時の便' : ' ・定期便') : '', ...G.orderShiftWarnings(w, m).filter((x) => !x.covered).map((x) => h('span', { class: 'bad', title: x.text, style: { cursor: 'help' } }, ' ⚠売り先が安くなる')), m.settlers ? ` ・開拓団${m.settlers.n}人→${w.cities[m.settlers.to].name}` : ''),
         h('div', { class: 'cargo-bar' }, h('i', { style: { width: `${(used / cap) * 100}%` } })),
         m.travel ? h('div', { class: 'progress-bar' }, h('i', { style: { width: `${Math.min(100, (m.travel.elapsed / Math.max(1, m.travel.totalDays)) * 100)}%` } })) : null,
         h('div', { style: { display: 'flex', gap: '2px', flexWrap: 'wrap', minHeight: '18px' } }, cargo.slice(0, 6).map(([g, q]) => h('span', { title: `${GOODS[g].name} ${q}` }, goodIcon(g, 'icon-sm'), h('small', { class: 'num' }, q)))),
@@ -742,6 +747,25 @@ function devOpens() {
   if (mid) app.state.selMerchant = app.world.player.merchants[Number(mid[1]) - 1]?.id;
   if (/open=trade/.test(location.hash)) { app.state.modals++; openTrade(app, 1); }
   if (/open=order/.test(location.hash)) { app.state.modals++; orderDialog(app, 1); }
+  // s3 の売り場の交代: 製糖所と定期便2本を組み、最初の予告まで進めて、予告の画面（open=shift）か臨時の便の画面（open=alt）を開く
+  if (/open=(shift|alt)/.test(location.hash)) {
+    const W = app.world;
+    W.player.silver = 99999;
+    if (W.setup) { if (G.setupStage(W) === 'family') G.chooseFamily(W, G.familyList(W)[0].id); const s = G.foundSites(W, 1)[0]; G.foundPost(W, s.x, s.y); }
+    const p = Object.values(W.cities).find((c) => c.founded).id;
+    G.expandMarket(W, p);
+    G.build(W, p, 'mill');
+    const st = (city, sell = [], load = []) => ({ city, buy: [], sell: sell.map((good) => ({ good, min: 0 })), load });
+    G.setOrder(W, 1, { stops: [st(p, [], ['whitesugar']), st('suitou', ['whitesugar'])] });
+    G.hireMerchant(W, p);
+    G.setOrder(W, 2, { stops: [st(p, [], ['whitesugar']), st('toumitsu', ['whitesugar'])] });
+    const x = W.shifts?.[0];
+    if (x) while (W.day < x.announce) G.advance(W, 1, { stopOn: new Set() });
+    G.drainEvents(W);
+    app.state.modals++;
+    if (/open=alt/.test(location.hash)) orderDialog(app, 1, { alt: true, shift: x?.id });
+    else shiftDialog(app, x?.id);
+  }
   if (/open=district/.test(location.hash)) { if (/civics/.test(location.hash)) { app.world.player.silver = 99999; const cid = app.world.player.merchants[0].city; for (const k of Object.keys(G.CIVICS)) G.buildCivic(app.world, cid, k); } app.openDistrict(devCity()); }
   if (/open=city/.test(location.hash)) { app.state.selCity = devCity(); app.render(); }
   if (/open=found/.test(location.hash)) { app.world.player.silver = 99999; app.startFound(); }

@@ -32,6 +32,8 @@ export const SCENES = [
   ['s1-help', 'play=s1&open=help', ...DESK],
   ['s1-settings', 'play=s1&open=settings', ...DESK],
   ['s3-order', 'play=s3&v3&open=order', ...DESK],
+  ['s3-shift', 'play=s3&open=shift', ...DESK],
+  ['s3-alt', 'play=s3&open=alt', ...DESK],
   ['s3-city', 'play=s3&v3&open=city', ...DESK],
   ['s3-district', 'play=s3&v3&open=district', ...DESK],
   ['s3-civics', 'play=s3&v3&open=district&civics', ...DESK],
@@ -68,6 +70,7 @@ export const SCENES = [
   ['m-s2-trade', 'play=s2&v3&open=trade', ...PHONE],
   ['m-s3-district', 'play=s3&v3&open=district', ...PHONE],
   ['m-s3-order', 'play=s3&v3&open=order', ...PHONE],
+  ['m-s3-shift', 'play=s3&open=shift', ...PHONE],
   ['m-s8-built', `${F('s8-built')}&cam=kohaku@1.2`, ...PHONE],
 ];
 

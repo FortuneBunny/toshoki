@@ -196,6 +196,7 @@ img { user-select: none; }
 .outlook .ol.crash, .outlook .ol.down { color: var(--bad); }
 .outlook .ol.up { color: var(--good); }
 .outlook .ol.rival { color: #c9a0ff; }
+.outlook .ol.shift { color: var(--honey); font-weight: 600; }
 /* 交易所の格上げ（町の欄の上） */
 .upgrade-box { background: var(--panel-3); border-radius: 8px; padding: 6px 8px; margin: 4px 0 6px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .upgrade-box.hot { border: 1px solid #6b5223; background: #2d2416; }

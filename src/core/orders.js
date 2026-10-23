@@ -2,6 +2,7 @@ import { dailyDemand } from './city.js';
 import { canBuyTransportAt, buyTransport } from './actions.js';
 // 到着時の処理と定期便（自動化）
 // order = { stops: [{ city, sell: [{ good, min }], buy: [{ good, qty, max }], unload: [good], load: [good] }], next: 0, paused: false }
+// 期間予約: order.alts = [{ id, stops, from, until }]。from〜until日目のあいだ、町を出るときに臨時の便へ切り替え、過ぎたら元へ戻す（19回目の相談）
 import { GOODS } from '../data/goods.js';
 import { emit } from './events.js';
 import { observe } from './knowledge.js';
@@ -134,6 +135,7 @@ export function runOrder(world, m, { depart = true } = {}) {
     o.holding = false;
     o.holdSince = null;
     o.next = (o.next + 1) % o.stops.length;
+    switchAlt(world, m);
   }
   if (notes.length) emit(world, { type: 'orderNote', merchant: m.id, city: m.city, text: `${m.name}（定期便）: ${notes.join('、')}` });
   if (!depart) return;
@@ -147,6 +149,32 @@ export function runOrder(world, m, { depart = true } = {}) {
     emit(world, { type: 'orderStuck', merchant: m.id, bad: true, text: `${m.name}の定期便が止まった: ${res.error}` });
   }
 }
+
+// 期間予約: 町を出るときに、臨時の便といつもの便を切り替える。積荷と旅程はそのまま、次の行き先から変わる。
+// 予約はいくつでも持てる（次の予告は、今の隊商市の期間中に出ることがある）。o.altOn は今回っている予約の id
+export function switchAlt(world, m) {
+  const o = m.order;
+  if (!o?.alts?.length) return;
+  const cur = o.altOn ? o.alts.find((a) => a.id === o.altOn) || null : null;
+  const want = o.alts.find((a) => world.day >= a.from && world.day < a.until) || null;
+  // 期間が過ぎた予約は消す（今回っているものは、戻すまで残す）
+  o.alts = o.alts.filter((a) => a.until > world.day || a === cur);
+  if (want === cur) return;
+  if (!cur) o.base = o.stops;
+  o.stops = want ? want.stops : o.base;
+  if (!want) o.base = null;
+  o.altOn = want ? want.id : null;
+  if (cur && cur.until <= world.day) o.alts = o.alts.filter((a) => a !== cur);
+  // 今いる町が新しい便にあれば、その次の停泊地へ。なければ、新しい便の最初の停泊地へ
+  // （いちばん近い停泊地にしていたので、売り先の町で切り替わると、空荷のまま隊商市へ向かった）
+  const i = o.stops.findIndex((s) => s.city === m.city);
+  o.next = i >= 0 ? (i + 1) % o.stops.length : 0;
+  const route = o.stops.map((s) => world.cities[s.city].name).join('→');
+  emit(world, { type: 'orderAlt', merchant: m.id, city: m.city, text: want ? `${m.name}の定期便を、予約どおり臨時の便（${route}、${want.until}日目まで）に切り替えた` : `${m.name}の定期便を、いつもの便（${route}）に戻した` });
+}
+
+// いつもの便（臨時の便を回っている間も）
+export const baseStops = (o) => (o?.altOn ? o.base : o?.stops) || [];
 
 // 出発時に「行き先の相場をどう読んでいたか」を記録する（読み的中の判定に使う）
 export function departWithExpectation(world, m, to) {
