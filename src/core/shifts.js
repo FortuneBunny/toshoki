@@ -68,6 +68,14 @@ export function fairRoom(world, city, good) {
 }
 // 総量の知らせ（予告・画面・CLI で同じ言い方）。始まったあとは残りも出す
 export const fairWantText = (x) => (x.want ? `市が買うのは全部で${x.want}個まで（${x.sold > 0 ? `あと${Math.max(0, x.want - x.sold)}個。` : ''}買い終えると閉じる）` : '');
+// 市と安値の今の様子を分けて書く（市の行に安値の残り日数を出し、閉じた市も「今」「高く買う」と出ていた。24回目の Sol・Opus）
+export const fairClosed = (world, x) => world.day >= fairEnd(x);
+export function fairStateText(world, x) {
+  if (world.day < x.start) return `${x.start - world.day}日後から（${x.start}〜${fairEnd(x) - 1}日目）`;
+  if (!fairClosed(world, x)) return `今（あと${fairEnd(x) - world.day}日、${fairEnd(x) - 1}日目まで）`;
+  return `閉じた（${x.full ? `${x.want}個を買い終えた` : '期間が終わった'}）`;
+}
+export const lowStateText = (world, x) => (shiftActive(world, x) ? `今（あと${x.end - world.day}日、${x.end - 1}日目まで）` : `${x.start - world.day}日後から（${x.start}〜${x.end - 1}日目）`);
 const wantText = (x) => (x.want ? `${fairWantText(x)}。` : '');
 
 // 毎日の補正（applyModifiers のあと）
@@ -128,6 +136,12 @@ export function updateShifts(world) {
   }
 }
 
+// 終わったとき（勝ち・負け）に開いている隊商市の途中の結果（市が閉じる前に終わると、最後に効いた判断の答えが見えなかった。24回目の Sol）
+export function openFairNotes(world) {
+  return (world.shifts || []).filter((x) => fairActive(world, x) && x.sold > 0).map((x) =>
+    `${nm(world, x.fair)}の隊商市（開いている途中）: ${GOODS[x.good].name}を${x.sold}個売って${Math.round(x.value)}銀（同じ日に${nm(world, x.low)}で売っていたら約${Math.round(x.lowValue)}銀）`);
+}
+
 // 隊商市で売った分を記録する（終わりの知らせで、読んだ得を数字で見せる）
 export function noteShiftSale(world, city, good, n, gain) {
   for (const x of world.shifts || []) {
@@ -156,7 +170,7 @@ export function fairRound(world) {
   const used = told.slice(Math.floor(told.length / n) * n).map((x) => x.fair);
   const left = sc.fairs.filter((f) => !used.includes(f));
   const names = (ids) => ids.map((id) => nm(world, id)).join('・');
-  return { left, text: `隊商市は、${names(sc.fairs)}の${n}つを一巡するまで同じ町に立たない。${used.length ? `この一巡でまだ立っていないのは${names(left)}` : '次の市から新しい一巡（どの町にも立ちうる）'}` };
+  return { left, text: `隊商市は、${names(sc.fairs)}の${n}つを一巡するまで同じ町に立たない。${used.length ? `この一巡で、まだ予告の出ていない町は${names(left)}（決まるのは町だけ。始まる日・安くなる町・総量は、予告まで分からない）` : '次の予告から新しい一巡（どの町にも立ちうる）'}` };
 }
 
 // 町の「これから」に出す行
@@ -177,8 +191,10 @@ export function shiftNotes(world, city) {
 
 const baseStopsOf = (o) => (o?.altOn ? o.base : o?.stops) || [];
 // その予告の期間にかかる臨時の便の予約
+// 予告から組んだ予約は予告の番号で、手で組んだ予約は「隊商市の町へ行き、期間が重なる」で見る
+// （期間の重なりだけを見ていて、別の市への予約まで「予約ずみ」と出た。24回目の Sol）
 export function altCovering(m, x) {
-  return (m.order?.alts || []).find((a) => a.from < x.end && a.until > x.start) || null;
+  return (m.order?.alts || []).find((a) => (a.shift ? a.shift === x.id : a.stops.some((s) => s.city === x.fair) && a.from < x.end && a.until > x.start)) || null;
 }
 
 // 定期便の停泊地が、予告された低迷にかかるか（商人の欄に出す）

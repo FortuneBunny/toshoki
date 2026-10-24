@@ -100,7 +100,7 @@ function reader(w, seen, lead, k0, per = 18) {
       if (!stops) continue;
       const win = G.altWindowFor(w, m, x, stops);
       if (win.late) continue; // 画面の「間に合わない」を読む人は組まない
-      if (G.setOrderAlt(w, m.id, { stops, from: win.from, until: win.until }).ok) n++;
+      if (G.setOrderAlt(w, m.id, { stops, from: win.from, until: win.until, shift: x.id }).ok) n++;
     }
   }
   return n;

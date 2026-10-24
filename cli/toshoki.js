@@ -218,7 +218,7 @@ function statusText(world) {
   if (ab.length && pl.silver < G.BALANCE.autoBuyReserve * 2) out.push(`⚠ 手元の銀 ${Math.floor(pl.silver)}。${G.BALANCE.autoBuyReserve}銀を切ると工房の自動仕入れが止まる（倉庫の製品を売って銀に戻そう）`);
   for (const m of pl.merchants) out.push('  ' + merchantLine(world, m));
   // 予告された売り場の交代（詳しくは shifts）
-  for (const x of G.knownShifts(world)) out.push(`📣 予告#${x.id}: ${x.start}〜${x.end - 1}日目、${world.cities[x.low].name}で${GOODS[x.good].name}が安い / ${world.cities[x.fair].name}に隊商市${G.shiftActive(world, x) ? `（今。あと${x.end - world.day}日）` : `（${x.start - world.day}日後から）`}。臨時の便の期間の目安は shifts`);
+  for (const x of G.knownShifts(world)) out.push(`📣 予告#${x.id}: ${world.cities[x.low].name}で${GOODS[x.good].name}が安い ${G.lowStateText(world, x)} / ${world.cities[x.fair].name}の隊商市 ${G.fairStateText(world, x)}。臨時の便の期間の目安は shifts`);
   // 町にいて定期便のない商人には、次の一手の例を1つ（詳しくは advice）
   for (const m of pl.merchants) if (!m.travel && !m.order && world.day < 120) out.push(`  💡 #${m.id} 次の一手の例: ${G.adviceText(world, m.id)[0]}（ほかの案は advice）`);
   // 銀が眠っていれば、目標に効く使い方を
@@ -636,7 +636,8 @@ function run(world, cmd, pos, opts) {
       if (G.fairRound(world)) out.push(`🎪${G.fairRound(world).text}`);
       if (!list.length) { out.push(world.scenario.shifts ? `今、予告された売り場の交代はない（予告は始まる約${world.scenario.shifts.lead}日前に出る）` : 'このシナリオには、予告された売り場の交代はない'); break; }
       for (const x of list) {
-        out.push(`#${x.id} ${G.shiftActive(world, x) ? `今（あと${x.end - world.day}日）` : `${x.start - world.day}日後から`}: ${x.start}〜${x.end - 1}日目、${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い / ${x.start}〜${G.fairEnd(x) - 1}日目、${world.cities[x.fair].name}(${x.fair})に隊商市（${GOODS[x.good].name}を高く買う。毎日約${world.scenario.shifts.fair.demand}個ずつ売れていき、まとめて売ると値が下がる${x.want ? `。${G.fairWantText(x)}` : ''}）`);
+        if (G.fairClosed(world, x)) { out.push(`#${x.id}: ${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い ${G.lowStateText(world, x)} / ${world.cities[x.fair].name}(${x.fair})の隊商市は${G.fairStateText(world, x)}`); continue; }
+        out.push(`#${x.id}: ${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い ${G.lowStateText(world, x)} / ${world.cities[x.fair].name}(${x.fair})に隊商市 ${G.fairStateText(world, x)}（${GOODS[x.good].name}を高く買う。毎日約${world.scenario.shifts.fair.demand}個ずつ売れていき、まとめて売ると値が下がる${x.want ? `。${G.fairWantText(x)}` : ''}）`);
         for (const m of world.player.merchants.filter((y) => y.order)) {
           const win = G.altWindowFor(world, m, x, m.order.stops);
           const base = G.baseStops(m.order);
@@ -1031,7 +1032,7 @@ function run(world, cmd, pos, opts) {
       if (pos[0] === 'alt') {
         if (pos[1] === 'clear') { after(G.clearOrderAlt(world, m.id, pos[2] ?? null)); out.push(pos[2] ? `臨時の便#${pos[2]}の予約を消した` : '臨時の便の予約を全部消した'); break; }
         let stops = pos.slice(1).map((p) => parseStop(p, world));
-        let from = opts.from, until = opts.until;
+        let from = opts.from, until = opts.until, shift;
         if (opts.shift !== undefined) {
           const x = G.knownShifts(world).find((s) => s.id === Number(opts.shift));
           if (!x) throw new Error(`予告 #${opts.shift} はない（shifts で一覧）`);
@@ -1041,10 +1042,11 @@ function run(world, cmd, pos, opts) {
           if (win.late && opts.from === undefined) throw new Error(`${win.ready > world.day ? `${world.cities[stops[0].city].name}に戻れるのは${win.ready}日目。` : ''}${world.cities[x.fair].name}まで約${win.days}日かかり、市が閉じる前に着けない`);
           if (opts.from === undefined) from = win.from;
           if (opts.until === undefined) until = win.until;
+          shift = x.id;
         }
         if (!stops.length) throw new Error('停泊地を書く（--shift なら省ける）');
         if (from === undefined || until === undefined) throw new Error('order alt "<町 ...>" "<町 ...>" --shift <予告の番号>（または --from <日> --until <日>）');
-        after(G.setOrderAlt(world, m.id, { stops, from, until }));
+        after(G.setOrderAlt(world, m.id, { stops, from, until, shift }));
         out.push(`臨時の便: ${from}〜${until}日目に ${stops.map((s) => world.cities[s.city].name).join(' → ')}（今は${world.day}日目。期間に入ってから町を出るとき切り替わり、過ぎたら元の便に戻る）`);
         out.push(...G.drainEvents(world).map(eventLine));
         break;
@@ -1074,7 +1076,7 @@ function run(world, cmd, pos, opts) {
         out.push(`  ${t.name}(${k}): ${t.cost}銀  積載${t.cap}  速さ${t.speed}  維持費${t.upkeep}/日  通れる道: ${t.modes.map((x) => G.ROUTE_KINDS[x].name).join('・')}  買える町: ${t.cost ? where.join('、') || 'なし' : '（最初から持っている）'}`);
       }
       const bs = (sc.buildings || []).filter((b) => BUILDINGS[b]?.recipes);
-      out.push(`工房（build <種類> confirm [--at 町]）: ${bs.length ? '同じ種類は1つの町に1つまで。倉庫が付く。材料は倉庫から使い、足りなければ市場で自動仕入れ（基準価格の1.5倍まで、手元の銀100は残す）' : 'このシナリオでは建てられない'}`);
+      out.push(`工房（build <種類> confirm [--at 町]）: ${bs.length ? '同じ種類は1つの町に1つまで。倉庫が付く。材料は倉庫から使い、足りなければ市場で自動仕入れ（基準価格の1.5倍まで、手元の銀20は残す）' : 'このシナリオでは建てられない'}`);
       for (const b of bs) out.push(`  ${BUILDINGS[b].name}(${b}): ${G.buildCost(world, b)}銀  維持費${BUILDINGS[b].upkeep}/日  1日${BUILDINGS[b].batches}回  ${G.recipeList(world, b).map((r) => G.recipeLine(r)).join(' / ')}${G.neededTech(world, 'buildings', b) ? `  ✖ 要: 技術「${G.neededTech(world, 'buildings', b)}」` : ''}`);
       out.push(`道の整備（road <番号> confirm）: ${(sc.buildings || []).includes('road') ? `小道を街道にする。距離×${BUILDINGS.road.costPerLength}銀` : 'このシナリオではできない'}`);
       out.push(`商館（branch confirm [--at 町]）: ${G.branchesAllowed(world) ? `次は ${G.branchCost(world)}銀（2つ目からは倍々）＋維持費${G.BALANCE.branchUpkeep}/日。「${G.BALANCE.tierNames[G.BALANCE.branchMinTier]}」以上の町に1つずつ。雇える商人 +1、その町の倉庫が使え、相場がいつでも分かる。今あるもの: ${(pl.branches || []).map((id) => world.cities[id].name).join('・') || 'なし'}` : 'このシナリオでは建てられない'}`);

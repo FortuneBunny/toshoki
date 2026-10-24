@@ -511,6 +511,7 @@ export function shiftDialog(app, sid) {
   const list = h('div', { class: 'tech-list' });
   const draw = () => {
     clear(list);
+    if (G.fairClosed(world, x)) { add(list, h('div', { class: 'dim' }, `${fair}の隊商市は${G.fairStateText(world, x)}。${low}の${g}は${G.lowStateText(world, x)}安い`)); return; }
     for (const m of world.player.merchants.filter((y) => y.order)) {
       const draft = G.altDraftFor(world, m, x);
       const win = draft ? G.altWindowFor(world, m, x, draft) : null;
@@ -520,12 +521,13 @@ export function shiftDialog(app, sid) {
         h('div', {}, h('b', {}, m.name), h('div', { class: 'muted' }, `いつもの便: ${G.baseStops(m.order).map((s) => world.cities[s.city].name).join('→')}${hit && !booked ? `（${low}で${g}を売る）` : ''}`),
           draft && win.late && !booked ? h('div', { class: 'bad', style: { fontSize: '12px' } }, `${win.ready > world.day ? `${world.cities[G.baseStops(m.order)[0].city].name}に戻れるのは${win.ready}日目。` : ''}${fair}まで約${win.days}日かかり、市が閉じる前に着けない`) : draft ? h('div', { class: 'dim', style: { fontSize: '12px' } }, booked ? `予約ずみ: ${booked.from}〜${booked.until}日目 ${booked.stops.map((s) => world.cities[s.city].name).join('→')}` : `臨時の便: ${draft.map((s) => world.cities[s.city].name).join('↔')}（${win.from}〜${win.until}日目に町を出る便。${fair}まで約${win.days}日なので、${win.lastSale}日目までに着く${win.ready > win.from ? `。今の旅から戻るのは${win.ready}日目` : ''}）。今予約すると早ければ${win.arrive}日目に着く。始まってから切り替えると${win.afterStart}日目に着き、${win.afterStart > win.lastSale ? '市は閉じている' : `市の残りは${win.lastSale - win.afterStart + 1}日`}`) : h('div', { class: 'dim' }, `この便は${g}を売らない`)),
         h('span'),
-        draft && !booked && !win.late ? h('button', { class: 'btn primary small', onclick: () => { const r = app.run(() => G.setOrderAlt(world, m.id, { stops: draft, from: win.from, until: win.until })); if (r.ok) draw(); } }, '臨時の便にする') : null,
+        draft && !booked && !win.late ? h('button', { class: 'btn primary small', onclick: () => { const r = app.run(() => G.setOrderAlt(world, m.id, { stops: draft, from: win.from, until: win.until, shift: x.id })); if (r.ok) draw(); } }, '臨時の便にする') : null,
         h('button', { class: 'btn ghost small', onclick: () => { md.close(); app.state.modals++; orderDialog(app, m.id, { alt: true, shift: x.id }); } }, '中身を見て組む')));
     }
   };
   draw();
   const body = h('div', {},
+    G.fairClosed(world, x) ? h('p', { class: 'bad' }, `${fair}の隊商市は${G.fairStateText(world, x)}。`) : null,
     h('p', {}, `${x.start - world.day > 0 ? `${x.start - world.day}日後` : '今'}（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${low}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に${fair}に隊商市が立ち、${G.fairEnd(x) - 1}日目まで${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。${x.want ? `${G.fairWantText(x)}。` : ''}市は安値より早く閉じる。下に、商人ごとに着く日の目安を出す（積み待ちの日数は入らない）。`),
     G.fairRound(world) ? h('p', { class: 'dim', style: { fontSize: '12px' } }, `🎪${G.fairRound(world).text}。`) : null,
     h('p', { class: 'dim', style: { fontSize: '12px' } }, `その期間だけ便の売り先を${fair}に回すと、安値を避けて高く売れる。全部の便を回すと、隊商市でも値が崩れる（売れていく速さに限りがある）。下の日付は、臨時の便に切り替わって町を出る期間（着く日が市の期間に入るよう、行く日数だけ前にずらしてある）。何人を回すか、回さずにそのままにするかを決める。臨時の便は期間が過ぎると、いつもの便に戻る。`),

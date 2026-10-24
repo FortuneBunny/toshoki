@@ -409,7 +409,7 @@ function prepareStops(world, m, stops) {
 }
 
 // 期間予約（臨時の便）: from〜until日目のあいだだけ、別の停泊地を回る。町を出るときに切り替わり、過ぎたら元に戻る
-export function setOrderAlt(world, mid, { stops, from, until }) {
+export function setOrderAlt(world, mid, { stops, from, until, shift }) {
   const m = getMerchant(world, mid);
   if (!m?.order) return fail('先に、いつもの定期便を組む');
   if (m.settlers) return fail(`${m.name}は開拓団を連れている（交易所に住みつかせてから）`);
@@ -429,7 +429,7 @@ export function setOrderAlt(world, mid, { stops, from, until }) {
     if (!overlap(a)) continue;
     if (a.from < from && from > world.day) {
       // 中に短い予約を入れたときは、後ろに残る分も別の予約として残す（後半が消えていた。21回目の Opus）
-      if (a.until > until) { o.altSeq = (o.altSeq || 0) + 1; tails.push({ id: o.altSeq, stops: JSON.parse(JSON.stringify(a.stops)), from: until, until: a.until }); }
+      if (a.until > until) { o.altSeq = (o.altSeq || 0) + 1; tails.push({ id: o.altSeq, stops: JSON.parse(JSON.stringify(a.stops)), from: until, until: a.until, shift: a.shift }); }
       a.until = from;
       cut.push(`#${a.id}を${from}日目までに縮めた`);
     }
@@ -437,9 +437,9 @@ export function setOrderAlt(world, mid, { stops, from, until }) {
   }
   if (o.altOn && (o.alts || []).some((a) => a.id === o.altOn && a.gone)) { o.stops = o.base || o.stops; o.base = null; o.altOn = null; const i = o.stops.findIndex((s) => s.city === (m.travel ? m.travel.to : m.city)); o.next = Math.max(0, i); }
   o.altSeq = (o.altSeq || 0) + 1;
-  o.alts = [...(o.alts || []).filter((a) => !a.gone), ...tails, { id: o.altSeq, stops: r.stops, from, until }].sort((a, b) => a.from - b.from);
+  o.alts = [...(o.alts || []).filter((a) => !a.gone), ...tails, { id: o.altSeq, stops: r.stops, from, until, ...(shift ? { shift } : {}) }].sort((a, b) => a.from - b.from);
   emit(world, { type: 'order', merchant: m.id, text: `${m.name}の臨時の便を予約した（${from}〜${until}日目: ${r.stops.map((s) => world.cities[s.city].name).join('→')}）。期間に入ってから町を出るとき切り替わり、過ぎたら元の便に戻る${cut.length ? `（重なる予約: ${cut.join('、')}）` : ''}` });
-  if (!m.travel && !o.paused && !o.holding) switchAlt(world, m);
+  if (!m.travel && !o.paused && !o.holding && switchAlt(world, m) && o.stops[o.next]?.city === m.city) runOrder(world, m);
   return { ok: true };
 }
 

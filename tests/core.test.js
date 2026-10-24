@@ -782,6 +782,32 @@ test('市の総量（試作）: 予告に出し、残りの分しか買わず、
   }
 });
 
+test('予告から組んだ予約は、その予告だけを「予約ずみ」にする。切り替わった町が臨時の便の停泊地なら、そこで積んでから出る', () => {
+  const w = G.createWorld('s3', { seed: 4 });
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const home = Object.values(w.cities).find((c) => c.founded).id;
+  const [x1, x2] = w.shifts;
+  G.expandMarket(w, home);
+  assert.ok(G.build(w, home, 'mill').ok);
+  const m = w.player.merchants[0];
+  // 交易所で白糖を1個待つ便（倉庫は空なので、交易所で待つ）
+  assert.ok(G.setOrder(w, m.id, { stops: [{ city: home, buy: [], sell: [], load: ['whitesugar*5'], waitFor: { good: 'whitesugar', qty: 1 } }, { city: 'suitou', buy: [], sell: [{ good: 'whitesugar', min: 0 }] }] }).ok);
+  while (m.travel) G.advance(w, 1, { stopOn: new Set() });
+  assert.equal(m.city, home);
+  // 2つ目の市の期間に重なる予約（2つ目の予告の番号つき）は、1つ目の市を「予約ずみ」にしない
+  const alt = [{ city: home, buy: [], sell: [], load: ['whitesugar*20'] }, { city: x2.fair, buy: [], sell: [{ good: 'whitesugar', min: 0 }] }];
+  assert.ok(G.setOrderAlt(w, m.id, { stops: alt, from: w.day, until: x2.start, shift: x2.id }).ok);
+  assert.equal(G.altCovering(m, x1), null);
+  assert.ok(G.altCovering(m, x2));
+  // 待っている交易所で臨時の便に切り替わると、臨時の便の「20個積む」で出る（前は、いつもの便の5個のまま出た）
+  w.player.warehouses[home].stock.whitesugar = 50;
+  G.advance(w, 1, { stopOn: new Set() });
+  assert.ok(m.order.altOn);
+  assert.equal(m.cargo.whitesugar, 20);
+  assert.equal(m.cargo.whitesugar, 20);
+});
+
 test('臨時の便（期間予約）は、期間に入ると切り替わり、過ぎると元の便に戻る', () => {
   const w = G.createWorld('s3', { seed: 4 });
   const s = G.foundSites(w, 1)[0];

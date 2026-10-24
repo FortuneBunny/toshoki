@@ -145,7 +145,9 @@ export function runOrder(world, m, { depart = true } = {}) {
     o.holding = false;
     o.holdSince = null;
     o.next = (o.next + 1) % o.stops.length;
-    switchAlt(world, m);
+    // 今いる町が切り替わった便の停泊地なら、その停泊地の積み下ろし・売り買いをしてから出る
+    // （次の停泊地へ進めていたので、臨時の便の「交易所: 白糖20積む」が飛ばされた。24回目の Opus）
+    if (switchAlt(world, m) && o.stops[o.next]?.city === m.city) return runOrder(world, m, { depart });
   }
   if (notes.length) emit(world, { type: 'orderNote', merchant: m.id, city: m.city, text: `${m.name}（定期便）: ${notes.join('、')}` });
   if (!depart) return;
@@ -177,10 +179,12 @@ export function switchAlt(world, m) {
   if (cur && cur.until <= world.day) o.alts = o.alts.filter((a) => a !== cur);
   // 今いる町が新しい便にあれば、その次の停泊地へ。なければ、新しい便の最初の停泊地へ
   // （いちばん近い停泊地にしていたので、売り先の町で切り替わると、空荷のまま隊商市へ向かった）
+  // 今いる町が新しい便にあれば、その停泊地から（呼んだ側で、その停泊地をこなしてから出る）。なければ、新しい便の最初の停泊地へ
   const i = o.stops.findIndex((s) => s.city === m.city);
-  o.next = i >= 0 ? (i + 1) % o.stops.length : 0;
+  o.next = i >= 0 ? i : 0;
   const route = o.stops.map((s) => world.cities[s.city].name).join('→');
   emit(world, { type: 'orderAlt', merchant: m.id, city: m.city, text: want ? `${m.name}の定期便を、予約どおり臨時の便（${route}、${want.until}日目まで）に切り替えた` : `${m.name}の定期便を、いつもの便（${route}）に戻した` });
+  return true;
 }
 
 // いつもの便（臨時の便を回っている間も）

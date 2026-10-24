@@ -5,6 +5,7 @@ import { TRANSPORTS } from '../data/transports.js';
 import { cityTier, tierName } from './city.js';
 import { cityWants, quote } from './market.js';
 import { emit } from './events.js';
+import { openFairNotes } from './shifts.js';
 import { BALANCE as B } from '../data/balance.js';
 import { GRID_W, GRID_H, T } from './grid.js';
 
@@ -220,6 +221,7 @@ export function checkGoals(world) {
     const rank = rankFor(world, world.day);
     world.finished = { win: true, rank, day: world.day, score: Math.round(netWorth(world)) };
     emit(world, { type: 'victory', big: true, text: `目標達成！ランク ${rank}（${world.day}日目、期限 ${world.scenario.deadline}日）` });
+    for (const text of openFairNotes(world)) emit(world, { type: 'shiftEnd', text });
   } else if (world.day >= world.scenario.deadline) {
     world.finished = { win: false, rank: 'C', day: world.day, score: Math.round(netWorth(world)) };
     const lacking = st.filter((g) => !g.done).map((g) => g.text).join(' / ');
