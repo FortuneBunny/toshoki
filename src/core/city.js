@@ -10,6 +10,7 @@ import { dwellingDemand, updateDwellingSat, dwellingStatus, assignDwelling } fro
 import { gainRep } from './trade.js';
 import { shiftNotes } from './shifts.js';
 import { blightNotes } from './blights.js';
+import { festivalNotes, festivalOn } from './festivals.js';
 
 export function cityTier(city) {
   let t = 0;
@@ -188,7 +189,10 @@ function rushCycle(world, city) {
     city.rush = B.rushDays;
     city.rushCount = (city.rushCount || 0) + 1;
     world.stats.rushes = (world.stats.rushes || 0) + 1;
-    emit(world, { type: 'rush', city: city.id, big: true, text: `${city.name}でシュガーラッシュ！甘味が飛ぶように売れる` });
+    // 大祭の期間に始まったラッシュ（目標の during: 'festival' で数える）
+    const fest = festivalOn(world, city.id);
+    if (fest) city.festRushCount = (city.festRushCount || 0) + 1;
+    emit(world, { type: 'rush', city: city.id, big: true, text: `${city.name}でシュガーラッシュ！甘味が飛ぶように売れる${fest ? '（大祭のラッシュ。目標に数える）' : world.scenario.festivals ? '（大祭の期間ではないので、目標には数えない）' : ''}` });
   }
 }
 
@@ -305,7 +309,7 @@ export function cityOutlook(world, city) {
       if (load.length) out.push({ kind: 'rival', text: `${r.name}の隊商が${load.slice(0, 2).map(([g, n]) => `${GOODS[g].name}${Math.floor(n)}`).join('・')}を積んで向かっている（あと約${m.travelDays}日。着くと値が下がる）` });
     }
   }
-  out.unshift(...shiftNotes(world, city), ...blightNotes(world, city));
+  out.unshift(...shiftNotes(world, city), ...blightNotes(world, city), ...festivalNotes(world, city));
   return out;
 }
 

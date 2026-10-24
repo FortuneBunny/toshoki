@@ -151,9 +151,15 @@ export function goalProgress(world, g) {
       return { p: v / g.amount, text: `${where}${GOODS[g.good].name}を ${g.amount} 個売る（今 ${v}${notYet}）` };
     }
     case 'rushes': {
-      const v = g.city ? world.cities[g.city].rushCount || 0 : s.rushes || 0;
-      const where = g.city ? `${world.cities[g.city].name}で` : '';
-      return { p: v / g.count, text: `${where}シュガーラッシュを ${g.count} 回起こす（今 ${v}）` };
+      // during: 'festival': 予告された大祭の期間に始まったラッシュだけを数える（28回目の相談の s5 の試作）
+      // festivalWeight: n: どのラッシュも数え、大祭の期間に始まったものは n 回ぶんに数える
+      const fest = g.during === 'festival';
+      const c = g.city ? world.cities[g.city] : null;
+      const w = g.festivalWeight || 0;
+      const v = c ? (fest ? c.festRushCount || 0 : (c.rushCount || 0) + (w ? (w - 1) * (c.festRushCount || 0) : 0)) : s.rushes || 0;
+      const where = c ? `${c.name}で` : '';
+      const note = w ? `。大祭の期間に始まったラッシュは${w}回に数える` : '';
+      return { p: v / g.count, text: `${where}${fest ? '大祭の期間に' : ''}シュガーラッシュを ${g.count} 回起こす（今 ${v}${note}）` };
     }
     case 'totalPop': {
       const v = Object.values(world.cities).reduce((a, c) => a + c.pop, 0);

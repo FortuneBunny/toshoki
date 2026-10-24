@@ -998,3 +998,36 @@ test('eventStream のシナリオでは、遊び方を変えても、同じ日�
   assert.ok(a.length > 3);
   assert.deepEqual(run(true), a);
 });
+
+test('大祭の予告（試作）: 大祭の期間に始まったラッシュだけを目標に数え、セーブには予告ずみの分だけを書く', () => {
+  const sc = G.SCENARIOS.s5;
+  const goals0 = sc.goals;
+  sc.festivals = { city: 'saito', first: [50, 70], gap: [40, 60], lead: 30, days: 15 };
+  sc.goals = [{ type: 'rushes', city: 'saito', count: 2, during: 'festival' }];
+  try {
+    const w = G.createWorld('s5', { seed: 7 });
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    const s = G.foundSites(w, 1)[0];
+    G.foundPost(w, s.x, s.y);
+    const x = w.festivals[0];
+    assert.equal(JSON.parse(G.serialize(w)).festivals.length, 0);
+    const c = w.cities.saito;
+    // 大祭の前に起きたラッシュは数えない
+    c.rushCount = 1;
+    assert.equal(G.goalsStatus(w)[0].text.includes('今 0'), true);
+    while (w.day < x.start) G.advance(w, 1, { stopOn: new Set() });
+    assert.ok(G.festivalOn(w, 'saito'));
+    c.rush = 0; c.crash = 0;
+    for (const g of ['wheat', 'rice', 'dates', 'grapes', 'honey', 'rawsugar', 'whitesugar']) c.stock[g] = 1e6;
+    for (let i = 0; i < 5 && !c.festRushCount; i++) G.advance(w, 1, { stopOn: new Set() });
+    assert.equal(c.festRushCount, 1);
+    const w2 = G.deserialize(G.serialize(w));
+    assert.deepEqual(w2.festivals.map((y) => y.start), w.festivals.map((y) => y.start));
+    // festivalWeight: ふつうのラッシュは1回、大祭のラッシュは2回ぶん
+    sc.goals = [{ type: 'rushes', city: 'saito', count: 3, festivalWeight: 2 }];
+    assert.equal(G.goalsStatus(w)[0].text.includes(`今 ${c.rushCount + 1}`), true);
+  } finally {
+    delete sc.festivals;
+    sc.goals = goals0;
+  }
+});

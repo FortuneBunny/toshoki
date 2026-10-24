@@ -10,6 +10,7 @@ import { goodLocked } from './techs.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { applyShifts, updateShifts } from './shifts.js';
 import { applyBlights, updateBlights } from './blights.js';
+import { updateFestivals } from './festivals.js';
 
 // 通知を積む。UI と CLI はここから演出を取り出す。
 export function emit(world, ev) {
@@ -253,6 +254,7 @@ export function updateEvents(world) {
   deliverNews(world);
   updateShifts(world);
   updateBlights(world);
+  updateFestivals(world);
   inStream(world, 'event', () => rollEvent(world));
   inStream(world, 'contract', () => rollContract(world));
   expireContracts(world);

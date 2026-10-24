@@ -30,3 +30,4 @@ export { TALENTS, TALENT_IDS } from '../data/talents.js';
 export { HEIRLOOMS, heirloomText, heirloomFor } from '../data/heirlooms.js';
 export { validateOrder, baseStops } from './orders.js';
 export { knownBlights, blightActive, blightStateText } from './blights.js';
+export { knownFestivals, festivalActive, festivalOn, festivalStateText } from './festivals.js';
