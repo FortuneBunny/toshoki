@@ -180,6 +180,16 @@ const s4 = {
   eventStream: true, // 通常の出来事・盗賊・生産のゆらぎは、行動と別の乱数（28回目の相談。読む・読まないを同じ出来事の列で比べるため）
   events: true, contracts: true, bandits: true, newsDaysPerHop: 5,
   maxMerchants: 4,
+  // 強盗団の予告の試作（28回目の相談。src/core/gangs.js。まだ入れていない。評価が通ったら gangs: GANGS_S4 にする）
+};
+
+export const GANGS_S4 = {
+  zones: [
+    { id: 'north', name: '北の隊商路（玻璃の都の西）', x: 720, y: 245, r: 55, hint: '玻璃の都からは、塩の村を回れば避けられる（5日ほど遠い）' },
+    { id: 'west', name: '緑門の道（隊商宿の町の西）', x: 215, y: 270, r: 50, hint: '緑門への道はここしかない。期間の前に運び終えるか、手前で待て' },
+    { id: 'south', name: '南の道（塩の村の東）', x: 700, y: 470, r: 55, hint: '塩の村を回る道に出る。北の道を使えば避けられる' },
+  ],
+  first: [40, 60], gap: [25, 45], lead: 20, days: 25, chance: 0.5, loss: 0.5,
 };
 
 const s5 = {

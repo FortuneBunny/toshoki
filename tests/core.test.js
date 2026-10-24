@@ -1031,3 +1031,31 @@ test('大祭の予告（試作）: 大祭の期間に始まったラッシュだ
     sc.goals = goals0;
   }
 });
+
+test('強盗団の予告（試作）: 期間中に区域を通ると護衛がいても奪われ、セーブには予告ずみの分だけを書く', async () => {
+  const { GANGS_S4 } = await import('../src/data/scenarios.js');
+  const sc = G.SCENARIOS.s4;
+  sc.gangs = { ...GANGS_S4, chance: 1 };
+  try {
+    const w = G.createWorld('s4', { seed: 7 });
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    const st = G.foundSites(w, 1)[0];
+    G.foundPost(w, st.x, st.y);
+    const x = w.gangs.find((g) => g.zone === 'north');
+    assert.equal(JSON.parse(G.serialize(w)).gangs.length, 0);
+    while (w.day < x.start) G.advance(w, 1, { stopOn: new Set() });
+    const m = w.player.merchants[0];
+    m.city = 'hari';
+    m.transport = 'camel';
+    m.cargo = { silk: 20 };
+    w.player.silver = 5000;
+    G.travel(w, m.id, 'yado', { guards: 10 });
+    for (let i = 0; i < 12 && m.travel; i++) G.advance(w, 1, { stopOn: new Set() });
+    assert.ok((m.cargo.silk || 0) < 20);
+    assert.ok(w.stats.gangLoss > 0);
+    const w2 = G.deserialize(G.serialize(w));
+    assert.deepEqual(w2.gangs.map((y) => [y.zone, y.start]), w.gangs.map((y) => [y.zone, y.start]));
+  } finally {
+    delete sc.gangs;
+  }
+});

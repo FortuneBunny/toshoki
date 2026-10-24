@@ -218,7 +218,8 @@ function statusText(world) {
   if (ab.length && pl.silver < G.BALANCE.autoBuyReserve * 2) out.push(`⚠ 手元の銀 ${Math.floor(pl.silver)}。${G.BALANCE.autoBuyReserve}銀を切ると工房の自動仕入れが止まる（倉庫の製品を売って銀に戻そう）`);
   for (const m of pl.merchants) out.push('  ' + merchantLine(world, m));
   // 予告された売り場の交代（詳しくは shifts）
-  for (const x of G.knownFestivals(world)) out.push(`🎆 大祭の予告#${x.id}: ${world.cities[x.city].name}で大祭 ${G.festivalStateText(world, x)}。この間に始まったラッシュだけを目標に数える`);
+  for (const x of G.knownGangs(world)) out.push(`🗡 強盗団の予告#${x.id}: ${G.gangZone(world, x).name} ${G.gangStateText(world, x)}。護衛では防げない`);
+  for (const x of G.knownFestivals(world)) out.push(`🎆 大祭の予告#${x.id}: ${world.cities[x.city].name}で大祭 ${G.festivalStateText(world, x)}。${G.festivalCountText(world, x.city) || 'この間に始まったラッシュは祝いが大きい'}`);
   for (const x of G.knownBlights(world)) out.push(`🌾 不作の予告#${x.id}: ${GOODS[x.good].name}が不作 ${G.blightStateText(world, x)}。どの産地も作る量が約${Math.round(world.scenario.blights.cut * 10)}割に`);
   for (const x of G.knownShifts(world)) out.push(`📣 予告#${x.id}: ${world.cities[x.low].name}で${GOODS[x.good].name}が安い ${G.lowStateText(world, x)} / ${world.cities[x.fair].name}の隊商市 ${G.fairStateText(world, x)}。臨時の便の期間の目安は shifts`);
   // 町にいて定期便のない商人には、次の一手の例を1つ（詳しくは advice）

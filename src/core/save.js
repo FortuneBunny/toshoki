@@ -2,6 +2,7 @@
 import { planShifts } from './shifts.js';
 import { planBlights } from './blights.js';
 import { planFestivals } from './festivals.js';
+import { planGangs } from './gangs.js';
 import { SCENARIOS } from '../data/scenarios.js';
 import { SAVE_VERSION, resolveScenario, savedAsV3 } from './world.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
@@ -16,7 +17,8 @@ export function serialize(world) {
   const shifts = world.shifts ? world.shifts.filter((x) => x.announce <= world.day) : undefined;
   const blights = world.blights ? world.blights.filter((x) => x.announce <= world.day) : undefined;
   const festivals = world.festivals ? world.festivals.filter((x) => x.announce <= world.day) : undefined;
-  return JSON.stringify({ ...world, shifts, blights, festivals, scenarioOverrides: world.scenario.infoNetwork !== base.infoNetwork ? { infoNetwork: world.scenario.infoNetwork } : null });
+  const gangs = world.gangs ? world.gangs.filter((x) => x.announce <= world.day) : undefined;
+  return JSON.stringify({ ...world, shifts, blights, festivals, gangs, scenarioOverrides: world.scenario.infoNetwork !== base.infoNetwork ? { infoNetwork: world.scenario.infoNetwork } : null });
 }
 
 function hopTable(world) {
@@ -87,6 +89,11 @@ export function deserialize(json) {
     const saved = data.festivals;
     planFestivals(data);
     data.festivals = (data.festivals || []).map((x) => saved.find((y) => y.id === x.id) || x);
+  }
+  if (data.gangs) {
+    const saved = data.gangs;
+    planGangs(data);
+    data.gangs = (data.gangs || []).map((x) => saved.find((y) => y.id === x.id) || x);
   }
   // 古い版で暇を出したあとに雇うと、同じ番号の商人が2人いることがある。後の方に新しい番号を付ける
   const seen = new Set();

@@ -6,6 +6,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { chance, randInt, inStream } from './rng.js';
 import { emit } from './events.js';
 import { arriveAt } from './orders.js';
+import { gangCheck } from './gangs.js';
 import { GRID_W, GRID_H, TILE_LEN, T, P, astar, gridKey } from './grid.js';
 
 export function seasonOf(world) {
@@ -240,6 +241,7 @@ export function stepTravel(world, m) {
   if (needsFood(grid, k) && eatProvisions(world, m)) budget /= B.starveSlow;
   // 盗賊のくじは、商人とマスと日ごとの乱数（eventStream のとき）
   inStream(world, `bandit:${m.id}:${k}`, () => banditCheck(world, m, grid.danger[k]));
+  gangCheck(world, m, x, y, k); // 予告された強盗団（護衛では防げない）
   world.player.silver -= m.guards * B.guardWage;
   t.elapsed += 1;
   while (budget > 1e-9 && t.i < t.steps.length) {

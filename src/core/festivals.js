@@ -44,6 +44,17 @@ function countText(world, cityId) {
   return '';
 }
 
+// ラッシュの知らせに足す一言
+export function festRushSuffix(world, cityId, fest) {
+  if (!world.scenario.festivals) return '';
+  const g = (world.scenario.goals || []).find((x) => x.type === 'rushes' && x.city === cityId);
+  if (g?.festivalWeight) return fest ? `（大祭のラッシュ。目標に${g.festivalWeight}回ぶん数える）` : '';
+  if (g?.during === 'festival') return fest ? '（大祭のラッシュ。目標に数える）' : '（大祭の期間ではないので、目標には数えない）';
+  return fest ? '（大祭のラッシュ）' : '';
+}
+
+export const festivalCountText = (world, cityId) => countText(world, cityId);
+
 // 予告・始まり・終わりの知らせ（毎日）
 export function updateFestivals(world) {
   const sc = world.scenario.festivals;
