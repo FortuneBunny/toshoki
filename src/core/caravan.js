@@ -3,7 +3,7 @@
 import { GOODS, PROVISIONS } from '../data/goods.js';
 import { TRANSPORTS, DESERT_SLOW } from '../data/transports.js';
 import { BALANCE as B } from '../data/balance.js';
-import { chance, randInt } from './rng.js';
+import { chance, randInt, inStream } from './rng.js';
 import { emit } from './events.js';
 import { arriveAt } from './orders.js';
 import { GRID_W, GRID_H, TILE_LEN, T, P, astar, gridKey } from './grid.js';
@@ -238,7 +238,8 @@ export function stepTravel(world, m) {
   if (m.talent === 'desert' && grid.terrain[k] === T.SAND && inStorm(world, x, y)) budget = 1.6;
   // 食料が要るのは、街道のない砂地だけ（街道には井戸と隊商宿がある）
   if (needsFood(grid, k) && eatProvisions(world, m)) budget /= B.starveSlow;
-  banditCheck(world, m, grid.danger[k]);
+  // 盗賊のくじは、商人とマスと日ごとの乱数（eventStream のとき）
+  inStream(world, `bandit:${m.id}:${k}`, () => banditCheck(world, m, grid.danger[k]));
   world.player.silver -= m.guards * B.guardWage;
   t.elapsed += 1;
   while (budget > 1e-9 && t.i < t.steps.length) {

@@ -177,6 +177,7 @@ const s4 = {
   maxPosts: 2, postCost: 400, maxPaths: 2,
   transports: ['donkey', 'camel'],
   techs: { caravanserai: { from: 0 } },
+  eventStream: true, // 通常の出来事・盗賊・生産のゆらぎは、行動と別の乱数（28回目の相談。読む・読まないを同じ出来事の列で比べるため）
   events: true, contracts: true, bandits: true, newsDaysPerHop: 5,
   maxMerchants: 4,
 };
@@ -214,6 +215,7 @@ const s5 = {
   transports: ['donkey', 'cart'],
   techs: { refinery: { from: 30 }, wheel: { from: 0 } },
   buildings: ['malthouse', 'winery', 'confectionery', 'road'],
+  eventStream: true, // 通常の出来事・盗賊・生産のゆらぎは、行動と別の乱数（28回目の相談。読む・読まないを同じ出来事の列で比べるため）
   events: true, contracts: true, bandits: false, newsDaysPerHop: 3,
   disabledEvents: ['sandstorm'],
   maxMerchants: 4, branches: true,
@@ -251,6 +253,7 @@ const s6 = {
   goals: [{ type: 'deliver', good: 'spice', city: 'byakudan', amount: 200 }, { type: 'networth', amount: 9000 }],
   deadline: 480, rankS: 0.4,
   transports: ['donkey', 'dhow', 'carrack'],
+  eventStream: true, // 通常の出来事・盗賊・生産のゆらぎは、行動と別の乱数（28回目の相談。読む・読まないを同じ出来事の列で比べるため）
   events: true, contracts: true, bandits: false, newsDaysPerHop: 5,
   disabledEvents: ['sandstorm'],
   maxMerchants: 3, branches: true,
@@ -374,6 +377,7 @@ const s8 = {
   transports: ['donkey', 'camel', 'cart', 'dhow'],
   buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],
   techs: { carrack: { from: 240 }, refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 60 }, sugarcraft: { from: 0 }, teaceremony: { from: 60 }, spicesugar: { from: 120 } },
+  eventStream: true, // 通常の出来事・盗賊・生産のゆらぎは、行動と別の乱数（28回目の相談。読む・読まないを同じ出来事の列で比べるため）
   events: true, contracts: true, bandits: true, newsDaysPerHop: 4,
   maxMerchants: 6, branches: true,
 };

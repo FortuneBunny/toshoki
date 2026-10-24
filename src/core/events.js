@@ -1,7 +1,7 @@
 // 出来事: 通知、事件（飢饉・豊作・祭り・疫病・砂嵐・掘り出し物）、大口注文、噂
 import { GOODS, GOOD_IDS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
-import { chance, pick, randInt, nextRandom } from './rng.js';
+import { chance, pick, randInt, nextRandom, inStream } from './rng.js';
 import { cityTier, dailyDemand } from './city.js';
 import { midPrice } from './market.js';
 import { TRANSPORTS } from '../data/transports.js';
@@ -153,7 +153,10 @@ function rollEvent(world) {
     r -= t.weight;
     if (r <= 0) { type = t; break; }
   }
-  const city = pick(world, Object.values(world.cities));
+  // 別の乱数のとき（eventStream）は、出来事が起きる町を、シナリオの古い町から選ぶ（自分の交易所を開くと、くじの町の数が変わるので）
+  const cities = world.scenario.eventStream ? (world.scenario.cities || []).map((c) => world.cities[c.id]).filter(Boolean) : Object.values(world.cities);
+  if (!cities.length) return;
+  const city = pick(world, cities);
   const ev = type.fire(world, city);
   if (!ev) return;
   ev.city = city.id;
@@ -250,8 +253,8 @@ export function updateEvents(world) {
   deliverNews(world);
   updateShifts(world);
   updateBlights(world);
-  rollEvent(world);
-  rollContract(world);
+  inStream(world, 'event', () => rollEvent(world));
+  inStream(world, 'contract', () => rollContract(world));
   expireContracts(world);
   rollRumor(world);
 }

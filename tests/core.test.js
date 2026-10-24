@@ -980,3 +980,21 @@ test('産地の不作の予告（試作）: 予告した期間だけ、その品
     delete sc.blights;
   }
 });
+
+test('eventStream のシナリオでは、遊び方を変えても、同じ日の通常の出来事は同じになる', () => {
+  const run = (act) => {
+    const w = G.createWorld('s5', { seed: 21 });
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    const s = G.foundSites(w, act ? 2 : 1)[act ? 1 : 0] || G.foundSites(w, 1)[0];
+    G.foundPost(w, s.x, s.y);
+    if (act) G.hireMerchant(w, Object.values(w.cities).find((c) => c.founded).id, 0);
+    const out = [];
+    for (let d = 0; d < 200; d++) {
+      for (const e of G.advance(w, 1, { stopOn: new Set() }).events) if (['famine', 'harvest', 'festival', 'fashion', 'plague', 'treasure', 'sandstorm'].includes(e.type)) out.push(`${w.day}:${e.type}:${e.city}`);
+    }
+    return out;
+  };
+  const a = run(false);
+  assert.ok(a.length > 3);
+  assert.deepEqual(run(true), a);
+});

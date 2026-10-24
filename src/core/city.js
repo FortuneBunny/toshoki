@@ -2,7 +2,7 @@
 import { GOODS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
 import { midPrice, targetStock } from './market.js';
-import { jitter } from './rng.js';
+import { jitter, inStream } from './rng.js';
 import { emit, supplyWave, waveTrough } from './events.js';
 import { districtProduction, staffing, housingCap, updateHousing, civicDemand, civicsIn, civicSatisfaction, wildDemand } from './district.js';
 import { CIVICS } from '../data/district.js';
@@ -58,7 +58,7 @@ function produce(world, city) {
     const cap = Math.max(20, dailyDemand(city, id, false) * B.stockCapDays, rate * 15);
     if ((city.stock[id] || 0) >= cap) continue;
     const mod = city.prodMods?.[id] ?? 1;
-    const amount = rate * labor * mod * staff * jitter(world, B.productionNoise);
+    const amount = rate * labor * mod * staff * inStream(world, `prod:${city.id}:${id}`, () => jitter(world, B.productionNoise));
     city.stock[id] = (city.stock[id] || 0) + amount;
   }
 }
