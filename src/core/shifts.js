@@ -28,6 +28,9 @@ export function planShifts(world) {
   let start = between(sc.first);
   // lowBag: 低迷する町を袋から引く（どの町も一巡で1回ずつ。2回とも同じ町になるくじが大きかった。22回目の Opus）
   let bag = [];
+  // fairBag: 隊商市の町も袋から引く（候補の町を一巡するまで、同じ町に立たない）。市の町をいつも通る固定の便が、
+  // 場所のくじに当たったシードで S に届いた（23回目の Opus）。町を3つにし、線までに3回立つ形と組んで、決まった分け前にする
+  let fbag = [];
   while (start < (world.scenario.deadline || 600)) {
     let low;
     if (sc.lowBag) { if (!bag.length) bag = [...sc.markets]; low = bag.splice(Math.floor(rnd() * bag.length), 1)[0]; }
@@ -35,7 +38,9 @@ export function planShifts(world) {
     // 隊商市の町は毎回の抽選（前回の町を外していたので、候補が2町の s3 では必ず交互になり、場所を読む必要がなかった。22回目の Sol）
     // fairAlt: 前回と違う町（比べるための古い決め方）
     const fairs = sc.fairAlt && list.length ? sc.fairs.filter((f) => f !== list.at(-1).fair) : sc.fairs;
-    const fair = fairs[Math.floor(rnd() * fairs.length)];
+    let fair;
+    if (sc.fairBag) { if (!fbag.length) fbag = [...sc.fairs]; fair = fbag.splice(Math.floor(rnd() * fbag.length), 1)[0]; }
+    else fair = fairs[Math.floor(rnd() * fairs.length)];
     list.push({ id: list.length + 1, good: sc.good, low, fair, announce: Math.max(1, start - sc.lead), start, end: start + sc.days, fairEnd: start + (sc.fairDays ?? sc.days), sold: 0, value: 0, lowValue: 0 });
     start += sc.days + between(sc.gap);
   }
@@ -118,6 +123,19 @@ export function noteShiftSale(world, city, good, n, gain) {
     const low = world.cities[x.low];
     if (low) x.lowValue += quote(world, low, good, -n);
   }
+}
+
+// 袋の決まり（fairBag）を画面に出す: 予告ずみの市だけから、この一巡でまだ市の立っていない町を数える
+// （隠れた決まりにすると、覚えた人だけが先読みできる。23回目の Sol・Opus）
+export function fairRound(world) {
+  const sc = world.scenario.shifts;
+  if (!sc?.fairBag) return null;
+  const told = (world.shifts || []).filter((x) => world.day >= x.announce);
+  const n = sc.fairs.length;
+  const used = told.slice(Math.floor(told.length / n) * n).map((x) => x.fair);
+  const left = sc.fairs.filter((f) => !used.includes(f));
+  const names = (ids) => ids.map((id) => nm(world, id)).join('・');
+  return { left, text: `隊商市は、${names(sc.fairs)}の${n}つを一巡するまで同じ町に立たない。${used.length ? `この一巡でまだ立っていないのは${names(left)}` : '次の市から新しい一巡（どの町にも立ちうる）'}` };
 }
 
 // 町の「これから」に出す行

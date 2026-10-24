@@ -714,10 +714,20 @@ test('目標「結ぶ」は、空荷の便を数えない', () => {
   assert.equal(G.goalProgress(w, { type: 'link', a: 'kibi', b: 'suitou', count: 2 }).p, 0);
 });
 
-test('s3 の隊商市の町は毎回の抽選で、同じ町が続くこともある', () => {
+test('s3 の隊商市の町は袋から引く: 3つの町を一巡するまで同じ町に立たず、次の一巡では続くこともある', () => {
   let same = 0;
-  for (let seed = 1; seed <= 40; seed++) { const xs = G.createWorld('s3', { seed }).shifts; if (xs[0].fair === xs[1].fair) same++; }
-  assert.ok(same > 5 && same < 35);
+  for (let seed = 1; seed <= 40; seed++) {
+    const xs = G.createWorld('s3', { seed }).shifts;
+    assert.equal(new Set(xs.slice(0, 3).map((x) => x.fair)).size, 3);
+    if (xs[2].fair === xs[3].fair) same++;
+  }
+  assert.ok(same > 3 && same < 30);
+  // 画面に出す一巡の残りは、予告ずみの市だけから数える
+  const w = G.createWorld('s3', { seed: 4 });
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  while (w.day < w.shifts[0].announce) G.advance(w, 1, { stopOn: new Set() });
+  assert.deepEqual(G.fairRound(w).left.sort(), w.scenario.shifts.fairs.filter((f) => f !== w.shifts[0].fair).sort());
 });
 
 test('s3 の売り場の交代: 予定は行動で変わらず、予告から始まりまで日があり、隊商市はふだん買わない白糖を高く買う', () => {
@@ -727,8 +737,8 @@ test('s3 の売り場の交代: 予定は行動で変わらず、予告から始
   for (let i = 0; i < 30; i++) G.advance(b, 1, { stopOn: new Set() });
   assert.deepEqual(a.shifts.map((x) => [x.low, x.fair, x.start]), b.shifts.map((x) => [x.low, x.fair, x.start]));
   const x = a.shifts[0];
-  assert.ok(x.start - x.announce >= 26);
-  assert.ok(['natsume', 'hachi'].includes(x.fair));
+  assert.ok(x.start - x.announce >= a.scenario.shifts.lead);
+  assert.ok(a.scenario.shifts.fairs.includes(x.fair));
   const w = G.createWorld('s3', { seed: 4 });
   const s = G.foundSites(w, 1)[0];
   G.foundPost(w, s.x, s.y);
@@ -764,7 +774,8 @@ test('臨時の便（期間予約）は、期間に入ると切り替わり、�
   const draft = G.altDraftFor(w, m, { ...x, low: 'toumitsu', good: 'wheat' });
   assert.equal(draft[1].city, x.fair);
   const win = G.altWindowFor(w, m, x, draft);
-  assert.equal(win.from + win.days, x.start + 1); // 予告は、遠い隊商市にも間に合う日数より前に出る
+  // 着く日が市の始まりの翌日になるよう前へずらす。予告より遠い隊商市（泉の里は交易所から約24日）は、今日から
+  assert.equal(win.from, Math.max(w.day, x.start - win.days + 1));
 });
 
 test('未来の臨時の便を足しても、今回っている臨時の便は、新しい予約の始まりまで続く', () => {

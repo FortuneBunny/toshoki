@@ -79,7 +79,7 @@ const s2 = {
 const s3 = {
   id: 's3', no: 3, title: '糖蜜の煙',
   // 版4: サトウキビの村は集落になった。糖蜜町と翠糖京は古い町。製糖所は、自分の交易所を「市場」に格上げすると建てられる
-  intro: 'サトウキビは安いが、そのままでは価値が低い。甘蔗の集落のそばに交易所を開き、「市場」に格上げして製糖所を建てれば、市場のサトウキビを自動で仕入れて白糖に精製してくれる。できた白糖を大都市・翠糖京や糖蜜町へ運んで売れ。ときどき、どちらかの町に白糖が大量に入って安くしか売れなくなる。その期間には、なつめ村か蜜蜂の丘に隊商市が立ち、白糖を高く買う──予告が出たら、定期便の「臨時の便」でその期間だけ売り先を回せ。白糖を売って9000銀を稼ぎ、資産を5000銀にせよ。',
+  intro: 'サトウキビは安いが、そのままでは価値が低い。甘蔗の集落のそばに交易所を開き、「市場」に格上げして製糖所を建てれば、市場のサトウキビを自動で仕入れて白糖に精製してくれる。できた白糖を大都市・翠糖京や糖蜜町へ運んで売れ。ときどき、どちらかの町に白糖が大量に入って安くしか売れなくなる。その期間には、なつめ村・蜜蜂の丘・泉の里のどこかに隊商市が立ち、白糖を高く買う（3つの町を一巡するまで、同じ町には立たない）──予告が出たら、定期便の「臨時の便」でその期間だけ売り先を回せ。白糖を売って9000銀を稼ぎ、資産を5000銀にせよ。',
   goods: ['wheat', 'dates', 'honey', 'cane', 'rawsugar', 'molasses', 'whitesugar', 'sweets'],
   start: { silver: 1600, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }] },
   cities: [
@@ -88,13 +88,18 @@ const s3 = {
     { id: 'suitou', name: '翠糖京', x: 810, y: 320, pop: 3600, produces: { wheat: 9, dates: 2, honey: 1.4 }, waves: { whitesugar: { period: 80, amp: 0.8, demand: true } } },
     // 隊商市の立つ小さな古い町（村なので、ふだん白糖は買わない）。19回目の相談: 好機は、固定の便が通っていない所に出す
     { id: 'natsume', name: 'なつめ村', x: 690, y: 525, pop: 520, steady: true, produces: { dates: 4.5 } },
-    { id: 'hachi', name: '蜜蜂の丘', x: 420, y: 110, pop: 460, steady: true, produces: { honey: 1.5, dates: 2.5 } },
+    // 蜜蜂の丘は、糖蜜町からの寄り道がほかの市の町と同じくらい（9日）になる所に置く（7日だと、通るだけの固定の便の安い保険になった。23回目）
+    { id: 'hachi', name: '蜜蜂の丘', x: 405, y: 68, pop: 460, steady: true, produces: { honey: 1.5, dates: 2.5 } },
+    // 3つ目の隊商市の町（23回目の相談）: 町が2つだと、どちらかを通る固定の便が必ず半分の市に当たった
+    { id: 'izumi', name: '泉の里', x: 680, y: 120, pop: 480, steady: true, produces: { wheat: 3, honey: 0.6 } },
   ],
   edges: [{ a: 'toumitsu', b: 'suitou', kind: 'road' }],
-  knownAtStart: ['toumitsu', 'suitou', 'natsume', 'hachi'],
+  knownAtStart: ['toumitsu', 'suitou', 'natsume', 'hachi', 'izumi'],
   // 予告された売り場の交代（19回目の相談）: いつもの売り場の1つで白糖が安くなる期間に、なつめ村か蜜蜂の丘に隊商市が立つ。
   // 18回目まで、2つの売り場へ固定で分ける便が、需要の波を平均して5シードすべてSだった
-  shifts: { good: 'whitesugar', markets: ['suitou', 'toumitsu'], fairs: ['natsume', 'hachi'], first: [55, 70], gap: [4, 12], lead: 26, days: 35, fairDays: 25, low: { demand: 0.15, price: 0.5 }, lowOthers: { demand: 0.7, price: 0.85 }, fair: { demand: 5, price: 1.0, stock: 0.5 } },
+  // 23回目の相談: 市の町は3つを袋から引き（一巡するまで同じ町に立たない）、交代は短く多く（約30日に1回。S までに約3回）。
+  // 市の町を通る固定の便が、場所のくじに当たったシードで S に届いていた
+  shifts: { good: 'whitesugar', markets: ['suitou', 'toumitsu'], fairs: ['natsume', 'hachi', 'izumi'], fairBag: true, first: [45, 55], gap: [3, 8], lead: 20, days: 25, fairDays: 18, low: { demand: 0.15, price: 0.5 }, lowOthers: { demand: 0.7, price: 0.85 }, fair: { demand: 5, price: 1.0, stock: 0.5 } },
   pioneer: {
     families: [{ id: 'hasan', name: 'ハサン家', x: 205, y: 405, text: '西の緑地、サトウキビ畑のそばに館がある。' }],
     hamlets: [
@@ -109,7 +114,7 @@ const s3 = {
   // 「白糖を200個つくる」は製糖所の速さだけで決まり、定期便を写して待つだけでSが取れた（17回目の Opus・Sol）。売った額にして、需要の山で売るほど早くする
   // 「翠糖京と3往復」は、隊商市へ便を回す読みとぶつかるので外した（19回目）
   goals: [{ type: 'sellValue', good: 'whitesugar', amount: 9000 }, { type: 'networth', amount: 5000 }],
-  deadline: 420, rankS: 0.31, // Sは130日。予告を読んで隊商市へ回す手と、道と最低売値を使う固定の便の間（21回目）
+  deadline: 420, rankS: 0.3, // Sは126日。探索で見つけたいちばん強い固定の手が S 1割以下、線+3日で15%以下になる線（23回目のあと。130日では届かなかった）
   maxPosts: 3, postCost: 300, maxPaths: 3,
   tutorial: [
     { text: '甘蔗の集落のそば（緑の印）に、最初の交易所を置く（無料）', done: (w) => Object.values(w.cities).some((c) => c.founded) },

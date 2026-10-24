@@ -32,17 +32,19 @@ const reachable = (w, stops, t) => stops.every((s, i) => G.findPath(w, s.city, s
 // mode: { kind: 'fixed' | 'react' | 'read' | 'none', k: 1つの予告に回す人数 }
 export function play(g, seed, mode, opts = {}) {
   const w = G.createWorld(SCEN, { seed });
+  // 予定の型（どの手でも同じ分け方。終わった日で層が変わらないように、生成した予定の列の最初から取る。23回目の Sol）
+  const plan = { fairs: (w.shifts || []).slice(0, 3).map((x) => x.fair[0]).join(''), lows: (w.shifts || []).slice(0, 2).map((x) => x.low[0].toUpperCase()).join(''), first: w.shifts?.[0]?.start ?? null };
   if (mode.kind === 'none') w.shifts = [];
   if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
   const s = G.foundSites(w, 3)[g.site] || G.foundSites(w, 1)[0];
-  if (!s) return { seed, day: null, rank: 'C', err: 'site' };
+  if (!s) return { seed, day: null, rank: 'C', err: 'site', plan };
   G.foundPost(w, s.x, s.y);
   G.drainEvents(w);
   const p = postOf(w);
   G.expandMarket(w, p);
-  if (!G.build(w, p, 'mill').ok) return { seed, day: null, rank: 'C', err: 'mill' };
+  if (!G.build(w, p, 'mill').ok) return { seed, day: null, rank: 'C', err: 'mill', plan };
   const set = (m, keepAlt) => G.setOrder(w, m.id, { stops: routeFor(w, g, g.routes[(w.player.merchants.indexOf(m)) % g.routes.length], m.transport), reserve: 30, keepAlt });
-  if (!set(w.player.merchants[0]).ok) return { seed, day: null, rank: 'C', err: 'order' };
+  if (!set(w.player.merchants[0]).ok) return { seed, day: null, rank: 'C', err: 'order', plan };
   const paths = g.paths.map(([a, b, kind]) => [a === 'post' ? p : a, b, kind]);
   const seen = new Set();
   let sent = 0;
@@ -77,7 +79,7 @@ export function play(g, seed, mode, opts = {}) {
   const f = w.finished || {};
   const day = f.day ?? null;
   const sh = (w.shifts || []).filter((x) => x.start < (day ?? w.day));
-  return { seed, day, rank: f.rank ?? 'C', pat: sh.slice(0, 2).map((x) => x.low[0].toUpperCase() + x.fair[0]).join(','), first: sh[0]?.start ?? null, fair: sh.reduce((a, x) => a + x.sold, 0), sent };
+  return { seed, day, rank: f.rank ?? 'C', plan, fair: sh.reduce((a, x) => a + x.sold, 0), sent };
 }
 
 // 読む手: 予告を見て、k 人まで、その期間だけ隊商市へ回す（低迷する町へ売る便から先に）。
@@ -191,13 +193,15 @@ class Pool {
 
 // ---- 集計 ----
 const median = (a) => { const b = [...a].sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+let LINES = []; // --lines 122,126,129,132: ほかの線での数も出す（急な段がないかを見る）
 function summary(rs, line) {
-  const d = rs.map((r) => r.day ?? 999);
-  return { n: rs.length, S: d.filter((x) => x <= line).length, S3: d.filter((x) => x <= line + 3).length, med: median(d), at: d.filter((x) => x === line - 1 || x === line).length };
+  const d = rs.map((r) => r.day ?? 999).sort((a, b) => a - b);
+  return { n: rs.length, S: d.filter((x) => x <= line).length, S3: d.filter((x) => x <= line + 3).length, med: median(d), q25: d[Math.floor(d.length / 4)], q75: d[Math.floor((d.length * 3) / 4)], ex: LINES.map((L) => `${L}:${d.filter((x) => x <= L).length}`).join(' ') };
 }
 // 探索の点数: S の線の割合を主に、線＋5日と中央の日数で傾きをつける（山登りが平らにならないように）
 const fitness = (rs, line) => { const s = summary(rs, line); const d = rs.map((r) => r.day ?? 999); return s.S / s.n + 0.5 * d.filter((x) => x <= line + 5).length / s.n + 0.3 * Math.max(0, Math.min(1, (line + 25 - s.med) / 25)); };
-const fmt = (s) => `S ${s.S}/${s.n}（${Math.round((100 * s.S) / s.n)}%） 線+3 ${s.S3}/${s.n} 中央 ${s.med}`;
+const pct = (a, n) => `${Math.round((100 * a) / n)}%`;
+const fmt = (s) => `S ${s.S}/${s.n}（${pct(s.S, s.n)}） 線+3 ${s.S3}/${s.n}（${pct(s.S3, s.n)}） 中央 ${s.med}（${s.q25}〜${s.q75}）${s.ex ? `  線別 ${s.ex}` : ''}`;
 
 // ---- 本体 ----
 if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
@@ -210,22 +214,24 @@ if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
   if (scen) Object.assign(G.SCENARIOS[SCEN], scen);
   const sc = G.SCENARIOS[SCEN];
   const LINE = Number(opt('line', Math.floor(sc.deadline * sc.rankS)));
+  LINES = opt('lines') ? opt('lines').split(',').map(Number) : [];
   // 既定は CPU の半分（全部使うと PC が重くなる）
   const pool = new Pool(Number(opt('workers', Math.max(2, Math.floor(cpus().length / 2)))), { set, scen });
   const evalOn = (g, seeds, mode, opts) => Promise.all(seeds.map((s) => pool.run(g, s, mode, opts)));
   const modeOf = (m) => (m === 'fixed' || m === 'none' ? { kind: m } : m.startsWith('react') ? { kind: 'react', k: Number(m.slice(5) || 2) } : { kind: 'read', k: Number(m.slice(4) || 2) });
   const cmd = args[0] || 'fstar';
 
-  // 予定の型ごとの内訳（低迷する町の並びと市の場所、最初の時期）
-  const byPattern = (rs) => {
+  // 予定の型ごとの内訳（予定の列の最初の3つの市・最初の2つの低迷・最初の時期。どの手でも同じ分け方）
+  const groupsOf = (rs) => {
     const groups = {};
-    for (const r of rs) {
-      const keys = [`並び ${r.pat.split(',').map((x) => x[0]).join('')}`, `市 ${r.pat.split(',').map((x) => x[1]).join('')}`, `始 ${r.first <= 62 ? '55-62' : '63-70'}`];
-      for (const k of keys) (groups[k] ||= []).push(r);
-    }
-    return Object.entries(groups).sort().map(([k, v]) => `  ${k.padEnd(10)} ${fmt(summary(v, LINE))}`).join('\n');
+    for (const r of rs) for (const k of [`市 ${r.plan?.fairs?.slice(0, 2) ?? '-'}`, `市 ${r.plan?.fairs ?? '-'}`, `並び ${r.plan?.lows ?? '-'}`, `始 ${(r.plan?.first ?? 0) <= (sc.shifts.first[0] + sc.shifts.first[1]) / 2 ? '前半' : '後半'}`]) (groups[k] ||= []).push(r);
+    return groups;
   };
+  const byPattern = (rs) => Object.entries(groupsOf(rs)).sort().map(([k, v]) => `  ${k.padEnd(10)} ${fmt(summary(v, LINE))}`).join('\n');
+  const D = (r) => r?.day ?? 999;
 
+  // 合格の条件（23回目の相談）。結果は、行ごとに ✔ / ✖
+  const verdict = [];
   async function compare(g, seeds, modes) {
     const out = {};
     for (const m of modes) {
@@ -233,22 +239,41 @@ if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
       out[m] = rs;
       console.log(`${m.padEnd(7)} ${fmt(summary(rs, LINE))}${rs.some((r) => r.err) ? `  失敗 ${rs.filter((r) => r.err).length}（${rs.find((r) => r.err).err}）` : ''}`);
     }
-    if (out.fixed) console.log(`固定の内訳\n${byPattern(out.fixed)}`);
-    // 同じ土台で、読むと固定よりどれだけ速いか。最善の人数がシードで分かれるか
+    const ok = (c) => (c ? '✔' : '✖');
+    const lines = [];
+    if (out.fixed) {
+      console.log(`固定の内訳\n${byPattern(out.fixed)}`);
+      const s = summary(out.fixed, LINE);
+      const big = Object.entries(groupsOf(out.fixed)).filter(([k, v]) => k.startsWith('市') && v.length >= 20).map(([k, v]) => [k, summary(v, LINE).S / v.length]);
+      const worst = big.sort((a, b) => b[1] - a[1])[0];
+      lines.push(`${ok(s.S <= s.n * 0.1)} 固定 S ${pct(s.S, s.n)}（線で1割以下）`, `${ok(s.S3 <= s.n * 0.15)} 固定 線+3 ${pct(s.S3, s.n)}（15%以下）`, `${ok(!worst || worst[1] <= 0.2)} 市の組ごとの最大 ${worst ? `${worst[0]} ${Math.round(worst[1] * 100)}%` : '-'}（20シード以上の組で20%以下）`);
+    }
+    // 同じシードどうしの差（読むと固定よりどれだけ速いか、始まってから回す手よりどれだけ速いか）
     const reads = modes.filter((m) => m.startsWith('read'));
     if (out.fixed && reads.length) {
       for (const m of reads) {
-        const gain = seeds.map((_, i) => (out.fixed[i].day ?? 999) - (out[m][i].day ?? 999));
-        console.log(`${m} − 固定: 中央 ${median(gain)}日速い（速い ${gain.filter((x) => x > 0).length} / 同じ ${gain.filter((x) => x === 0).length} / 遅い ${gain.filter((x) => x < 0).length}）`);
+        const gain = seeds.map((_, i) => D(out.fixed[i]) - D(out[m][i]));
+        const five = gain.filter((x) => x >= 5).length;
+        const vsReact = out.react2 ? median(seeds.map((_, i) => D(out.react2[i]) - D(out[m][i]))) : null;
+        console.log(`${m} − 固定: 中央 ${median(gain)}日速い（5日以上速い ${five}/${seeds.length}・遅い ${gain.filter((x) => x < 0).length}）${vsReact !== null ? `  始まってから2人より 中央 ${vsReact}日速い` : ''}`);
+        if (m === 'read2') lines.push(`${ok(median(gain) >= 15 && five >= seeds.length * 0.75)} 読む2人: 固定より中央 ${median(gain)}日、5日以上速い ${pct(five, seeds.length)}（15日以上・75%以上）`, ...(vsReact !== null ? [`${ok(vsReact >= 5)} 読む2人: 始まってから2人より中央 ${vsReact}日（5日以上）`] : []));
       }
-      const cand = ['fixed', ...reads];
-      const best = {};
-      seeds.forEach((_, i) => { const ds = cand.map((m) => out[m][i].day ?? 999); const b = Math.min(...ds); const who = cand.filter((m, j) => ds[j] <= b + 1).map((m) => (m === 'fixed' ? 0 : Number(m.slice(4) || 2))); const key = who.join('/'); best[key] = (best[key] || 0) + 1; });
-      console.log(`最善の人数（1日差は同点）: ${Object.entries(best).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}人 ${v}`).join('  ')}`);
+      // 人数: 0〜1人と2〜3人の、3日以上の有利
+      if (['read1', 'read2', 'read3'].every((m) => out[m])) {
+        let lo = 0, hi = 0;
+        seeds.forEach((_, i) => { const a = Math.min(D(out.fixed[i]), D(out.read1[i])); const b = Math.min(D(out.read2[i]), D(out.read3[i])); if (a <= b - 3) lo++; else if (b <= a - 3) hi++; });
+        console.log(`人数（3日差）: 0〜1人が有利 ${lo}  2〜3人が有利 ${hi}  どちらでもない ${seeds.length - lo - hi}`);
+        lines.push(`${lo >= seeds.length * 0.2 && hi >= seeds.length * 0.2 ? '✔' : '・'} 人数: 0〜1人が有利 ${pct(lo, seeds.length)}・2〜3人が有利 ${pct(hi, seeds.length)}（各20%以上。記録のみ）`);
+      }
     }
-    if (out.none && out.fixed) console.log(`予定の列なし − 固定: 中央 ${median(seeds.map((_, i) => (out.fixed[i].day ?? 999) - (out.none[i].day ?? 999)))}日（予定の列が固定の手にかける負担）`);
+    if (out.none && out.fixed) console.log(`予定の列なし − 固定: 中央 ${median(seeds.map((_, i) => D(out.fixed[i]) - D(out.none[i])))}日（予定の列が固定の手にかける負担）`);
+    if (lines.length) console.log(`合否（線 ${LINE}日）\n  ${lines.join('\n  ')}`);
+    verdict.push({ g: describe(g), lines });
+    // --save: シードごとの結果を書き出す
+    if (opt('save')) saved.push({ g, line: LINE, set, seeds, out: Object.fromEntries(Object.entries(out).map(([m, rs]) => [m, rs.map((r) => ({ seed: r.seed, day: r.day, rank: r.rank, plan: r.plan, err: r.err }))])) });
     return out;
   }
+  const saved = [];
 
   if (cmd === 'fstar') {
     const seeds = range(opt('seeds', '101-190'));
@@ -307,5 +332,6 @@ if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
     writeFileSync(out, JSON.stringify({ line: LINE, set, top: parents.map((p) => ({ g: p.g, sel: p.sel })) }, null, 1));
     console.log(`書き出し: ${out}（${Math.round((Date.now() - t0) / 1000)}秒）`);
   }
+  if (opt('save') && saved.length) writeFileSync(opt('save'), JSON.stringify(saved));
   pool.close();
 }

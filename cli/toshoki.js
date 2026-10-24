@@ -633,7 +633,8 @@ function run(world, cmd, pos, opts) {
     case 'status': out.push(statusText(world)); break;
     case 'shifts': {
       const list = G.knownShifts(world);
-      if (!list.length) { out.push(world.scenario.shifts ? '今、予告された売り場の交代はない（予告は始まる約26日前に出る）' : 'このシナリオには、予告された売り場の交代はない'); break; }
+      if (G.fairRound(world)) out.push(`🎪${G.fairRound(world).text}`);
+      if (!list.length) { out.push(world.scenario.shifts ? `今、予告された売り場の交代はない（予告は始まる約${world.scenario.shifts.lead}日前に出る）` : 'このシナリオには、予告された売り場の交代はない'); break; }
       for (const x of list) {
         out.push(`#${x.id} ${G.shiftActive(world, x) ? `今（あと${x.end - world.day}日）` : `${x.start - world.day}日後から`}: ${x.start}〜${x.end - 1}日目、${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い / ${x.start}〜${G.fairEnd(x) - 1}日目、${world.cities[x.fair].name}(${x.fair})に隊商市（${GOODS[x.good].name}を高く買う。毎日約${world.scenario.shifts.fair.demand}個ずつ売れていき、まとめて売ると値が下がる）`);
         for (const m of world.player.merchants.filter((y) => y.order)) {

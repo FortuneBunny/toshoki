@@ -527,6 +527,7 @@ export function shiftDialog(app, sid) {
   draw();
   const body = h('div', {},
     h('p', {}, `${x.start - world.day > 0 ? `${x.start - world.day}日後` : '今'}（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${low}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に${fair}に隊商市が立ち、${G.fairEnd(x) - 1}日目まで${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。市は安値より早く閉じる。下に、商人ごとに着く日の目安を出す（積み待ちの日数は入らない）。`),
+    G.fairRound(world) ? h('p', { class: 'dim', style: { fontSize: '12px' } }, `🎪${G.fairRound(world).text}。`) : null,
     h('p', { class: 'dim', style: { fontSize: '12px' } }, `その期間だけ便の売り先を${fair}に回すと、安値を避けて高く売れる。全部の便を回すと、隊商市でも値が崩れる（売れていく速さに限りがある）。下の日付は、臨時の便に切り替わって町を出る期間（着く日が市の期間に入るよう、行く日数だけ前にずらしてある）。何人を回すか、回さずにそのままにするかを決める。臨時の便は期間が過ぎると、いつもの便に戻る。`),
     list);
   const md = modal(app, `📣 予告: ${fair}に隊商市`, body, (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn', onclick: close }, '閉じる')]);
