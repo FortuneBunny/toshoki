@@ -100,8 +100,9 @@ const s3 = {
   // 23回目の相談: 市の町は3つを袋から引き（一巡するまで同じ町に立たない）、交代は短く多く（約30日に1回。S までに約3回）。
   // 市の町を通る固定の便が、場所のくじに当たったシードで S に届いていた
   // 23回目のあと: 市は買う総量（5〜50個）を予告し、買い終えると閉じる。
+  // 24回目のあと: 臨時の便は町に着いたとき切り替わり、白糖を積んでいれば市へ直に向かう。始まってから回す手が追いついたので、市は14日で閉じる
   // 24回目: 市は白糖を持たずに始まり、値は初日から平ら（在庫を半分持って始めると初日がいちばん安く、予告を読んで早く着いた人ほど損をした）。値は1.1倍。何人を回すかが市ごとに分かれる（どの市にも同じ人数を回すより、総量を読んで人数を決める手が速い）
-  shifts: { good: 'whitesugar', markets: ['suitou', 'toumitsu'], fairs: ['natsume', 'hachi', 'izumi'], fairBag: true, first: [45, 55], gap: [3, 8], lead: 20, days: 25, fairDays: 18, low: { demand: 0.15, price: 0.5 }, lowOthers: { demand: 0.7, price: 0.85 }, fair: { demand: 5, price: 1.1, stock: 0, want: [5, 50] } },
+  shifts: { good: 'whitesugar', markets: ['suitou', 'toumitsu'], fairs: ['natsume', 'hachi', 'izumi'], fairBag: true, first: [45, 55], gap: [3, 8], lead: 20, days: 25, fairDays: 14, low: { demand: 0.15, price: 0.5 }, lowOthers: { demand: 0.7, price: 0.85 }, fair: { demand: 5, price: 1.1, stock: 0, want: [5, 50] } },
   pioneer: {
     families: [{ id: 'hasan', name: 'ハサン家', x: 205, y: 405, text: '西の緑地、サトウキビ畑のそばに館がある。' }],
     hamlets: [

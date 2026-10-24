@@ -18,7 +18,7 @@ export * from './advice.js';
 export * from './dwelling.js';
 export * from './settlers.js';
 export * from './pioneer.js';
-export { fairRound, fairRoom, fairWantText, fairClosed, fairStateText, lowStateText, knownShifts, shiftActive, fairEnd, fairActive, orderShiftWarnings, altWindowFor, altDraftFor, altCovering } from './shifts.js';
+export { fairRound, fairRoom, fairWantText, fairPrice, fairPriceText, fairClosed, fairStateText, lowStateText, knownShifts, shiftActive, fairEnd, fairActive, orderShiftWarnings, altWindowFor, altDraftFor, altCovering } from './shifts.js';
 export { TECHS, LICENSE_RATE } from '../data/techs.js';
 export { PRODUCERS, PRODUCER_FOR, TERRAIN, RESOURCES, DISTRICT_SIZE, MARKET_RADIUS, CIVICS } from '../data/district.js';
 export { GOODS, GOOD_IDS, CATEGORIES, PROVISIONS } from '../data/goods.js';

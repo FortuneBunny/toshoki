@@ -408,7 +408,7 @@ function prepareStops(world, m, stops) {
   return { stops: merged, merged: merged.length < stops.length };
 }
 
-// 期間予約（臨時の便）: from〜until日目のあいだだけ、別の停泊地を回る。町を出るときに切り替わり、過ぎたら元に戻る
+// 期間予約（臨時の便）: from〜until日目のあいだだけ、別の停泊地を回る。期間中に町に着いたとき（または町を出るとき）切り替わり、過ぎたら元に戻る
 export function setOrderAlt(world, mid, { stops, from, until, shift }) {
   const m = getMerchant(world, mid);
   if (!m?.order) return fail('先に、いつもの定期便を組む');
@@ -438,7 +438,7 @@ export function setOrderAlt(world, mid, { stops, from, until, shift }) {
   if (o.altOn && (o.alts || []).some((a) => a.id === o.altOn && a.gone)) { o.stops = o.base || o.stops; o.base = null; o.altOn = null; const i = o.stops.findIndex((s) => s.city === (m.travel ? m.travel.to : m.city)); o.next = Math.max(0, i); }
   o.altSeq = (o.altSeq || 0) + 1;
   o.alts = [...(o.alts || []).filter((a) => !a.gone), ...tails, { id: o.altSeq, stops: r.stops, from, until, ...(shift ? { shift } : {}) }].sort((a, b) => a.from - b.from);
-  emit(world, { type: 'order', merchant: m.id, text: `${m.name}の臨時の便を予約した（${from}〜${until}日目: ${r.stops.map((s) => world.cities[s.city].name).join('→')}）。期間に入ってから町を出るとき切り替わり、過ぎたら元の便に戻る${cut.length ? `（重なる予約: ${cut.join('、')}）` : ''}` });
+  emit(world, { type: 'order', merchant: m.id, text: `${m.name}の臨時の便を予約した（${from}〜${until}日目: ${r.stops.map((s) => world.cities[s.city].name).join('→')}）。期間に入ってから町に着いたとき（または町を出るとき）切り替わり、過ぎたら元の便に戻る${cut.length ? `（重なる予約: ${cut.join('、')}）` : ''}` });
   if (!m.travel && !o.paused && !o.holding && switchAlt(world, m) && o.stops[o.next]?.city === m.city) runOrder(world, m);
   return { ok: true };
 }

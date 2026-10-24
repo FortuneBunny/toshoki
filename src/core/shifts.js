@@ -62,12 +62,12 @@ export const fairActive = (world, x) => world.day >= x.start && world.day < fair
 // 隊商市があと何個買うか（総量のない市・市のない町は上限なし）
 export function fairRoom(world, city, good) {
   for (const x of world.shifts || []) {
-    if (x.fair === city.id && x.good === good && x.want && fairActive(world, x)) return Math.max(0, x.want - x.sold);
+    if (x.fair === city.id && x.good === good && x.want && fairActive(world, x)) return Math.max(0, x.want - x.sold - (x.others || 0));
   }
   return Infinity;
 }
 // 総量の知らせ（予告・画面・CLI で同じ言い方）。始まったあとは残りも出す
-export const fairWantText = (x) => (x.want ? `市が買うのは全部で${x.want}個まで（${x.sold > 0 ? `あと${Math.max(0, x.want - x.sold)}個。` : ''}買い終えると閉じる）` : '');
+export const fairWantText = (x) => (x.want ? `市が買うのは全部で${x.want}個まで（${x.sold + (x.others || 0) > 0 ? `あと${Math.max(0, x.want - x.sold - (x.others || 0))}個。` : ''}よその商人も毎日持ち込む。買い終えると閉じる）` : '');
 // 市と安値の今の様子を分けて書く（市の行に安値の残り日数を出し、閉じた市も「今」「高く買う」と出ていた。24回目の Sol・Opus）
 export const fairClosed = (world, x) => world.day >= fairEnd(x);
 export function fairStateText(world, x) {
@@ -111,10 +111,20 @@ const nm = (world, id) => world.cities[id]?.name || id;
 export function updateShifts(world) {
   if (!world.shifts && world.scenario.shifts) planShifts(world);
   const sc = world.scenario.shifts;
+  watchAlts(world);
+  // rivals: よその商人も市に白糖を持ち込み、総量を毎日埋めていく（総量の rivals 倍ずつ）。早く着いた人ほど多く売れる
+  // （近い町から直に行けるようにすると、始まってから回す手が、予告を読む手に追いついた。24回目のあと）
+  if (sc?.fair?.rivals) for (const x of world.shifts || []) {
+    if (!x.want || !fairActive(world, x) || world.day === x.start) continue;
+    const add = Math.min(Math.max(1, Math.round(x.want * sc.fair.rivals)), x.want - x.sold - (x.others || 0));
+    if (add <= 0) continue;
+    x.others = (x.others || 0) + add;
+    if (x.sold + x.others >= x.want && !x.full) { x.full = world.day + 1; closeAltsTo(world, x); }
+  }
   for (const x of world.shifts || []) {
     const g = GOODS[x.good].name;
     if (world.day === x.announce) {
-      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${nm(world, x.low)}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に、${nm(world, x.fair)}に隊商市が立ち、${fairEnd(x) - x.start}日間（${fairEnd(x) - 1}日目まで）${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。${wantText(x)}市は安値より早く閉じる。商人ごとの着く日は予告の画面で分かる。定期便の「臨時の便（期間予約）」で、先に売り先を変えておける` });
+      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${nm(world, x.low)}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に、${nm(world, x.fair)}に隊商市が立ち、${fairEnd(x) - x.start}日間（${fairEnd(x) - 1}日目まで）${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。${wantText(x)}${fairPriceText(world, x)}。市は安値より早く閉じる。商人ごとの着く日は予告の画面で分かる。定期便の「臨時の便（期間予約）」で、先に売り先を変えておける` });
     }
     if (world.day === x.start) {
       // 隊商市は、よその商人の白糖も少し持って始まる（空の市場は値が基準の3倍近くになり、隊商市の町をいつも通る固定の便が強すぎた）
@@ -142,18 +152,64 @@ export function openFairNotes(world) {
     `${nm(world, x.fair)}の隊商市（開いている途中）: ${GOODS[x.good].name}を${x.sold}個売って${Math.round(x.value)}銀（同じ日に${nm(world, x.low)}で売っていたら約${Math.round(x.lowValue)}銀）`);
 }
 
+// 隊商市の売値の目安（1個目と、10個まとめて売ったときの1個あたり）。始まる前は、始まりの日の市を仮に作って測る
+// （市でいくらで買うかがどこにも出ず、最低売値が当て推量になって全部持ち帰った。24回目の Opus）
+export function fairPrice(world, x) {
+  const sc = world.scenario.shifts;
+  const c = world.cities[x.fair];
+  if (!sc || !c || fairClosed(world, x)) return null;
+  if (fairActive(world, x)) return { one: quote(world, c, x.good, -1), ten: quote(world, c, x.good, -10) / 10, now: true };
+  const keep = { fd: c.fairDemand, pm: c.priceMods, st: c.stock[x.good] };
+  c.fairDemand = { ...(c.fairDemand || {}), [x.good]: sc.fair.demand };
+  c.priceMods = { ...(c.priceMods || {}), [x.good]: (c.priceMods?.[x.good] ?? 1) * sc.fair.price };
+  c.stock[x.good] = sc.fair.demand * B.targetStockDays * (sc.fair.stock ?? 0);
+  const r = { one: quote(world, c, x.good, -1), ten: quote(world, c, x.good, -10) / 10, now: false };
+  c.fairDemand = keep.fd; c.priceMods = keep.pm; c.stock[x.good] = keep.st;
+  return r;
+}
+export function fairPriceText(world, x) {
+  const p = fairPrice(world, x);
+  return p ? `${p.now ? '今の' : ''}市の売値の目安: 1個目は約${Math.round(p.one)}銀、10個まとめて売ると1個あたり約${Math.round(p.ten)}銀（毎日約${world.scenario.shifts.fair.demand}個ずつ売れていき、値が戻る）` : '';
+}
+
+// 予告から組んだ予約を、切り替わらないまま逃したら知らせる。積み待ちで締切が近いときも知らせる
+// （積み待ちのあいだに期間が過ぎ、市で1個も売らないまま、いつもの便に戻っていたことに気づけなかった。24回目の Sol）
+export function noteAltMiss(world, m, a) {
+  if (!a.shift || a.used || a.missed) return;
+  a.missed = true;
+  const x = (world.shifts || []).find((s) => s.id === a.shift);
+  const st = m.order?.stops?.[m.order.next];
+  const why = m.order?.holding && st?.waitFor ? `${nm(world, m.city)}で${GOODS[st.waitFor.good].name}を待っていた（${Math.floor(m.cargo[st.waitFor.good] || 0)}/${st.waitFor.qty}個）` : '期間中に、市に間に合う町で切り替われなかった';
+  emit(world, { type: 'orderNote', merchant: m.id, city: m.city, bad: true, text: `${m.name}: 予告#${a.shift}${x ? `（${nm(world, x.fair)}の隊商市）` : ''}の臨時の便に切り替わらないまま、予約の期間が過ぎた。${why}` });
+}
+function watchAlts(world) {
+  for (const m of world.player.merchants) for (const a of m.order?.alts || []) {
+    if (!a.shift || a.used) continue;
+    if (world.day >= a.until) { noteAltMiss(world, m, a); continue; }
+    const st = m.order.stops[m.order.next];
+    if (!a.warned && world.day >= a.from && a.until - world.day <= 3 && m.order.holding && st?.waitFor) {
+      a.warned = true;
+      emit(world, { type: 'orderNote', merchant: m.id, city: m.city, bad: true, text: `${m.name}: 予告#${a.shift}の臨時の便の期間は、あと${a.until - world.day}日。${nm(world, m.city)}で${GOODS[st.waitFor.good].name}を待っている（${Math.floor(m.cargo[st.waitFor.good] || 0)}/${st.waitFor.qty}個）。待つ数を減らすか、手で出発させないと逃す` });
+    }
+  }
+}
+
+// 閉じた市へ回る臨時の便は、次に町を出るときにいつもの便へ戻す（空の市と交易所を往復し続けないように）
+function closeAltsTo(world, x) {
+  for (const m of world.player.merchants) for (const a of m.order?.alts || []) {
+    if (a.until > x.full && a.stops.some((s) => s.city === x.fair)) a.until = Math.max(a.from + 1, x.full);
+  }
+}
+
 // 隊商市で売った分を記録する（終わりの知らせで、読んだ得を数字で見せる）
 export function noteShiftSale(world, city, good, n, gain) {
   for (const x of world.shifts || []) {
     if (x.fair !== city.id || x.good !== good || !fairActive(world, x)) continue;
     x.sold += n;
     x.value += gain;
-    if (x.want && x.sold >= x.want && !x.full) {
+    if (x.want && x.sold + (x.others || 0) >= x.want && !x.full) {
       x.full = world.day + 1;
-      // 閉じた市へ回る臨時の便は、次に町を出るときにいつもの便へ戻す（空の市と交易所を往復し続けないように）
-      for (const m of world.player.merchants) for (const a of m.order?.alts || []) {
-        if (a.until > x.full && a.stops.some((s) => s.city === x.fair)) a.until = Math.max(a.from + 1, x.full);
-      }
+      closeAltsTo(world, x);
     }
     const low = world.cities[x.low];
     if (low) x.lowValue += quote(world, low, good, -n);
@@ -211,24 +267,64 @@ export function orderShiftWarnings(world, m) {
   return out;
 }
 
-// 臨時の便の期間の目安（これは「町を出る」期間。隊商市で売れる期間とは別）: 便の最初の停泊地から隊商市まで行く日数だけ、
-// 始まりと終わりを前へずらす。着くのが始まりより早いと、まだ買ってもらえないので1日あとに着くようにし、
-// 終わりは2日の余裕をみる（最後の日に出た便が、市の閉じた日に着いて売れなかった。20回目の Sol）。
+// 臨時の便の期間の目安（これは「切り替わる」期間。隊商市で売れる期間とは別）: 隊商市まで行く日数だけ、始まりと終わりを前へずらす。
+// 着くのが始まりより早いと、まだ買ってもらえないので1日あとに着くようにする（市が閉じる前に着けない町では、切り替わらない。orders.js の switchAlt）。
 // ready: 商人が今の旅を終えて、便の最初の停泊地に戻れる日（帰り道の商人に、間に合わない予約を勧めていた。21回目の Sol）。
 // late: 戻ってから出ても間に合わない
+// 町 at で便 stops に切り替えたときの、最初の行き先と、隊商市へ着く日（積み待ちは入らない）。
+// 今いる町が便にあればそこから。なければ、市で売る品を積んでいれば市へ直に、積んでいなければ最初の停泊地から
+export function altEntry(world, m, stops, at, x = null, day = world.day) {
+  let entry = stops.findIndex((s) => s.city === at);
+  if (entry < 0) {
+    const j = stops.findIndex((s) => (s.sell || []).some((v) => (m.cargo[v.good] || 0) >= 1));
+    entry = j >= 0 ? j : 0;
+  }
+  if (!x) return { entry };
+  const f = stops.findIndex((s) => s.city === x.fair);
+  if (f < 0) return { entry, arrive: Infinity };
+  const leg = (a, b) => (a === b ? 0 : findPath(world, a, b, m.transport)?.days ?? Infinity);
+  let t = day + leg(at, stops[entry].city);
+  for (let i = entry; i !== f; i = (i + 1) % stops.length) t += leg(stops[i].city, stops[(i + 1) % stops.length].city);
+  return { entry, arrive: t };
+}
+
 // arrive: 今予約したときに隊商市へ着く日の目安。afterStart: 始まってから切り替えたときに着く日（「始まってからでは間に合わない」と一律に書いていたが、
 // 近い商人は間に合った。22回目の Sol。商人ごとの見込みに替えた）。どちらも積み待ちは入らない
 export function altWindowFor(world, m, x, stops) {
-  const home = stops?.[0]?.city || baseStopsOf(m.order)[0]?.city || m.city;
-  const d = findPath(world, home, x.fair, m.transport)?.days ?? 0;
-  const until = fairEnd(x) - d - 2;
-  const start = Math.max(world.day, x.start - d + 1);
+  const base = baseStopsOf(m.order);
+  const home = stops?.[0]?.city || base[0]?.city || m.city;
+  const dist = (c) => findPath(world, c, x.fair, m.transport)?.days ?? Infinity;
+  const d = dist(home);
+  // 期間: いつもの便のどの町で切り替わっても市に間に合うように、遠い町から出る日に始め、近い町から出る日に終える
+  // （交易所からの日数だけで決めていたので、糖蜜町や翠糖京から直に行けば間に合う便が入らなかった。24回目の Opus）
+  const ds = [home, ...base.map((s) => s.city)].map(dist).filter((v) => v < Infinity);
+  const dmax = Math.max(d, ...ds), dmin = Math.min(d, ...ds);
+  const start = Math.max(world.day, x.start - dmax + 1);
+  const until = Math.max(start + 1, fairEnd(x) - dmin - 1);
   let ready = world.day;
   const at = m.travel ? m.travel.to : m.city;
   if (m.travel) ready += Math.max(0, Math.ceil(m.travel.totalDays - m.travel.elapsed));
+  const t0 = ready;
   if (at !== home) ready += findPath(world, at, home, m.transport)?.days ?? 0;
-  return { from: start, until: Math.max(start + 1, until), days: d, ready, late: until <= Math.max(start, ready), lastSale: fairEnd(x) - 1,
-    arrive: Math.max(start, ready) + d, afterStart: Math.max(x.start, ready, world.day) + d };
+  // 着く日の目安: 今の旅の行き先から、いつもの便をたどり、切り替われる最初の町で切り替えたとき
+  const route = stops || [];
+  const firstArrive = (from) => {
+    if (!route.length || !base.length) return Infinity;
+    let c = at, t = t0, i = Math.max(0, base.findIndex((s) => s.city === at));
+    for (let k = 0; k < 2 * base.length + 2 && t < until; k++) {
+      if (t >= from) {
+        const r = altEntry(world, m, route, c, x, t);
+        if (r.arrive <= fairEnd(x) - 1 && r.arrive >= x.start - 2) return Math.max(r.arrive, x.start);
+      }
+      const n = base[(i + 1) % base.length].city;
+      t += c === n ? 0 : findPath(world, c, n, m.transport)?.days ?? Infinity;
+      c = n; i = (i + 1) % base.length;
+    }
+    return Infinity;
+  };
+  const arrive = firstArrive(start);
+  const afterStart = firstArrive(Math.max(x.start, world.day));
+  return { from: start, until, days: d, ready, late: arrive > fairEnd(x) - 1, lastSale: fairEnd(x) - 1, arrive, afterStart };
 }
 
 // 臨時の便の下書き: 便の最初の停泊地（積む町）と、隊商市の町の往復。隊商市では、低迷する町（なければ、その品を売る停泊地）で売っていた品を売る。

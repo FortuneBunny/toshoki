@@ -2,7 +2,7 @@ import { dailyDemand } from './city.js';
 import { canBuyTransportAt, buyTransport } from './actions.js';
 // 到着時の処理と定期便（自動化）
 // order = { stops: [{ city, sell: [{ good, min }], buy: [{ good, qty, max }], unload: [good], load: [good] }], next: 0, paused: false }
-// 期間予約: order.alts = [{ id, stops, from, until }]。from〜until日目のあいだ、町を出るときに臨時の便へ切り替え、過ぎたら元へ戻す（19回目の相談）
+// 期間予約: order.alts = [{ id, stops, from, until, shift }]。from〜until日目のあいだに町に着いたら（または町を出るとき）臨時の便へ切り替え、過ぎたら元へ戻す（19回目の相談）
 import { GOODS } from '../data/goods.js';
 import { emit } from './events.js';
 import { observe } from './knowledge.js';
@@ -11,7 +11,7 @@ import { quote, cityWants } from './market.js';
 import { cargoUsed, cargoCap, startTravel, findPath, edgeDays, foodNeeded } from './caravan.js';
 import { PROVISIONS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
-import { knownShifts, fairRoom } from './shifts.js';
+import { knownShifts, fairRoom, fairEnd, altEntry, noteAltMiss } from './shifts.js';
 
 export function arriveAt(world, m) {
   observe(world, m.city);
@@ -61,6 +61,7 @@ export function arriveAt(world, m) {
 
 export function runOrder(world, m, { depart = true } = {}) {
   const o = m.order;
+  switchAlt(world, m, { arrive: true });
   const stop = o.stops[o.next];
   const city = world.cities[m.city];
   const notes = [];
@@ -106,8 +107,14 @@ export function runOrder(world, m, { depart = true } = {}) {
       if (n <= 0) {
         if (floor > (s.min || 0) && o.hold[s.good] === undefined) o.hold[s.good] = world.day;
         notes.push(`${GOODS[s.good].name}は売値 ${(quote(world, city, s.good, -1)).toFixed(2)} が${floor > (s.min || 0) ? `仕入れ値 ${floor.toFixed(2)}` : `最低売値 ${s.min}`} を下回るので売らずに持ち越し`);
+        // 同じ町で2回続けて持ち越したら、町の買う量を添えて知らせる（細い町で最低売値を高くして売れず、その間に工房の仕入れで銀が尽きた。24回目の Opus）
+        const k = `${city.id}:${s.good}`;
+        o.carried = o.carried || {};
+        o.carried[k] = (o.carried[k] || 0) + 1;
+        if (o.carried[k] === 2) emit(world, { type: 'orderNote', merchant: m.id, city: m.city, bad: true, text: `${m.name}（定期便）: ${city.name}は${GOODS[s.good].name}を1日に約${dailyDemand(city, s.good, false).toFixed(1)}個しか買わない。2回続けて売れずに持ち越した。最低売値を下げるか、もっと多く買う町を売り先にする（売れないあいだも、工房の仕入れで銀は減る）` });
         continue;
       }
+      if (o.carried) delete o.carried[`${city.id}:${s.good}`];
       executeTrade(world, m, [{ good: s.good, qty: -n }], { auto: true });
       if (!m.cargo[s.good]) delete o.hold[s.good];
     }
@@ -162,28 +169,39 @@ export function runOrder(world, m, { depart = true } = {}) {
   }
 }
 
-// 期間予約: 町を出るときに、臨時の便といつもの便を切り替える。積荷と旅程はそのまま、次の行き先から変わる。
-// 予約はいくつでも持てる（次の予告は、今の隊商市の期間中に出ることがある）。o.altOn は今回っている予約の id
-export function switchAlt(world, m) {
+// 期間予約: 臨時の便といつもの便を切り替える。積荷と旅程はそのまま、次の行き先から変わる。
+// 予約はいくつでも持てる（次の予告は、今の隊商市の期間中に出ることがある）。o.altOn は今回っている予約の id。
+// 町に着いたとき（arrive）と町を出るときに呼ぶ。着いたときに切り替わると、その町の停泊地は新しい便のものをこなす
+// （町を出るときだけ切り替えていたので、売り先の町で白糖を売ってから空荷で交易所へ戻り、市へ直に行けなかった。24回目の Opus・Sol）。
+// 着いたときは、今回っている臨時の便の町なら戻さない（市の町に着いてから戻すと、売らずに帰った）
+export function switchAlt(world, m, { arrive = false } = {}) {
   const o = m.order;
   if (!o?.alts?.length) return;
   const cur = o.altOn ? o.alts.find((a) => a.id === o.altOn) || null : null;
-  const want = o.alts.find((a) => world.day >= a.from && world.day < a.until) || null;
+  let want = o.alts.find((a) => world.day >= a.from && world.day < a.until) || null;
+  // 予告から組んだ予約は、この町から市が閉じる前に着けないとき・市が立つより2日以上早く着いてしまうときは、まだ切り替えない
+  // （早く着くと、市の町で何もせずに待つ）
+  if (want && want !== cur && want.shift) {
+    const x = (world.shifts || []).find((s) => s.id === want.shift);
+    const r = x && altEntry(world, m, want.stops, m.city, x);
+    if (r && (r.arrive > fairEnd(x) - 1 || r.arrive < x.start - 2)) want = cur && cur.until > world.day ? cur : null;
+  }
   // 期間が過ぎた予約は消す（今回っているものは、戻すまで残す）
+  for (const a of o.alts) if (a.until <= world.day && a !== cur) noteAltMiss(world, m, a);
   o.alts = o.alts.filter((a) => a.until > world.day || a === cur);
   if (want === cur) return;
+  if (arrive && !want && cur && cur.stops.some((s) => s.city === m.city)) return;
   if (!cur) o.base = o.stops;
   o.stops = want ? want.stops : o.base;
   if (!want) o.base = null;
   o.altOn = want ? want.id : null;
+  if (want) want.used = true;
   if (cur && cur.until <= world.day) o.alts = o.alts.filter((a) => a !== cur);
-  // 今いる町が新しい便にあれば、その次の停泊地へ。なければ、新しい便の最初の停泊地へ
-  // （いちばん近い停泊地にしていたので、売り先の町で切り替わると、空荷のまま隊商市へ向かった）
-  // 今いる町が新しい便にあれば、その停泊地から（呼んだ側で、その停泊地をこなしてから出る）。なければ、新しい便の最初の停泊地へ
-  const i = o.stops.findIndex((s) => s.city === m.city);
-  o.next = i >= 0 ? i : 0;
+  // 今いる町が新しい便にあれば、その停泊地から（呼んだ側で、その停泊地をこなしてから出る）。
+  // なければ、市で売る品を積んでいれば市へ直に、積んでいなければ新しい便の最初の停泊地へ
+  o.next = altEntry(world, m, o.stops, m.city).entry;
   const route = o.stops.map((s) => world.cities[s.city].name).join('→');
-  emit(world, { type: 'orderAlt', merchant: m.id, city: m.city, text: want ? `${m.name}の定期便を、予約どおり臨時の便（${route}、${want.until}日目まで）に切り替えた` : `${m.name}の定期便を、いつもの便（${route}）に戻した` });
+  emit(world, { type: 'orderAlt', merchant: m.id, city: m.city, text: want ? `${m.name}の定期便を、予約どおり臨時の便（${route}、${want.until}日目まで）に${o.stops[o.next].city !== m.city && o.next > 0 ? `切り替え、${world.cities[o.stops[o.next].city].name}へ直に向かう` : '切り替えた'}` : `${m.name}の定期便を、いつもの便（${route}）に戻した` });
   return true;
 }
 
