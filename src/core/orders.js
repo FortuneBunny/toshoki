@@ -16,19 +16,19 @@ import { knownShifts, fairRoom, fairEnd, altEntry, noteAltMiss } from './shifts.
 export function arriveAt(world, m) {
   observe(world, m.city);
   world.stats.trips += 1;
+  // 予約した輸送手段の買い替え（買える町に着いたら）。止める指示で着いた町でも買い替える（前は止める処理が先で、次の便まで遅れた。27回目の Sol）
+  if (m.pendingTransport && canBuyTransportAt(world, world.cities[m.city], m.pendingTransport)) {
+    const t = m.pendingTransport;
+    const r = buyTransport(world, m.id, t);
+    m.pendingTransport = null;
+    emit(world, { type: 'transportBought', merchant: m.id, text: r.ok ? `${m.name}が予約どおり輸送手段を買い替えた` : `${m.name}の輸送手段の買い替えは見送った: ${r.error}` });
+  }
   if (m.order?.pauseNext && (m.order.pauseNext === true || m.order.pauseNext === m.city)) {
     m.order.pauseNext = false;
     runOrder(world, m, { depart: false });
     m.order.paused = true;
     emit(world, { type: 'arrive', merchant: m.id, city: m.city, text: `${m.name}が${world.cities[m.city].name}に到着し、定期便を止めた（売買は済ませた）` });
     return;
-  }
-  // 予約した輸送手段の買い替え（買える町に着いたら）
-  if (m.pendingTransport && canBuyTransportAt(world, world.cities[m.city], m.pendingTransport)) {
-    const t = m.pendingTransport;
-    const r = buyTransport(world, m.id, t);
-    m.pendingTransport = null;
-    emit(world, { type: 'transportBought', merchant: m.id, text: r.ok ? `${m.name}が予約どおり輸送手段を買い替えた` : `${m.name}の輸送手段の買い替えは見送った: ${r.error}` });
   }
   if (m.order && !m.order.paused) {
     m.order.runs = (m.order.runs || 0) + 1;

@@ -16,6 +16,7 @@ import { stepTravel } from './caravan.js';
 import { updateProduction } from './production.js';
 import { updateRivals, rivalWorkshops } from './rival.js';
 import { planShifts } from './shifts.js';
+import { planBlights } from './blights.js';
 import { checkGoals } from './scoring.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
 import { buildGrid, GRID_W, GRID_H, gridKey } from './grid.js';
@@ -156,7 +157,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
       // 工房は複製する（技術で処理量を増やすと、シナリオの定義まで変わり、次に遊ぶ世界のライバルが最初から強くなっていた）
       name: rd.name, silver: rd.silver, skill: rd.skill, goods: rd.goods, sold: {}, workshop: rd.workshop ? { ...rd.workshop } : null, store: {},
       // 町のないシナリオでは、古い町から始める商人のほかは、ライバルの交易所ができてから出てくる
-      merchants: rd.merchants.map((rm) => ({ city: sc.pioneer && !sc.cities.some((c) => c.id === rm.city) ? null : rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home, ...(rm.reader ? { reader: true, readerCap: rm.readerCap, noHold: rm.noHold } : {}) })),
+      merchants: rd.merchants.map((rm) => ({ city: sc.pioneer && !sc.cities.some((c) => c.id === rm.city) ? null : rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home, ...(rm.reader ? { reader: true, readerCap: rm.readerCap, noHold: rm.noHold, ownRate: rm.ownRate } : {}) })),
     });
   }
 
@@ -174,6 +175,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   for (const m of world.player.merchants) observe(world, m.city);
   for (const id of sc.knownAtStart || []) observe(world, id);
   planShifts(world); // 予告された売り場の交代の予定（行動と別の乱数）
+  planBlights(world); // 予告された産地の不作の予定（同じく別の乱数）
   if (sc.pioneer) emit(world, { type: 'setup', text: world.setup.stage === 'family' ? 'まず一族を選ぶ。一族ごとに、館の立つ地域が違う' : '一族の館の近くに、最初の交易所を置こう（無料）。集落を圏に入れると、その人と畑が交易所のものになる' });
   else emit(world, { type: 'start', text: sc.intro });
   return world;

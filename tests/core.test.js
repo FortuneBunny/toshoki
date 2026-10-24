@@ -959,3 +959,24 @@ test('臨時の便の下書きは、市の品だけを上限なしで積む。�
   const draft = G.altDraftFor(w, w.player.merchants[0], w.shifts[0]);
   assert.deepEqual(draft[0].load, ['whitesugar']);
 });
+
+test('産地の不作の予告（試作）: 予告した期間だけ、その品を作る町の作る量が下がり、セーブには予告ずみの分だけを書く', () => {
+  const sc = G.SCENARIOS.s2;
+  sc.blights = { goods: ['dates', 'wheat'], first: [60, 80], gap: [20, 40], lead: 20, days: 30, cut: 0.3 };
+  try {
+    const w = G.createWorld('s2', { seed: 5 });
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    const s = G.foundSites(w, 1)[0];
+    G.foundPost(w, s.x, s.y);
+    const x = w.blights[0];
+    assert.equal(JSON.parse(G.serialize(w)).blights.length, 0);
+    while (w.day < x.start) G.advance(w, 1, { stopOn: new Set() });
+    assert.equal(G.knownBlights(w).length, 1);
+    G.advance(w, 1, { stopOn: new Set() });
+    assert.ok(w.cities.kohaku.prodMods[x.good] < 0.5);
+    const w2 = G.deserialize(G.serialize(w));
+    assert.deepEqual(w2.blights.map((y) => [y.good, y.start]), w.blights.map((y) => [y.good, y.start]));
+  } finally {
+    delete sc.blights;
+  }
+});

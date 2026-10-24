@@ -9,6 +9,7 @@ import { isVisited } from './knowledge.js';
 import { goodLocked } from './techs.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { applyShifts, updateShifts } from './shifts.js';
+import { applyBlights, updateBlights } from './blights.js';
 
 // 通知を積む。UI と CLI はここから演出を取り出す。
 export function emit(world, ev) {
@@ -61,6 +62,7 @@ export function applyModifiers(world) {
     for (const id of m.goods) table[id] = (table[id] ?? 1) * m.mult;
   }
   applyShifts(world); // 予告された売り場の交代（s3）
+  applyBlights(world); // 予告された産地の不作（s2）
 }
 
 const EVENT_TYPES = [
@@ -247,6 +249,7 @@ function rollRumor(world) {
 export function updateEvents(world) {
   deliverNews(world);
   updateShifts(world);
+  updateBlights(world);
   rollEvent(world);
   rollContract(world);
   expireContracts(world);

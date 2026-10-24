@@ -68,7 +68,7 @@ function readerTarget(world, r) {
 // 予告を読む隊商が本拠地で待っていて、出る日が近い（15日以内）なら、ほかの商人は蔵の製品を持ち出さない
 function readerHold(world, r) {
   const rm = r.merchants.find((m) => m.reader);
-  if (!rm || rm.noHold || rm.travelDays > 0 || rm.city !== r.workshop?.city) return false;
+  if (!rm || rm.noHold || rm.ownRate || rm.travelDays > 0 || rm.city !== r.workshop?.city) return false;
   const t = readerTarget(world, r);
   return !!t && t.x.start - t.days - world.day <= 15;
 }
@@ -83,10 +83,13 @@ function readerStep(world, r, m) {
   const t = readerTarget(world, r);
   if (!t || world.day < t.x.start - t.days) { m.wait = 1; return; }
   const out = r.workshop.output;
-  const n = Math.min(Math.floor(r.store?.[out] || 0), TRANSPORTS[m.transport].cap, m.readerCap ?? Infinity);
+  // ownRate: 読む隊商は自分の分（1日に ownRate 個ずつ貯まる）だけを運ぶ。ライバルの蔵から取ると、いつもの売り場へ運ぶ分が減り、固定の手が楽になった（26回目のあと）
+  const pool = m.ownRate ? Math.floor(m.own || 0) : Math.floor(r.store?.[out] || 0);
+  const n = Math.min(pool, TRANSPORTS[m.transport].cap, m.readerCap ?? Infinity);
   t.x.readerSent = true;
   if (n < 1) return;
-  r.store[out] -= n;
+  if (m.ownRate) m.own -= n;
+  else r.store[out] -= n;
   m.cargo = { [out]: n };
   Object.assign(m, { dest: t.x.fair, travelDays: t.days, from: m.city, departDay: world.day });
   emit(world, { type: 'rival', bad: true, city: t.x.fair, text: `${r.name}の隊商が、予告を読んで${GOODS[out].name}${n}個を積み、${world.cities[t.x.fair].name}の隊商市へ向かった（約${t.days}日）` });
@@ -118,6 +121,7 @@ export function rivalWorkshops(world) {
 
 export function updateRivals(world) {
   for (const r of world.rivals) {
+    for (const m of r.merchants) if (m.reader && m.ownRate) m.own = Math.min(TRANSPORTS[m.transport].cap, (m.own || 0) + m.ownRate);
     if (r.silver < 150) {
       r.silver += 400;
       emit(world, { type: 'rivalAid', text: `${r.name}は一族から援助を受けて持ち直した` });

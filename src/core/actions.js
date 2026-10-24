@@ -557,7 +557,7 @@ export function upgradeRoad(world, edgeId) {
 
 // 日を進める。重要な出来事が起きたら途中で止まる（CLI と自動進行の停止用）
 // 銀が底をついたこと（debt）では止めない（status と記録で分かる。止まりすぎて操作が増えるため）
-const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'settled', 'settlersLost', 'shift']); // shift: 売り場の交代の予告（便を組み替える判断の時）
+const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'settled', 'settlersLost', 'shift', 'blight']); // shift・blight: 売り場の交代・産地の不作の予告（便を組み替える判断の時）
 export function advance(world, days, { stopOn = STOP_TYPES } = {}) {
   const collected = [];
   for (let i = 0; i < days; i++) {
