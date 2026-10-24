@@ -439,7 +439,8 @@ export function setOrderAlt(world, mid, { stops, from, until, shift }) {
   o.altSeq = (o.altSeq || 0) + 1;
   o.alts = [...(o.alts || []).filter((a) => !a.gone), ...tails, { id: o.altSeq, stops: r.stops, from, until, ...(shift ? { shift } : {}) }].sort((a, b) => a.from - b.from);
   emit(world, { type: 'order', merchant: m.id, text: `${m.name}の臨時の便を予約した（${from}〜${until}日目: ${r.stops.map((s) => world.cities[s.city].name).join('→')}）。期間に入ってから町に着いたとき（または町を出るとき）切り替わり、過ぎたら元の便に戻る${cut.length ? `（重なる予約: ${cut.join('、')}）` : ''}` });
-  if (!m.travel && !o.paused && !o.holding && switchAlt(world, m) && o.stops[o.next]?.city === m.city) runOrder(world, m);
+  // 待っている商人も、すぐ新しい予約へ（走っている予約を置き換えると、いつもの便に戻って待ち続けた。25回目の Opus）
+  if (!m.travel && !o.paused && switchAlt(world, m) && o.stops[o.next]?.city === m.city) runOrder(world, m);
   return { ok: true };
 }
 

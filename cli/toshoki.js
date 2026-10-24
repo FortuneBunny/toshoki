@@ -337,7 +337,7 @@ function cityText(world, id) {
     const diet = Object.entries(c.diet || {}).sort((a, b) => b[1] - a[1]);
     out.push(dwellingLine(world, c));
     const refuse = world.scenario.goods.filter((g) => !G.cityWants(c, g));
-    if (refuse.length) out.push(`この町が買い取らない品: ${refuse.map((g) => GOODS[g].name).join('・')}（町が育つと買い取るものもある）`);
+    if (refuse.length) out.push(`この町が買い取らない品: ${refuse.map((g) => GOODS[g].name).join('・')}（町が育つと買い取るものもある${G.knownShifts(world).some((x) => x.fair === id && !G.fairClosed(world, x)) ? '。隊商市の期間は、市が白糖を買う' : ''}）`);
     if (diet.length) out.push(`食卓（糖度への寄与）: ${diet.map(([g, v]) => `${GOODS[g].name} +${Math.round(v * 100)}`).join(' / ')}`);
     const missingFood = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && G.dailyDemand(c, g, false) > 0 && !(c.diet?.[g] > 0.02));
     out.push(`シュガーラッシュまで: ${rushGap(c.glucose, c.sweetLevel || 0, G.rushSweetPlan(world, c), G.rushLineOf(world))}`);
@@ -997,7 +997,8 @@ function run(world, cmd, pos, opts) {
     }
     case 'order': {
       if (pos[0] === 'list' || !pos[0]) {
-        for (const x of world.player.merchants) {
+        // -m で1人だけ（25回目の Opus: 全員分が出ていた）
+        for (const x of opts.merchant ? [G.getMerchant(world, opts.merchant)].filter(Boolean) : world.player.merchants) {
           if (!x.order) { out.push(`#${x.id} ${x.name}: 定期便なし`); continue; }
           const days = Math.max(1, world.day - x.order.since);
           out.push(`#${x.id} ${x.name}: ${x.order.paused ? '（停止中）' : ''}${days}日で損益 ${Math.round(x.order.profit || 0)}銀（1日あたり ${fmt((x.order.profit || 0) / days)}）`);

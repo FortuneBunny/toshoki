@@ -802,10 +802,10 @@ test('予告から組んだ予約は、その予告だけを「予約ずみ」�
   assert.ok(G.altCovering(m, x2));
   // 手で組んだ予約（予告の番号なし）は、着く日で止めずに切り替わる
   assert.ok(G.clearOrderAlt(w, m.id).ok);
-  assert.ok(G.setOrderAlt(w, m.id, { stops: alt, from: w.day, until: x2.start }).ok);
-  // 待っている交易所で臨時の便に切り替わると、臨時の便の「20個積む」で出る（前は、いつもの便の5個のまま出た）
+  // 待っている交易所で臨時の便に切り替わると、臨時の便の「20個積む」で出る（前は、いつもの便の5個のまま出た）。
+  // 待っている商人は、予約したその場で切り替わる
   w.player.warehouses[home].stock.whitesugar = 50;
-  G.advance(w, 1, { stopOn: new Set() });
+  assert.ok(G.setOrderAlt(w, m.id, { stops: alt, from: w.day, until: x2.start }).ok);
   assert.ok(m.order.altOn);
   assert.equal(m.cargo.whitesugar, 20);
   assert.equal(m.cargo.whitesugar, 20);
