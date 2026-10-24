@@ -265,6 +265,7 @@ export function stepTravel(world, m) {
   if (t.i < t.steps.length) return;
   m.city = t.to;
   m.lastFrom = t.from;
+  m.arriveDay = world.day;
   m.travel = null;
   m.starveWarned = false;
   m.guards = 0;

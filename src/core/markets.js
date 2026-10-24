@@ -7,7 +7,8 @@ import { GOODS } from '../data/goods.js';
 import { hashSeed } from './rng.js';
 import { emit } from './events.js';
 
-// シナリオの定義: portMarket: { city, good, first, gap（なければ1回だけ）, lead, days, rate: 空きの戻り（個/日）, max: 空きの上限, price: 市の値の倍率 }
+// シナリオの定義: portMarket: { city, good, first, gap（なければ1回だけ）, lead, days, rate: 空きの戻り（個/日）, max: 空きの上限, price: 市の値の倍率,
+//   from: あれば、市で上限なしに売れるのは、その港から直に来て、市の期間に着いた船だけ（30回目の相談。積んだまま泊めておく手を塞ぐ） }
 export function planMarkets(world) {
   const sc = world.scenario.portMarket;
   if (!sc) return;
@@ -43,11 +44,20 @@ const limited = (world, city, good) => {
 // ふだんの空き（最初は上限まで空いている）
 export const portRoomLeft = (world) => Math.floor(world.portRoom ?? world.scenario.portMarket?.max ?? 0);
 
+// この商人の積荷が市の扱いになるか（from があれば、その港から直に来て、市の期間に着いた船だけ）
+function marketShip(world, m, city, good) {
+  if (!marketOn(world, city.id, good)) return false;
+  const from = world.scenario.portMarket.from;
+  if (!from) return true;
+  const x = world.markets.find((y) => y.city === city.id && y.good === good && marketActive(world, y));
+  return m.lastFrom === from && m.city === city.id && (m.arriveDay ?? -1) >= x.start;
+}
+
 // 今この商人が、この港でその品を売れる数
 export function portRoom(world, m, city, good) {
   if (!limited(world, city, good)) return Infinity;
   const normal = portRoomLeft(world);
-  if (!marketOn(world, city.id, good)) return normal;
+  if (!marketShip(world, m, city, good)) return normal;
   const here = m.whLoaded?.city === city.id ? m.whLoaded[good] || 0 : 0;
   return Math.max(0, (m.cargo[good] || 0) - here) + normal;
 }
@@ -56,7 +66,7 @@ export function portRoom(world, m, city, good) {
 export function notePortSale(world, m, city, good, n) {
   if (!limited(world, city, good)) return;
   let rest = n;
-  if (marketOn(world, city.id, good)) {
+  if (marketShip(world, m, city, good)) {
     const here = m.whLoaded?.city === city.id ? m.whLoaded[good] || 0 : 0;
     const free = Math.max(0, (m.cargo[good] || 0) - here);
     rest = Math.max(0, n - free);
@@ -66,7 +76,13 @@ export function notePortSale(world, m, city, good, n) {
 }
 
 // 市の値の倍率
-export const marketPrice = (world, city, good) => (limited(world, city, good) && marketOn(world, city.id, good) ? world.scenario.portMarket.price || 1 : 1);
+export const marketPrice = (world, m, city, good) => (limited(world, city, good) && marketShip(world, m, city, good) ? world.scenario.portMarket.price || 1 : 1);
+
+// 市で上限なしに売れる船の言い方
+function shipText(world) {
+  const from = world.scenario.portMarket.from;
+  return from ? `${world.cities[from]?.name || from}から直に来て、市の間に着いた船の` : 'よそから運んできた';
+}
 
 // 予告・始まり・終わりの知らせと、空きの戻り（毎日）
 export function updateMarkets(world) {
@@ -74,11 +90,12 @@ export function updateMarkets(world) {
   if (!sc) return;
   if (!world.markets) planMarkets(world);
   world.portRoom = Math.min(sc.max, (world.portRoom ?? sc.max) + sc.rate);
+  const who = shipText(world);
   for (const x of world.markets || []) {
     const c = world.cities[x.city]?.name || x.city;
     const g = GOODS[x.good].name;
-    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、よそから運んできた${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う。市に合わせて、${g}を積んだ船を着かせよ` });
-    if (world.day === x.start) emit(world, { type: 'portMarketStart', city: x.city, text: `${c}に${g}の大口の商人が来た（${x.end - 1}日目まで）。運んできた${g}は上限なしで売れる` });
+    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う。市に合わせて、${g}を積んだ船を着かせよ` });
+    if (world.day === x.start) emit(world, { type: 'portMarketStart', city: x.city, text: `${c}に${g}の大口の商人が来た（${x.end - 1}日目まで）。${who}${g}は上限なしで売れる` });
     if (world.day === x.end) emit(world, { type: 'portMarketEnd', city: x.city, text: `${c}の${g}の市が終わった` });
   }
 }
@@ -88,7 +105,7 @@ export function marketNotes(world, city) {
   const sc = world.scenario.portMarket;
   if (!sc || sc.city !== city.id) return [];
   const g = GOODS[sc.good].name;
-  const out = knownMarkets(world).map((x) => ({ kind: marketActive(world, x) ? 'up' : 'shift', text: `⚓${g}の市 ${marketStateText(world, x)}。運んできた${g}は上限なしで約${Math.round(sc.price * 10) / 10}倍` }));
+  const out = knownMarkets(world).map((x) => ({ kind: marketActive(world, x) ? 'up' : 'shift', text: `⚓${g}の市 ${marketStateText(world, x)}。${shipText(world)}${g}は上限なしで約${Math.round(sc.price * 10) / 10}倍` }));
   out.push({ kind: 'shift', text: `${g}の買い取りの空き ${portRoomLeft(world)}/${sc.max}個（1日に約${sc.rate}個戻る。市の間は上限なし）` });
   return out;
 }

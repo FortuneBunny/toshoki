@@ -1069,7 +1069,8 @@ test('強盗団の予告（試作）: 期間中に区域を通ると護衛がい
 test('港の市の予告（試作）: ふだんは空きの分だけ売れ、市の間は運んできた分を上限なしで売れる。倉庫から積んだ分はふだんの空きに数える', async () => {
   const { PORT_MARKET_S6 } = await import('../src/data/scenarios.js');
   const sc = G.SCENARIOS.s6;
-  sc.portMarket = { ...PORT_MARKET_S6 };
+  const pm0 = sc.portMarket;
+  sc.portMarket = { ...PORT_MARKET_S6, from: undefined };
   try {
     const w = G.createWorld('s6', { seed: 7 });
     if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
@@ -1100,6 +1101,41 @@ test('港の市の予告（試作）: ふだんは空きの分だけ売れ、市
     const w2 = G.deserialize(G.serialize(w));
     assert.deepEqual(w2.markets.map((y) => y.start), w.markets.map((y) => y.start));
   } finally {
-    delete sc.portMarket;
+    sc.portMarket = pm0;
+  }
+});
+
+test('港の市（from あり）: 市の間に上限なしで売れるのは、胡椒港から直に来て、市の期間に着いた船だけ', async () => {
+  const { PORT_MARKET_S6 } = await import('../src/data/scenarios.js');
+  const sc = G.SCENARIOS.s6;
+  const pm0 = sc.portMarket;
+  sc.portMarket = { ...PORT_MARKET_S6 };
+  try {
+    const w = G.createWorld('s6', { seed: 7 });
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    const st = G.foundSites(w, 1)[0];
+    G.foundPost(w, st.x, st.y);
+    w.cities.byakudan.pop = 20000;
+    const x = w.markets[0];
+    while (w.day < x.start + 1) G.advance(w, 1, { stopOn: new Set() });
+    const m = w.player.merchants[0];
+    const c = w.cities.byakudan;
+    m.travel = null;
+    m.city = 'byakudan';
+    m.whLoaded = null;
+    // 市の前に着いて泊めていた船: ふだんの空きの分だけ
+    m.lastFrom = 'koshou';
+    m.arriveDay = x.start - 1;
+    m.cargo = { spice: 40 };
+    assert.equal(G.portRoom(w, m, c, 'spice'), G.portRoomLeft(w));
+    // ほかの港から来た船も同じ
+    m.lastFrom = 'misaki';
+    m.arriveDay = w.day;
+    assert.equal(G.portRoom(w, m, c, 'spice'), G.portRoomLeft(w));
+    // 胡椒港から直に、市の間に着いた船: 上限なし
+    m.lastFrom = 'koshou';
+    assert.equal(G.portRoom(w, m, c, 'spice'), 40 + G.portRoomLeft(w));
+  } finally {
+    sc.portMarket = pm0;
   }
 });

@@ -42,7 +42,7 @@ function noteBought(world, city, good, q) {
 // （評判で手数料が下がると、甘党・値切り上手・ラッシュの上乗せで、同じ町の売り買いだけで儲かったため。12回目の Sol の指摘）
 export function sellValue(world, m, city, good, n) {
   if (n <= 0) return 0;
-  const full = quote(world, city, good, -n) * talentPrice(m, good, false) * marketPrice(world, city, good);
+  const full = quote(world, city, good, -n) * talentPrice(m, good, false) * marketPrice(world, m, city, good);
   const k = Math.min(n, recentBought(world, city, good));
   if (k <= 0) return full;
   const s = spreadFor(world);

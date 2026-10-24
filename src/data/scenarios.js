@@ -183,8 +183,8 @@ const s4 = {
   // 強盗団の予告の試作（28回目の相談。src/core/gangs.js。まだ入れていない。評価が通ったら gangs: GANGS_S4 にする）
 };
 
-// 港の市の予告の試作（29回目の相談。src/core/markets.js。まだ入れていない。評価が通ったら s6 に portMarket: PORT_MARKET_S6 を足す）
-export const PORT_MARKET_S6 = { city: 'byakudan', good: 'spice', first: [60, 90], gap: [35, 55], lead: 30, days: 6, rate: 0.6, max: 15, price: 1.3 };
+// 港の市の予告（29・30回目の相談。src/core/markets.js）: 市で上限なしに売れるのは、胡椒港から直に来て、市の間に着いた船だけ
+export const PORT_MARKET_S6 = { city: 'byakudan', good: 'spice', first: [90, 120], gap: [30, 45], lead: 30, days: 6, rate: 0.5, max: 15, price: 1.3, from: 'koshou' };
 
 export const GANGS_S4 = {
   zones: [
@@ -241,7 +241,7 @@ const s5 = {
 const s6 = {
   id: 's6', no: 6, title: '季節風の港',
   // 版4: 香木村は集落になった。一族の館はそのそば。白檀港まで歩いて、港でダウ船を買う
-  intro: '一族の館は、白檀港の南、香木村の集落のそばにある。そこに交易所を開いて始めよ。海を渡れば、香辛料と茶の島々。ダウ船は白檀港などの港で買える。ダウ船は季節風に乗れば速く、逆らえば遅い。夏は東へ、冬は西へ。胡椒港の香辛料を白檀港で200袋売り、資産を9000銀にせよ。ただし今の白檀港は「町」で、香辛料を買い取らない。進め方の例: ①胡椒港の米と砂糖岬の甘味を白檀港へ運んで「都市」（人口3000）に育てる → ②香辛料を胡椒港から白檀港へ。値崩れしたら少し待つと戻る。',
+  intro: '一族の館は、白檀港の南、香木村の集落のそばにある。そこに交易所を開いて始めよ。海を渡れば、香辛料と茶の島々。ダウ船は白檀港などの港で買える。ダウ船は季節風に乗れば速く、逆らえば遅い。夏は東へ、冬は西へ。胡椒港の香辛料を白檀港で200袋売り、資産を9000銀にせよ。ただし今の白檀港は「町」で、香辛料を買い取らない。進め方の例: ①胡椒港の米と砂糖岬の甘味を白檀港へ運んで「都市」（人口3000）に育てる → ②香辛料を胡椒港から白檀港へ。値崩れしたら少し待つと戻る。ふだんの白檀港は香辛料を少しずつしか買わない（買い取りの空きは1日に約0.5袋戻る）。ときどき、30日前に予告されて、6日間だけ大口の商人が来る。その間に胡椒港から直に着いた船の香辛料は、上限なしで約1.3倍で売れる。季節風の日数を読んで、市の間に着くように胡椒港を出よ。',
   goods: ['wheat', 'rice', 'dates', 'rawsugar', 'whitesugar', 'salt', 'spice', 'tea', 'pottery'],
   start: { silver: 1700, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }] },
   cities: [
@@ -268,7 +268,7 @@ const s6 = {
   },
   maxPosts: 2, postCost: 400, maxPaths: 2,
   goals: [{ type: 'deliver', good: 'spice', city: 'byakudan', amount: 200 }, { type: 'networth', amount: 9000 }],
-  deadline: 480, rankS: 0.4,
+  deadline: 480, rankS: 0.3875, portMarket: PORT_MARKET_S6,
   transports: ['donkey', 'dhow', 'carrack'],
   eventStream: true, // 通常の出来事・盗賊・生産のゆらぎは、行動と別の乱数（28回目の相談。読む・読まないを同じ出来事の列で比べるため）
   events: true, contracts: true, bandits: false, newsDaysPerHop: 5,
