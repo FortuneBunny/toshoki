@@ -5,7 +5,7 @@ import { quote, cityWants, midPrice, spreadFor, sellBonus } from './market.js';
 import { cargoUsed, cargoCap } from './caravan.js';
 import { emit } from './events.js';
 import { observe } from './knowledge.js';
-import { noteShiftSale } from './shifts.js';
+import { noteShiftSale, fairRoom } from './shifts.js';
 
 // lines: [{ good, qty }]  qty > 0 は買い、qty < 0 は売り
 // 才能による値段の補正（買い: 値切り上手、売り: 目利き・甘党）
@@ -111,7 +111,9 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       world.stats.boughtValue = world.stats.boughtValue || {};
       world.stats.boughtValue[good] = (world.stats.boughtValue[good] || 0) + cost;
     } else {
-      const n = -qty;
+      // 総量のある隊商市は、残りの分しか買わない
+      const n = Math.min(-qty, fairRoom(world, city, good));
+      if (n <= 0) continue;
       // 読み的中: 出発時に知っていた相場より高く売れたか
       const expected = m.expected?.city === city.id ? m.expected.prices[good] : undefined;
       const actualMid = midPrice(city, good);

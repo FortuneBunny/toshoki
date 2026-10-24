@@ -11,7 +11,7 @@ import { quote, cityWants } from './market.js';
 import { cargoUsed, cargoCap, startTravel, findPath, edgeDays, foodNeeded } from './caravan.js';
 import { PROVISIONS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
-import { knownShifts } from './shifts.js';
+import { knownShifts, fairRoom } from './shifts.js';
 
 export function arriveAt(world, m) {
   observe(world, m.city);
@@ -101,7 +101,7 @@ export function runOrder(world, m, { depart = true } = {}) {
       o.hold = o.hold || {};
       const held = o.hold[s.good] !== undefined && world.day - o.hold[s.good] >= B.orderHoldDays;
       const floor = held ? (s.min || 0) : Math.max(s.min || 0, m.cost[s.good] || 0);
-      let n = have;
+      let n = Math.min(have, fairRoom(world, city, s.good));
       while (n > 0 && quote(world, city, s.good, -n) / n < floor) n = Math.floor(n * 0.7);
       if (n <= 0) {
         if (floor > (s.min || 0) && o.hold[s.good] === undefined) o.hold[s.good] = world.day;

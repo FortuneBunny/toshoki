@@ -752,6 +752,36 @@ test('s3 の売り場の交代: 予定は行動で変わらず、予告から始
   assert.ok(G.unitSell(w, fair, 'whitesugar') > G.unitSell(w, w.cities[x.low], 'whitesugar'));
 });
 
+test('市の総量（試作）: 予告に出し、残りの分しか買わず、買い終えた次の日に閉じ、そこへ回る臨時の便を戻す', () => {
+  const fair0 = G.SCENARIOS.s3.shifts.fair;
+  G.SCENARIOS.s3.shifts.fair = { ...fair0, want: [20, 20] };
+  try {
+    const w = G.createWorld('s3', { seed: 4 });
+    const x = w.shifts[0];
+    assert.equal(x.want, 20);
+    const s = G.foundSites(w, 1)[0];
+    G.foundPost(w, s.x, s.y);
+    while (w.day < x.start + 1) G.advance(w, 1, { stopOn: new Set() });
+    assert.ok(G.cityOutlook(w, w.cities[x.fair]).some((o) => o.text.includes('全部で20個まで')));
+    const m = w.player.merchants[0];
+    const home = Object.values(w.cities).find((c) => c.founded).id;
+    m.order = { stops: [{ city: home, buy: [], sell: [] }, { city: 'suitou', buy: [], sell: [] }], next: 0, alts: [{ id: 1, stops: [{ city: home, buy: [], sell: [] }, { city: x.fair, buy: [], sell: [] }], from: w.day, until: w.day + 30 }] };
+    m.travel = null;
+    m.city = x.fair;
+    m.cargo.whitesugar = 30;
+    G.executeTrade(w, m, [{ good: 'whitesugar', qty: -30 }]);
+    assert.equal(x.sold, 20);
+    assert.equal(m.cargo.whitesugar, 10);
+    assert.equal(G.fairRoom(w, w.cities[x.fair], 'whitesugar'), 0);
+    assert.equal(m.order.alts[0].until, w.day + 1);
+    G.advance(w, 1, { stopOn: new Set() });
+    assert.equal(G.fairActive(w, x), false);
+    assert.equal(G.fairRoom(w, w.cities[x.fair], 'whitesugar'), Infinity);
+  } finally {
+    G.SCENARIOS.s3.shifts.fair = fair0;
+  }
+});
+
 test('臨時の便（期間予約）は、期間に入ると切り替わり、過ぎると元の便に戻る', () => {
   const w = G.createWorld('s3', { seed: 4 });
   const s = G.foundSites(w, 1)[0];

@@ -72,22 +72,24 @@ export function play(g, seed, mode, opts = {}) {
       if (!reachable(w, stops, 'cart')) continue;
       if (G.buyTransport(w, m.id, 'cart').ok) set(m, true);
     }
-    if (mode.kind === 'read' || mode.kind === 'react') sent += reader(w, seen, mode.kind === 'read', mode.k);
+    if (mode.kind === 'read' || mode.kind === 'react') sent += reader(w, seen, mode.kind === 'read', mode.k, mode.per);
     G.drainEvents(w);
     G.advance(w, 1, { stopOn: new Set() });
   }
   const f = w.finished || {};
   const day = f.day ?? null;
   const sh = (w.shifts || []).filter((x) => x.start < (day ?? w.day));
-  return { seed, day, rank: f.rank ?? 'C', plan, fair: sh.reduce((a, x) => a + x.sold, 0), sent };
+  return { seed, day, rank: f.rank ?? 'C', plan, fair: sh.reduce((a, x) => a + x.sold, 0), sent, each: sh.map((x) => ({ sold: x.sold, value: Math.round(x.value), low: Math.round(x.lowValue), want: x.want })) };
 }
 
 // 読む手: 予告を見て、k 人まで、その期間だけ隊商市へ回す（低迷する町へ売る便から先に）。
-// 予告を使わない手（react）は、始まってから気づく
-function reader(w, seen, lead, k) {
+// 予告を使わない手（react）は、始まってから気づく。
+// k = 'auto': 予告の「市が買う総量」を、1人が運ぶ数（per）で割って人数を決める（公開された情報だけ）
+function reader(w, seen, lead, k0, per = 18) {
   let n = 0;
   for (const x of G.knownShifts(w)) {
     if (!lead && w.day < x.start) continue;
+    const k = k0 === 'auto' ? Math.min(3, Math.round((x.want ?? 2 * per) / per)) : k0;
     const ms = w.player.merchants.filter((m) => m.order);
     const done = ms.filter((m) => seen.has(`${x.id}:${m.id}`));
     if (done.length >= k) continue;
@@ -218,7 +220,13 @@ if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
   // 既定は CPU の半分（全部使うと PC が重くなる）
   const pool = new Pool(Number(opt('workers', Math.max(2, Math.floor(cpus().length / 2)))), { set, scen });
   const evalOn = (g, seeds, mode, opts) => Promise.all(seeds.map((s) => pool.run(g, s, mode, opts)));
-  const modeOf = (m) => (m === 'fixed' || m === 'none' ? { kind: m } : m.startsWith('react') ? { kind: 'react', k: Number(m.slice(5) || 2) } : { kind: 'read', k: Number(m.slice(4) || 2) });
+  // auto18: 総量を18個で割った人数を読んで回す。reactauto18: 同じ人数を、始まってから回す
+  const modeOf = (m) => {
+    if (m === 'fixed' || m === 'none') return { kind: m };
+    const kind = m.startsWith('react') ? 'react' : 'read';
+    const rest = m.slice(kind === 'react' ? 5 : m.startsWith('read') ? 4 : 0);
+    return rest.startsWith('auto') ? { kind, k: 'auto', per: Number(rest.slice(4) || 18) } : { kind, k: Number(rest || 2) };
+  };
   const cmd = args[0] || 'fstar';
 
   // 予定の型ごとの内訳（予定の列の最初の3つの市・最初の2つの低迷・最初の時期。どの手でも同じ分け方）
@@ -249,13 +257,18 @@ if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
       lines.push(`${ok(s.S <= s.n * 0.1)} 固定 S ${pct(s.S, s.n)}（線で1割以下）`, `${ok(s.S3 <= s.n * 0.15)} 固定 線+3 ${pct(s.S3, s.n)}（15%以下）`, `${ok(!worst || worst[1] <= 0.2)} 市の組ごとの最大 ${worst ? `${worst[0]} ${Math.round(worst[1] * 100)}%` : '-'}（20シード以上の組で20%以下）`);
     }
     // 同じシードどうしの差（読むと固定よりどれだけ速いか、始まってから回す手よりどれだけ速いか）
-    const reads = modes.filter((m) => m.startsWith('read'));
+    const reads = modes.filter((m) => m.startsWith('read') || m.startsWith('auto'));
     if (out.fixed && reads.length) {
       for (const m of reads) {
         const gain = seeds.map((_, i) => D(out.fixed[i]) - D(out[m][i]));
         const five = gain.filter((x) => x >= 5).length;
         const vsReact = out.react2 ? median(seeds.map((_, i) => D(out.react2[i]) - D(out[m][i]))) : null;
         console.log(`${m} − 固定: 中央 ${median(gain)}日速い（5日以上速い ${five}/${seeds.length}・遅い ${gain.filter((x) => x < 0).length}）${vsReact !== null ? `  始まってから2人より 中央 ${vsReact}日速い` : ''}`);
+        if (m.startsWith('auto') && out[`react${m}`]) {
+          const vr = median(seeds.map((_, i) => D(out[`react${m}`][i]) - D(out[m][i])));
+          console.log(`  ${m} − 始まってから同じ人数: 中央 ${vr}日速い`);
+          lines.push(`${ok(median(gain) >= 15 && five >= seeds.length * 0.75)} ${m}: 固定より中央 ${median(gain)}日、5日以上速い ${pct(five, seeds.length)}`, `${ok(vr >= 5)} ${m}: 始まってから同じ人数より中央 ${vr}日（5日以上）`);
+        }
         if (m === 'read2') lines.push(`${ok(median(gain) >= 15 && five >= seeds.length * 0.75)} 読む2人: 固定より中央 ${median(gain)}日、5日以上速い ${pct(five, seeds.length)}（15日以上・75%以上）`, ...(vsReact !== null ? [`${ok(vsReact >= 5)} 読む2人: 始まってから2人より中央 ${vsReact}日（5日以上）`] : []));
       }
       // 人数: 0〜1人と2〜3人の、3日以上の有利
@@ -265,6 +278,13 @@ if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
         console.log(`人数（3日差）: 0〜1人が有利 ${lo}  2〜3人が有利 ${hi}  どちらでもない ${seeds.length - lo - hi}`);
         lines.push(`${lo >= seeds.length * 0.2 && hi >= seeds.length * 0.2 ? '✔' : '・'} 人数: 0〜1人が有利 ${pct(lo, seeds.length)}・2〜3人が有利 ${pct(hi, seeds.length)}（各20%以上。記録のみ）`);
       }
+    }
+    // 市ごとに人数を選ぶ手（auto）と、どの市にも同じ人数を回す手のうち、そのシードでいちばん速いものとの差
+    if (['fixed', 'read1', 'read2', 'read3'].every((m) => out[m])) for (const m of reads.filter((m) => m.startsWith('auto'))) {
+      const d = seeds.map((_, i) => Math.min(...['fixed', 'read1', 'read2', 'read3'].map((k) => D(out[k][i]))) - D(out[m][i]));
+      const s = summary(out[m], LINE);
+      console.log(`${m} − 同じ人数のいちばん速い手: 中央 ${median(d)}日速い（3日以上速い ${d.filter((x) => x >= 3).length}/${seeds.length}・3日以上遅い ${d.filter((x) => x <= -3).length}）`);
+      lines.push(`・ ${m}: 同じ人数のいちばん速い手より中央 ${median(d)}日、3日以上速い ${pct(d.filter((x) => x >= 3).length, seeds.length)}（記録のみ）。S ${pct(s.S, s.n)}`);
     }
     if (out.none && out.fixed) console.log(`予定の列なし − 固定: 中央 ${median(seeds.map((_, i) => D(out.fixed[i]) - D(out.none[i])))}日（予定の列が固定の手にかける負担）`);
     if (lines.length) console.log(`合否（線 ${LINE}日）\n  ${lines.join('\n  ')}`);
