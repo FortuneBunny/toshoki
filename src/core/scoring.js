@@ -160,11 +160,14 @@ export function goalProgress(world, g) {
       const c = g.city ? world.cities[g.city] : null;
       const w = g.festivalWeight || 0;
       const need = goalRushCount(world, g);
-      const v = c ? (fest ? c.festRushCount || 0 : (c.rushCount || 0) + (w ? (w - 1) * (c.festRushCount || 0) : 0)) : s.rushes || 0;
+      // anyAfter: 日: その日を過ぎたら、大祭の外のラッシュも数える（2段目の救い。A の線より後に置き、見落とした人も B で完走できる）
+      const any = fest && g.anyAfter && world.day >= g.anyAfter;
+      const v = c ? (fest && !any ? c.festRushCount || 0 : (c.rushCount || 0) + (w ? (w - 1) * (c.festRushCount || 0) : 0)) : s.rushes || 0;
       const where = c ? `${c.name}で` : '';
       const note = w ? `。大祭の期間に始まったラッシュは${w}回に数える` : '';
       const relax = g.relaxAfter ? (world.day >= g.relaxAfter ? `。${g.relaxAfter}日目を過ぎたので${need}回でよい` : `。${g.relaxAfter}日目を過ぎると${g.relaxCount ?? 1}回でよくなる`) : '';
-      return { p: v / need, text: `${where}${fest ? '大祭の期間に' : ''}シュガーラッシュを ${need} 回起こす（今 ${v}${note}${relax}）` };
+      const anyNote = g.anyAfter ? (any ? `。${g.anyAfter}日目を過ぎたので、大祭の外のラッシュも数える` : `。${g.anyAfter}日目を過ぎると、大祭の外のラッシュも数える`) : '';
+      return { p: v / need, text: `${where}${fest && !any ? '大祭の期間に' : ''}シュガーラッシュを ${need} 回起こす（今 ${v}${note}${relax}${anyNote}）` };
     }
     case 'totalPop': {
       const v = Object.values(world.cities).reduce((a, c) => a + c.pop, 0);

@@ -1002,6 +1002,7 @@ test('eventStream のシナリオでは、遊び方を変えても、同じ日�
 test('大祭の予告（試作）: 大祭の期間に始まったラッシュだけを目標に数え、セーブには予告ずみの分だけを書く', () => {
   const sc = G.SCENARIOS.s5;
   const goals0 = sc.goals;
+  const fest0 = sc.festivals;
   sc.festivals = { city: 'saito', first: [50, 70], gap: [40, 60], lead: 30, days: 15 };
   sc.goals = [{ type: 'rushes', city: 'saito', count: 2, during: 'festival' }];
   try {
@@ -1032,7 +1033,7 @@ test('大祭の予告（試作）: 大祭の期間に始まったラッシュだ
     sc.goals = [{ type: 'rushes', city: 'saito', count: 3, festivalWeight: 2 }];
     assert.equal(G.goalsStatus(w)[0].text.includes(`今 ${c.rushCount + 1}`), true);
   } finally {
-    delete sc.festivals;
+    sc.festivals = fest0;
     sc.goals = goals0;
   }
 });

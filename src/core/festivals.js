@@ -52,6 +52,7 @@ export function festRushSuffix(world, cityId, fest) {
   if (g?.festivalWeight) return fest ? `（大祭のラッシュ。目標に${g.festivalWeight}回ぶん数える）` : '';
   if (g?.during === 'festival') {
     if (fest) return '（大祭のラッシュ。目標に数える）';
+    if (g.anyAfter && world.day >= g.anyAfter) return `（${g.anyAfter}日目を過ぎたので、大祭の外のラッシュも目標に数える）`;
     const next = (world.festivals || []).find((x) => x.city === cityId && x.start > world.day && x.announce <= world.day);
     const clash = next && next.start - world.day < B.rushDays + B.crashDays ? `。反動のクラッシュが、${next.start - world.day}日後の大祭に重なる` : '';
     return `（大祭の期間ではないので、目標には数えない${next ? `。次の大祭まで${next.start - world.day}日` : ''}${clash}）`;

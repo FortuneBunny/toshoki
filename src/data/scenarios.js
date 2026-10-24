@@ -198,7 +198,7 @@ export const GANGS_S4 = {
 const s5 = {
   id: 's5', no: 5, title: '甘い熱狂',
   // 版4: ぶどう谷は集落になった。一族の館はそのそば（ほかの町は古い町のまま）
-  intro: '一族の館は、ぶどう谷の集落のそばにある。そこに交易所を開いて始めよ。祭都は甘味に飢えている。よく食べている町（このシナリオでは糖度130以上）に甘味を2種類以上まとめて届けるとシュガーラッシュ──甘味が飛ぶように売れる。だが熱狂のあとにはクラッシュが来て、町の成長が止まる。甘味は甘蔗浜（粗糖・白糖）とぶどう谷（蜂蜜）で手に入る。ラッシュを2回起こしつつ、祭都を「都市」に育てよ。祭りの都にふさわしく、稲田・甘蔗浜と自分の交易所から祭都へ街道を通すこと（町の画面の「街道を敷く」/ CLI: path）。コツ: 定期便を一時停止して商人の到着をそろえ、甘味を一気に届けると条件がそろいやすい。',
+  intro: '一族の館は、ぶどう谷の集落のそばにある。そこに交易所を開いて始めよ。祭都は甘味に飢えている。よく食べている町（このシナリオでは糖度130以上）に甘味を2種類以上まとめて届けるとシュガーラッシュ──甘味が飛ぶように売れる。だが熱狂のあとにはクラッシュが来て、町の成長が止まる。甘味は甘蔗浜（粗糖・白糖）とぶどう谷（蜂蜜）で手に入る。祭都では、ときどき大祭が開かれる（約30日前に予告がある）。大祭の期間に始まったラッシュを2回起こしつつ、祭都を「都市」に育てよ（大祭の外のラッシュは、はじめは数えない）。祭りの都にふさわしく、稲田・甘蔗浜と自分の交易所から祭都へ街道を通すこと（町の画面の「街道を敷く」/ CLI: path）。コツ: 大祭の前にラッシュが起きると、反動のクラッシュで大祭を逃す。予告が出たら甘味の便を止めて、大祭に合わせて一気に届けよ。',
   goods: ['wheat', 'rice', 'dates', 'grapes', 'honey', 'rawsugar', 'malt', 'mizuame', 'wine', 'sweets', 'whitesugar'],
   start: { silver: 900, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }, { name: 'ライラ', portrait: 'merchant-2' }] },
   cities: [
@@ -223,8 +223,12 @@ const s5 = {
   },
   maxPosts: 2, postCost: 400, maxPaths: 6,
   rushLine: 130, // 祭りの都は浮かれやすい（ラッシュが目標なので、ほかの町より低い糖度で起きる）
-  goals: [{ type: 'rushes', city: 'saito', count: 2 }, { type: 'cityTier', city: 'saito', tier: 3 }, { type: 'network', cities: ['saito', 'ine', 'satou'], posts: 1, mode: 'road' }],
-  deadline: 480, rankS: 0.45,
+  // 大祭の予告（28・29回目の相談。src/core/festivals.js）: 大祭の期間に始まったラッシュだけを数える。
+  // 固定の手（甘味を流し続ける）の S は 82.5% → 3〜8%、予告を読む手は 54%（確かめ 5801〜6000）。線は選抜で一度だけ決めた（253日）
+  // 救いは2段: 280日を過ぎたら大祭のラッシュは1回でよい、365日（A の線のあと）を過ぎたら大祭の外のラッシュも数える
+  festivals: { city: 'saito', first: [50, 70], gap: [40, 60], lead: 30, days: 10 },
+  goals: [{ type: 'rushes', city: 'saito', count: 2, during: 'festival', relaxAfter: 280, anyAfter: 365 }, { type: 'cityTier', city: 'saito', tier: 3 }, { type: 'network', cities: ['saito', 'ine', 'satou'], posts: 1, mode: 'road' }],
+  deadline: 480, rankS: 0.528, // 253日（0.45 → 0.528。大祭を入れたとき、選抜で一度だけ決めた）
   transports: ['donkey', 'cart'],
   techs: { refinery: { from: 30 }, wheel: { from: 0 } },
   buildings: ['malthouse', 'winery', 'confectionery', 'road'],
