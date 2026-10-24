@@ -268,5 +268,6 @@ export function stepTravel(world, m) {
   m.travel = null;
   m.starveWarned = false;
   m.guards = 0;
+  m.whLoaded = null;
   arriveAt(world, m);
 }

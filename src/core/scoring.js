@@ -6,6 +6,7 @@ import { cityTier, tierName } from './city.js';
 import { cityWants, quote } from './market.js';
 import { emit } from './events.js';
 import { openFairNotes } from './shifts.js';
+import { portRoomLeft } from './markets.js';
 import { BALANCE as B } from '../data/balance.js';
 import { GRID_W, GRID_H, T } from './grid.js';
 
@@ -147,7 +148,9 @@ export function goalProgress(world, g) {
     case 'deliver': {
       const v = g.city ? s.sold[g.city]?.[g.good] || 0 : s.soldTotal[g.good] || 0;
       const where = g.city ? `${world.cities[g.city].name}で` : '';
-      const notYet = g.city && !cityWants(world.cities[g.city], g.good) ? `。${world.cities[g.city].name}はまだ${GOODS[g.good].name}を買い取らない──町が育つと買い取る` : '';
+      const pm = world.scenario.portMarket;
+      const room = pm && pm.city === g.city && pm.good === g.good ? `。ふだんの買い取りの空き ${portRoomLeft(world)}個（市の間は上限なし）` : '';
+      const notYet = g.city && !cityWants(world.cities[g.city], g.good) ? `。${world.cities[g.city].name}はまだ${GOODS[g.good].name}を買い取らない──町が育つと買い取る` : room;
       return { p: v / g.amount, text: `${where}${GOODS[g.good].name}を ${g.amount} 個売る（今 ${v}${notYet}）` };
     }
     case 'rushes': {

@@ -6,6 +6,7 @@ import { cargoUsed, cargoCap } from './caravan.js';
 import { emit } from './events.js';
 import { observe } from './knowledge.js';
 import { noteShiftSale, fairRoom } from './shifts.js';
+import { portRoom, notePortSale, marketPrice } from './markets.js';
 
 // lines: [{ good, qty }]  qty > 0 は買い、qty < 0 は売り
 // 才能による値段の補正（買い: 値切り上手、売り: 目利き・甘党）
@@ -41,7 +42,7 @@ function noteBought(world, city, good, q) {
 // （評判で手数料が下がると、甘党・値切り上手・ラッシュの上乗せで、同じ町の売り買いだけで儲かったため。12回目の Sol の指摘）
 export function sellValue(world, m, city, good, n) {
   if (n <= 0) return 0;
-  const full = quote(world, city, good, -n) * talentPrice(m, good, false);
+  const full = quote(world, city, good, -n) * talentPrice(m, good, false) * marketPrice(world, city, good);
   const k = Math.min(n, recentBought(world, city, good));
   if (k <= 0) return full;
   const s = spreadFor(world);
@@ -112,7 +113,8 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       world.stats.boughtValue[good] = (world.stats.boughtValue[good] || 0) + cost;
     } else {
       // 総量のある隊商市は、残りの分しか買わない
-      const n = Math.min(-qty, fairRoom(world, city, good));
+      // 港の買い取りの空き（s6 の香辛料。市の間は運んできた分は上限なし）
+      const n = Math.min(-qty, fairRoom(world, city, good), portRoom(world, m, city, good));
       if (n <= 0) continue;
       // 読み的中: 出発時に知っていた相場より高く売れたか
       const expected = m.expected?.city === city.id ? m.expected.prices[good] : undefined;
@@ -127,6 +129,7 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       const p = gain - basis;
       profit += p;
       sold += n;
+      notePortSale(world, m, city, good, n);
       m.cargo[good] -= n;
       if (!m.cargo[good]) { delete m.cargo[good]; delete m.cost[good]; }
       city.stock[good] = (city.stock[good] || 0) + n;
@@ -237,6 +240,9 @@ export function moveWarehouse(world, m, good, qty) {
     m.cost[good] = ((m.cost[good] || 0) * cur + (wh.basis[good] || 0) * qty) / (cur + qty);
     m.cargo[good] = cur + qty;
     wh.stock[good] -= qty;
+    // この港の倉庫から積んだ分（港の市で上限なしに売れるのは、よそから運んできた分だけ。markets.js）
+    if (m.whLoaded?.city !== m.city) m.whLoaded = { city: m.city };
+    m.whLoaded[good] = (m.whLoaded[good] || 0) + qty;
   } else {
     const n = -qty;
     const have = m.cargo[good] || 0;
@@ -245,6 +251,7 @@ export function moveWarehouse(world, m, good, qty) {
     wh.basis[good] = ((wh.basis[good] || 0) * cur + (m.cost[good] || 0) * n) / (cur + n);
     wh.stock[good] = cur + n;
     m.cargo[good] -= n;
+    if (m.whLoaded?.city === m.city && m.whLoaded[good]) m.whLoaded[good] = Math.min(m.whLoaded[good], m.cargo[good]);
     if (!m.cargo[good]) { delete m.cargo[good]; delete m.cost[good]; }
   }
   return { ok: true };

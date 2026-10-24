@@ -12,6 +12,7 @@ import { applyShifts, updateShifts } from './shifts.js';
 import { applyBlights, updateBlights } from './blights.js';
 import { updateFestivals } from './festivals.js';
 import { updateGangs } from './gangs.js';
+import { updateMarkets } from './markets.js';
 
 // 通知を積む。UI と CLI はここから演出を取り出す。
 export function emit(world, ev) {
@@ -257,6 +258,7 @@ export function updateEvents(world) {
   updateBlights(world);
   updateFestivals(world);
   updateGangs(world);
+  updateMarkets(world);
   inStream(world, 'event', () => rollEvent(world));
   inStream(world, 'contract', () => rollContract(world));
   expireContracts(world);

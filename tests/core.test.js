@@ -1064,3 +1064,41 @@ test('強盗団の予告（試作）: 期間中に区域を通ると護衛がい
     delete sc.gangs;
   }
 });
+
+test('港の市の予告（試作）: ふだんは空きの分だけ売れ、市の間は運んできた分を上限なしで売れる。倉庫から積んだ分はふだんの空きに数える', async () => {
+  const { PORT_MARKET_S6 } = await import('../src/data/scenarios.js');
+  const sc = G.SCENARIOS.s6;
+  sc.portMarket = { ...PORT_MARKET_S6 };
+  try {
+    const w = G.createWorld('s6', { seed: 7 });
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    const st = G.foundSites(w, 1)[0];
+    G.foundPost(w, st.x, st.y);
+    const c = w.cities.byakudan;
+    c.pop = 20000; // 都市にして、香辛料を買い取るようにする
+    const m = w.player.merchants[0];
+    m.travel = null;
+    m.city = 'byakudan';
+    m.cargo = { spice: 40 };
+    m.cost = { spice: 1 };
+    assert.equal(JSON.parse(G.serialize(w)).markets.length, 0);
+    // ふだん: 空き（15）の分だけ
+    G.executeTrade(w, m, [{ good: 'spice', qty: -40 }]);
+    assert.equal(m.cargo.spice, 25);
+    assert.equal(G.portRoomLeft(w), 0);
+    const x = w.markets[0];
+    while (w.day < x.start) G.advance(w, 1, { stopOn: new Set() });
+    m.travel = null;
+    m.city = 'byakudan';
+    m.cargo = { spice: 30 };
+    m.whLoaded = { city: 'byakudan', spice: 10 };
+    const room = G.portRoomLeft(w);
+    G.executeTrade(w, m, [{ good: 'spice', qty: -30 }]);
+    // 運んできた20は上限なし、倉庫から積んだ10は空きの分だけ
+    assert.equal(m.cargo.spice || 0, Math.max(0, 10 - room));
+    const w2 = G.deserialize(G.serialize(w));
+    assert.deepEqual(w2.markets.map((y) => y.start), w.markets.map((y) => y.start));
+  } finally {
+    delete sc.portMarket;
+  }
+});

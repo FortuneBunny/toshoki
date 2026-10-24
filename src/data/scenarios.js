@@ -183,6 +183,9 @@ const s4 = {
   // 強盗団の予告の試作（28回目の相談。src/core/gangs.js。まだ入れていない。評価が通ったら gangs: GANGS_S4 にする）
 };
 
+// 港の市の予告の試作（29回目の相談。src/core/markets.js。まだ入れていない。評価が通ったら s6 に portMarket: PORT_MARKET_S6 を足す）
+export const PORT_MARKET_S6 = { city: 'byakudan', good: 'spice', first: [60, 90], gap: [35, 55], lead: 30, days: 6, rate: 0.6, max: 15, price: 1.3 };
+
 export const GANGS_S4 = {
   zones: [
     { id: 'north', name: '北の隊商路（玻璃の都の西）', x: 720, y: 245, r: 55, hint: '玻璃の都からは、塩の村を回れば避けられる（5日ほど遠い）' },

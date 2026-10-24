@@ -19,6 +19,7 @@ import { planShifts } from './shifts.js';
 import { planBlights } from './blights.js';
 import { planFestivals } from './festivals.js';
 import { planGangs } from './gangs.js';
+import { planMarkets } from './markets.js';
 import { checkGoals } from './scoring.js';
 import { generateDistrict, districtProduction, updateHousing } from './district.js';
 import { buildGrid, GRID_W, GRID_H, gridKey } from './grid.js';
@@ -180,6 +181,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
   planBlights(world); // 予告された産地の不作の予定（同じく別の乱数）
   planFestivals(world); // 予告された大祭の予定（同じく別の乱数）
   planGangs(world); // 予告された強盗団の予定（同じく別の乱数）
+  planMarkets(world); // 予告された港の市の予定（同じく別の乱数）
   if (sc.pioneer) emit(world, { type: 'setup', text: world.setup.stage === 'family' ? 'まず一族を選ぶ。一族ごとに、館の立つ地域が違う' : '一族の館の近くに、最初の交易所を置こう（無料）。集落を圏に入れると、その人と畑が交易所のものになる' });
   else emit(world, { type: 'start', text: sc.intro });
   return world;

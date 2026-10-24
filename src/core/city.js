@@ -12,6 +12,7 @@ import { shiftNotes } from './shifts.js';
 import { blightNotes } from './blights.js';
 import { festivalNotes, festivalOn, festRushSuffix } from './festivals.js';
 import { gangNotes } from './gangs.js';
+import { marketNotes } from './markets.js';
 
 export function cityTier(city) {
   let t = 0;
@@ -311,7 +312,7 @@ export function cityOutlook(world, city) {
       if (load.length) out.push({ kind: 'rival', text: `${r.name}の隊商が${load.slice(0, 2).map(([g, n]) => `${GOODS[g].name}${Math.floor(n)}`).join('・')}を積んで向かっている（あと約${m.travelDays}日。着くと値が下がる）` });
     }
   }
-  out.unshift(...shiftNotes(world, city), ...blightNotes(world, city), ...festivalNotes(world, city), ...gangNotes(world, city));
+  out.unshift(...shiftNotes(world, city), ...blightNotes(world, city), ...festivalNotes(world, city), ...gangNotes(world, city), ...marketNotes(world, city));
   return out;
 }
 
