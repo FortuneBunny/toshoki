@@ -156,10 +156,12 @@ export function goalProgress(world, g) {
       const fest = g.during === 'festival';
       const c = g.city ? world.cities[g.city] : null;
       const w = g.festivalWeight || 0;
+      const need = goalRushCount(world, g);
       const v = c ? (fest ? c.festRushCount || 0 : (c.rushCount || 0) + (w ? (w - 1) * (c.festRushCount || 0) : 0)) : s.rushes || 0;
       const where = c ? `${c.name}で` : '';
       const note = w ? `。大祭の期間に始まったラッシュは${w}回に数える` : '';
-      return { p: v / g.count, text: `${where}${fest ? '大祭の期間に' : ''}シュガーラッシュを ${g.count} 回起こす（今 ${v}${note}）` };
+      const relax = g.relaxAfter ? (world.day >= g.relaxAfter ? `。${g.relaxAfter}日目を過ぎたので${need}回でよい` : `。${g.relaxAfter}日目を過ぎると${g.relaxCount ?? 1}回でよくなる`) : '';
+      return { p: v / need, text: `${where}${fest ? '大祭の期間に' : ''}シュガーラッシュを ${need} 回起こす（今 ${v}${note}${relax}）` };
     }
     case 'totalPop': {
       const v = Object.values(world.cities).reduce((a, c) => a + c.pop, 0);
@@ -190,6 +192,9 @@ export function goalProgress(world, g) {
 // 積み上げ型の目標（つくった数・売った数・ラッシュの回数）は一度届けば達成のまま。
 // 状態の目標（銀・資産・人口・町の段階）は、すべての目標がそろう瞬間に満たしている必要がある。
 const CUMULATIVE = new Set(['produce', 'deliver', 'rushes', 'share', 'sellValue']);
+// relaxAfter: 日: その日を過ぎたら、要る回数を relaxCount（既定1）に下げる（見落とした人の救い。29回目の相談の Opus）
+export const goalRushCount = (world, g) => (g.relaxAfter && world.day >= g.relaxAfter ? g.relaxCount ?? 1 : g.count);
+
 export function goalsStatus(world) {
   world.goalsDone = world.goalsDone || [];
   world.goalsReached = world.goalsReached || [];

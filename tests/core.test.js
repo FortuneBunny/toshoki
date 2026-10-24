@@ -1023,6 +1023,11 @@ test('大祭の予告（試作）: 大祭の期間に始まったラッシュだ
     assert.equal(c.festRushCount, 1);
     const w2 = G.deserialize(G.serialize(w));
     assert.deepEqual(w2.festivals.map((y) => y.start), w.festivals.map((y) => y.start));
+    // relaxAfter: その日を過ぎたら1回でよい
+    sc.goals = [{ type: 'rushes', city: 'saito', count: 2, during: 'festival', relaxAfter: w.day + 1 }];
+    assert.ok(G.goalsStatus(w)[0].text.includes('2 回'));
+    G.advance(w, 1, { stopOn: new Set() });
+    assert.ok(G.goalsStatus(w)[0].text.includes('1 回'));
     // festivalWeight: ふつうのラッシュは1回、大祭のラッシュは2回ぶん
     sc.goals = [{ type: 'rushes', city: 'saito', count: 3, festivalWeight: 2 }];
     assert.equal(G.goalsStatus(w)[0].text.includes(`今 ${c.rushCount + 1}`), true);

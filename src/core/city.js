@@ -189,6 +189,7 @@ function rushCycle(world, city) {
   if (city.glucose >= rushLineOf(world) && (city.sweetLevel || 0) >= B.rushSweetLine) {
     city.rush = B.rushDays;
     city.rushCount = (city.rushCount || 0) + 1;
+    city.lastRushDay = world.day;
     world.stats.rushes = (world.stats.rushes || 0) + 1;
     // 大祭の期間に始まったラッシュ（目標の during: 'festival' で数える）
     const fest = festivalOn(world, city.id);
