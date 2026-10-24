@@ -81,6 +81,7 @@ export function play(g, seed, mode, opts = {}) {
       if (G.buyTransport(w, m.id, 'cart').ok) set(m, true);
     }
     if (mode.kind === 'read' || mode.kind === 'react') sent += reader(w, seen, mode.kind === 'read', mode.k, mode.per);
+    if (g.finish) finishSell(w);
     G.drainEvents(w);
     G.advance(w, 1, { stopOn: new Set() });
   }
@@ -91,6 +92,24 @@ export function play(g, seed, mode, opts = {}) {
   const good = w.scenario.shifts?.good;
   const rivalValue = Math.round(w.rivals.reduce((a, r) => a + (r.soldValue?.[good] || 0), 0));
   return { seed, day, rank: f.rank ?? 'C', plan, fair: sh.reduce((a, x) => a + x.sold, 0), sent, each: sh.map((x) => ({ sold: x.sold, value: Math.round(x.value), low: Math.round(x.lowValue), want: x.want, others: x.others || 0 })), mine: Math.round((w.stats.soldValue?.[good] || 0) - (w.stats.boughtValue?.[good] || 0)), rivalValue };
+}
+
+// 寄り道売り（26回目の相談。人なら達成の直前にすること）: 向かっている町で積荷の白糖を売れば「売った額」の目標に届くなら、
+// その町の最低売値を0にして全部売る。予告は読まない
+function finishSell(w) {
+  const goal = w.scenario.goals.find((x) => x.type === 'sellValue');
+  if (!goal) return;
+  const s = w.stats;
+  const gap = goal.amount - ((s.soldValue?.[goal.good] || 0) - (s.boughtValue?.[goal.good] || 0));
+  for (const m of w.player.merchants) {
+    const o = m.order;
+    const n = Math.floor(m.cargo[goal.good] || 0);
+    if (!o || !m.travel || n <= 0) continue;
+    const st = o.stops[o.next]?.city === m.travel.to ? o.stops[o.next] : o.stops.find((x) => x.city === m.travel.to);
+    const c = st && w.cities[st.city];
+    if (!c || !G.cityWants(c, goal.good) || G.quote(w, c, goal.good, -n) < gap) continue;
+    for (const x of st.sell) if (x.good === goal.good) x.min = 0;
+  }
 }
 
 // 読む手: 予告を見て、k 人まで、その期間だけ隊商市へ回す（低迷する町へ売る便から先に）。
@@ -180,7 +199,7 @@ export const FSTAR = {
   paths: [['post', 'toumitsu', 'trail']], pathMargin: 300, cart: false, cartMargin: 0,
   routes: [[{ city: 'toumitsu', min: 60 }, { city: 'suitou', min: 27 }, { city: 'toumitsu', min: 27 }]],
 };
-export const describe = (g) => `待${g.wait}${g.cart ? `/荷車${g.cartWait}` : ''} ${g.routes.map((r) => r.map((s) => `${s.city.slice(0, 2)}${s.min}`).join('>')).join(' | ')} 人${g.maxM}+${g.hireMargin} ${g.talent} 技${g.tech ?? '-'} 道${g.paths.map((x) => `${x[0].slice(0, 2)}-${x[1].slice(0, 2)}${x[2][0]}`).join(',') || '-'} 場${g.site}${g.molasses ? ` 蜜${g.molasses}` : ''}`;
+export const describe = (g) => `${g.finish ? '寄' : ''}待${g.wait}${g.cart ? `/荷車${g.cartWait}` : ''} ${g.routes.map((r) => r.map((s) => `${s.city.slice(0, 2)}${s.min}`).join('>')).join(' | ')} 人${g.maxM}+${g.hireMargin} ${g.talent} 技${g.tech ?? '-'} 道${g.paths.map((x) => `${x[0].slice(0, 2)}-${x[1].slice(0, 2)}${x[2][0]}`).join(',') || '-'} 場${g.site}${g.molasses ? ` 蜜${g.molasses}` : ''}`;
 
 // ---- 並列 ----
 if (!isMainThread) {

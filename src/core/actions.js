@@ -11,7 +11,7 @@ import { tick, addMerchant, drainEvents } from './world.js';
 import { cityTier } from './city.js';
 import { executeTrade, previewTrade, moveWarehouse } from './trade.js';
 import { departWithExpectation, validateOrder, runOrder, switchAlt } from './orders.js';
-import { cargoUsed, findPath, canDepart } from './caravan.js';
+import { cargoUsed, cargoCap, findPath, canDepart } from './caravan.js';
 import { gridKey, P } from './grid.js';
 import { buildingInputs } from './production.js';
 import { placeCheck, placeableTiles, addBuilding, cityRadius, coordName, civicWants, civicsIn } from './district.js';
@@ -477,9 +477,23 @@ export function setOrder(world, mid, order) {
     order.stops.forEach((s, i) => { const r = findPath(world, here, s.city, m.transport); if (r && r.days < best) { best = r.days; idx = i; } });
   }
   m.order.next = Math.max(0, idx);
+  waitRoomNote(world, m);
   if (order.hold) { m.order.paused = true; return { ok: true }; }
   if (!m.travel) runOrder(world, m);
   return { ok: true };
+}
+
+// 待つ品の前に、ほかの品で荷台が埋まると、待つ数に永遠に届かない（26回目の Opus: 糖蜜で埋まり、白糖20個を待ち続けた）
+function waitRoomNote(world, m) {
+  for (const st of m.order.stops) {
+    const w = st.waitFor;
+    if (!w) continue;
+    const others = (st.load || []).map((x) => String(x).split('*')).filter(([g]) => g !== w.good);
+    if (!others.length) continue;
+    const used = others.reduce((a, [g, cap]) => a + (cap ? Number(cap) * GOODS[g].weight : Infinity), 0);
+    if (w.qty * GOODS[w.good].weight + used <= cargoCap(m)) continue;
+    emit(world, { type: 'orderNote', merchant: m.id, city: st.city, bad: true, text: `${m.name}: ${world.cities[st.city]?.name || st.city}で${GOODS[w.good].name}を${w.qty}個まで待つが、${others.map(([g, cap]) => `${GOODS[g].name}${cap ? `${cap}個` : '（上限なし）'}`).join('・')}も積むので、荷台が先に埋まると待つ数に届かない。ほかの品に「*個数」の上限をつけるか、待つ数を減らす` });
+  }
 }
 
 // 定期便を別の商人に写す（版4 H5。原作の「路線の一覧」の良い所だけ取る。同じ往復に2人目を足すとき、一から組まなくてよい）

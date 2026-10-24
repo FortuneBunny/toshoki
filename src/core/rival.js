@@ -8,7 +8,7 @@ import { emit } from './events.js';
 import { BALANCE as B } from '../data/balance.js';
 import { foundSites, createPost } from './posts.js';
 import { HQ_RANGE } from './pioneer.js';
-import { fairRoom, noteRivalFairSale } from './shifts.js';
+import { fairRoom, noteRivalFairSale, knownShifts, fairEnd } from './shifts.js';
 
 function bestPlan(world, r, m) {
   const here = world.cities[m.city];
@@ -50,6 +50,47 @@ function bestSale(world, m, good, n) {
 
 // 白糖を買う隊商市が開いていて、まだ総量が残っているか（ライバルは始まってから知る）
 const openFair = (world, good) => (world.shifts || []).some((x) => x.good === good && world.day >= x.start && fairRoom(world, world.cities[x.fair], good) > 0 && fairRoom(world, world.cities[x.fair], good) !== Infinity);
+
+// 予告を読む隊商の行き先: 予告ずみで、まだ送っていない市のうち、本拠地から閉じる前に着けるいちばん早いもの
+function readerTarget(world, r) {
+  const out = r.workshop?.output;
+  const rm = r.merchants.find((m) => m.reader);
+  if (!out || !rm) return null;
+  let best = null;
+  for (const x of knownShifts(world)) {
+    if (x.good !== out || x.readerSent || world.day >= fairEnd(x)) continue;
+    const route = findPath(world, r.workshop.city, x.fair, rm.transport);
+    if (!route || world.day + route.days >= fairEnd(x)) continue;
+    if (!best || x.start < best.x.start) best = { x, days: route.days };
+  }
+  return best;
+}
+// 予告を読む隊商が本拠地で待っていて、出る日が近い（15日以内）なら、ほかの商人は蔵の製品を持ち出さない
+function readerHold(world, r) {
+  const rm = r.merchants.find((m) => m.reader);
+  if (!rm || rm.noHold || rm.travelDays > 0 || rm.city !== r.workshop?.city) return false;
+  const t = readerTarget(world, r);
+  return !!t && t.x.start - t.days - world.day <= 15;
+}
+function readerStep(world, r, m) {
+  const home = r.workshop?.city;
+  if (!home) { m.wait = 3; return; }
+  if (m.city !== home) {
+    const route = findPath(world, m.city, home, m.transport);
+    if (route) { m.dest = home; m.travelDays = route.days; m.from = m.city; m.departDay = world.day; } else m.wait = 3;
+    return;
+  }
+  const t = readerTarget(world, r);
+  if (!t || world.day < t.x.start - t.days) { m.wait = 1; return; }
+  const out = r.workshop.output;
+  const n = Math.min(Math.floor(r.store?.[out] || 0), TRANSPORTS[m.transport].cap, m.readerCap ?? Infinity);
+  t.x.readerSent = true;
+  if (n < 1) return;
+  r.store[out] -= n;
+  m.cargo = { [out]: n };
+  Object.assign(m, { dest: t.x.fair, travelDays: t.days, from: m.city, departDay: world.day });
+  emit(world, { type: 'rival', bad: true, city: t.x.fair, text: `${r.name}の隊商が、予告を読んで${GOODS[out].name}${n}個を積み、${world.cities[t.x.fair].name}の隊商市へ向かった（約${t.days}日）` });
+}
 
 // ライバルの工房: 本拠地の市場から原料を買い、製品を蔵に貯める
 function rivalWorkshop(world, r) {
@@ -117,8 +158,10 @@ export function updateRivals(world) {
         if (best) { m.dest = best.to; m.travelDays = best.days; m.from = m.city; m.departDay = world.day; continue; }
         m.cargo = {};
       }
-      // 本拠地にいて蔵に製品があれば、それを一番高く売れる町へ運ぶ
-      if (r.workshop && m.city === r.workshop.city && (r.store?.[r.workshop.output] || 0) >= 5) {
+      // 予告を読む隊商（s7 (b) の試作）: 公開された予告だけを見て、市が立つ日に着くよう本拠地を出る
+      if (m.reader) { readerStep(world, r, m); continue; }
+      // 本拠地にいて蔵に製品があれば、それを一番高く売れる町へ運ぶ（予告を読む隊商が出る前は、蔵の分を取っておく）
+      if (r.workshop && m.city === r.workshop.city && (r.store?.[r.workshop.output] || 0) >= 5 && !readerHold(world, r)) {
         const out = r.workshop.output;
         const n = Math.min(Math.floor(r.store[out]), TRANSPORTS[m.transport].cap);
         const best = bestSale(world, m, out, n);

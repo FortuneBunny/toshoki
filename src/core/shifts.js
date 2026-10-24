@@ -72,6 +72,8 @@ export const fairWantText = (x) => (x.want ? `市が買うのは全部で${x.wan
 export const fairClosed = (world, x) => world.day >= fairEnd(x);
 export function fairStateText(world, x) {
   if (world.day < x.start) return `${x.start - world.day}日後から（${x.start}〜${fairEnd(x) - 1}日目）`;
+  // 総量を買い終えた市は、次の日に閉じる（「今（あと1日）」と出て、まだ買うように読めた。26回目の Opus）
+  if (x.full && !fairClosed(world, x)) return `${x.want}個を買い終えた（今日で閉じる）`;
   if (!fairClosed(world, x)) return `今（あと${fairEnd(x) - world.day}日、${fairEnd(x) - 1}日目まで）`;
   return `閉じた（${x.full ? `${x.want}個を買い終えた` : '期間が終わった'}）`;
 }
@@ -83,7 +85,7 @@ export function caravanText(world, x) {
   const r = world.rivals.find((y) => y.workshop?.output === x.good);
   if (!r) return '';
   const route = findPath(world, r.workshop.city, x.fair, r.merchants[0]?.transport || 'donkey');
-  return `${r.name}は予告を読まず、市が立ってから${nm(world, r.workshop.city)}の蔵の${GOODS[x.good].name}を市へ送る（${nm(world, r.workshop.city)}から${route ? `約${route.days}日` : '道がない'}${route && route.days >= fairEnd(x) - x.start ? '。市が閉じるまでに着かない' : ''}）。`;
+  return `${r.name}は予告を読まず、市が立ってから${nm(world, r.workshop.city)}の蔵の${GOODS[x.good].name}を市へ送る（${nm(world, r.workshop.city)}を出てから${route ? `約${route.days}日。商人が${nm(world, r.workshop.city)}へ戻るのを待つと、もっと遅い` : '道がない'}${route && route.days >= fairEnd(x) - x.start ? '。市が閉じるまでに着かない' : ''}）。`;
 }
 
 // 毎日の補正（applyModifiers のあと）
@@ -147,7 +149,7 @@ export function updateShifts(world) {
       const fair = world.cities[x.fair];
       if (fair) fair.stock[x.good] = 0;
       // ライバルの隊商が市で売った分も出す（s7。取り合いの結果が見えるように）
-      const rv = x.others && x.caravans ? `。${world.rivals.map((r) => r.name).join('・') || 'ライバル'}は${x.others}個を売った（約${Math.round(x.rivalValue || 0)}銀）` : '';
+      const rv = x.caravans ? `。${world.rivals.map((r) => r.name).join('・') || 'ライバル'}は${x.others ? `${x.others}個を売った（約${Math.round(x.rivalValue || 0)}銀）` : '0個'}` : '';
       const txt = x.sold > 0
         ? `${nm(world, x.fair)}の隊商市が${x.full ? `${x.want}個を買い終えて` : ''}閉じた。${g}を${x.sold}個売って${Math.round(x.value)}銀（同じ日に${nm(world, x.low)}で売っていたら約${Math.round(x.lowValue)}銀）${rv}`
         : `${nm(world, x.fair)}の隊商市が${x.full ? `${x.want}個を買い終えて` : ''}閉じた${rv}`;
@@ -196,7 +198,10 @@ export function noteAltMiss(world, m, a) {
 }
 function watchAlts(world) {
   for (const m of world.player.merchants) for (const a of m.order?.alts || []) {
-    if (!a.shift || a.used) continue;
+    if (!a.shift) continue;
+    // 切り替わったあと、積む町で待っているうちに市に間に合わなくなるときも知らせる
+    // （切り替わった予約は「逃した」に数えず、積み待ちのまま市で1個も売らずに、いつもの便へ戻っていた。26回目の Sol）
+    if (a.used) { watchLoading(world, m, a); continue; }
     if (world.day >= a.until) { noteAltMiss(world, m, a); continue; }
     const st = m.order.stops[m.order.next];
     if (!a.warned && world.day >= a.from && a.until - world.day <= 3 && m.order.holding && st?.waitFor) {
@@ -204,6 +209,23 @@ function watchAlts(world) {
       emit(world, { type: 'orderNote', merchant: m.id, city: m.city, bad: true, text: `${m.name}: 予告#${a.shift}の臨時の便の期間は、あと${a.until - world.day}日。${nm(world, m.city)}で${GOODS[st.waitFor.good].name}を待っている（${Math.floor(m.cargo[st.waitFor.good] || 0)}/${st.waitFor.qty}個）。待つ数を減らすか、手で出発させないと逃す` });
     }
   }
+}
+
+function watchLoading(world, m, a) {
+  const o = m.order;
+  const st = o.stops[o.next];
+  if (a.loadNoted || o.altOn !== a.id || m.travel || !o.holding || !st?.waitFor) return;
+  const x = (world.shifts || []).find((y) => y.id === a.shift);
+  if (!x || fairClosed(world, x)) return;
+  const route = findPath(world, m.city, x.fair, m.transport);
+  if (!route) return;
+  const last = fairEnd(x) - 1 - route.days;
+  if (world.day < last - 3) return;
+  a.loadNoted = true;
+  const have = `${nm(world, m.city)}で${GOODS[st.waitFor.good].name}を待っている（${Math.floor(m.cargo[st.waitFor.good] || 0)}/${st.waitFor.qty}個）`;
+  emit(world, { type: 'orderNote', merchant: m.id, city: m.city, bad: true, text: last >= world.day
+    ? `${m.name}: 予告#${a.shift}の臨時の便で、${have}。${last}日目までに出ないと、${nm(world, x.fair)}の市が閉じる前に着かない。待つ数を減らすか、手で出発させる`
+    : `${m.name}: 予告#${a.shift}の臨時の便で、${have}。もう${nm(world, x.fair)}の市が閉じる前には着かない` });
 }
 
 // 閉じた市へ回る臨時の便は、次に町を出るときにいつもの便へ戻す（空の市と交易所を往復し続けないように）
@@ -264,7 +286,7 @@ export function shiftNotes(world, city) {
     const when = on ? `あと${x.end - world.day}日` : `${x.start - world.day}日後から${sc.days}日間`;
     const fon = fairActive(world, x);
     const fwhen = fon ? `あと${fairEnd(x) - world.day}日` : `${x.start - world.day}日後から${fairEnd(x) - x.start}日間`;
-    if (x.low === city.id) out.push({ kind: on ? 'down' : 'shift', text: on ? `📉${g}の大量入荷中（${when}）。${g}は安くしか売れない。隊商市は${nm(world, x.fair)}` : `📉${when}、${g}が大量に入って安くなる（${x.start}〜${x.end - 1}日目）。そのあいだ${nm(world, x.fair)}の隊商市が高く買う` });
+    if (x.low === city.id) out.push({ kind: on ? 'down' : 'shift', text: on ? `📉${g}の大量入荷中（${when}）。${g}は安くしか売れない。${fairClosed(world, x) ? `${nm(world, x.fair)}の隊商市は${fairStateText(world, x)}` : `隊商市は${nm(world, x.fair)}（${fairStateText(world, x)}）`}` : `📉${when}、${g}が大量に入って安くなる（${x.start}〜${x.end - 1}日目）。そのあいだ${nm(world, x.fair)}の隊商市が高く買う` });
     if (x.fair === city.id && world.day < fairEnd(x)) out.push({ kind: fon ? 'up' : 'shift', text: fon ? `🎪隊商市が立っている（${fwhen}）。${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく）${wantText(x)}` : `🎪${fwhen}、隊商市が立つ（${x.start}〜${fairEnd(x) - 1}日目）。${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく）${wantText(x)}` });
   }
   return out;
@@ -290,7 +312,7 @@ export function orderShiftWarnings(world, m) {
     // 今回っている臨時の便は、商人の欄に出ているので重ねて出さない（25回目の Sol）
     if (alt && m.order.altOn === alt.id) continue;
     const covered = !!alt;
-    out.push({ shift: x, covered, text: covered ? `臨時の便を予約ずみ（${alt.from}〜${alt.until}日目）` : `この便の売り先${nm(world, x.low)}は、${shiftActive(world, x) ? `今${GOODS[x.good].name}が安い（あと${x.end - world.day}日）` : `${x.start - world.day}日後から${GOODS[x.good].name}が安い`}。隊商市は${nm(world, x.fair)}` });
+    out.push({ shift: x, covered, text: covered ? `臨時の便を予約ずみ（${alt.from}〜${alt.until}日目）` : `この便の売り先${nm(world, x.low)}は、${shiftActive(world, x) ? `今${GOODS[x.good].name}が安い（あと${x.end - world.day}日）` : `${x.start - world.day}日後から${GOODS[x.good].name}が安い`}。${fairClosed(world, x) ? `${nm(world, x.fair)}の隊商市は${fairStateText(world, x)}` : `隊商市は${nm(world, x.fair)}（${fairStateText(world, x)}）`}` });
   }
   return out;
 }
@@ -367,5 +389,7 @@ export function altDraftFor(world, m, x) {
   if (!at) return null;
   const home = JSON.parse(JSON.stringify(base[0]));
   if (home.city === x.fair) return null;
+  // 積むのは市の品だけ、上限なし（いつもの便の「白糖8個まで」が写り、総量10の市に8個しか運べなかった。ほかの品で荷台が埋まり、待つ数に届かなかった。26回目の Opus）
+  if ((home.load || []).some((l) => String(l).split('*')[0] === x.good)) home.load = [x.good];
   return [home, { city: x.fair, buy: [], sell: (at.sell || []).map((v) => ({ ...v, min: 0 })), unload: [], load: [] }];
 }

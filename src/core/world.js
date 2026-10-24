@@ -156,7 +156,7 @@ export function createWorld(scenarioId, { seed = 1, heirloom = null, heirlooms =
       // 工房は複製する（技術で処理量を増やすと、シナリオの定義まで変わり、次に遊ぶ世界のライバルが最初から強くなっていた）
       name: rd.name, silver: rd.silver, skill: rd.skill, goods: rd.goods, sold: {}, workshop: rd.workshop ? { ...rd.workshop } : null, store: {},
       // 町のないシナリオでは、古い町から始める商人のほかは、ライバルの交易所ができてから出てくる
-      merchants: rd.merchants.map((rm) => ({ city: sc.pioneer && !sc.cities.some((c) => c.id === rm.city) ? null : rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home })),
+      merchants: rd.merchants.map((rm) => ({ city: sc.pioneer && !sc.cities.some((c) => c.id === rm.city) ? null : rm.city, transport: rm.transport, cargo: {}, travelDays: 0, wait: rm.wait ?? 2, home: !!rm.home, ...(rm.reader ? { reader: true, readerCap: rm.readerCap, noHold: rm.noHold } : {}) })),
     });
   }
 

@@ -642,7 +642,10 @@ function run(world, cmd, pos, opts) {
           const win = G.altWindowFor(world, m, x, m.order.stops);
           const base = G.baseStops(m.order);
           const have = G.altCovering(m, x);
-          out.push(`    #${m.id} ${m.name}: ${base[0] ? world.cities[base[0].city].name : ''}から${world.cities[x.fair].name}まで約${win.days}日 → ${have ? `予約ずみ（${have.from}〜${have.until}日目）` : win.late ? `${win.ready > world.day ? `${base[0] ? world.cities[base[0].city].name : ''}に戻れるのは${win.ready}日目。` : ''}市が閉じる前に着けない` : `臨時の便に切り替わる期間の目安 ${win.from}〜${win.until}日目（期間中に町に着くと切り替わり、白糖を積んでいれば市へ直に。${win.lastSale}日目までに着く${win.ready > win.from ? `。今の旅から戻るのは${win.ready}日目` : ''}。今予約すると早ければ${win.arrive}日目着、${win.afterStart > win.lastSale ? '始まってから切り替えたのでは間に合わない' : `始まってから切り替えると${win.afterStart}日目着で市の残り${win.lastSale - win.afterStart + 1}日`}）。order alt --shift ${x.id} -m ${m.id} で、${base[0] ? world.cities[base[0].city].name : ''}と${world.cities[x.fair].name}を往復する便を予約`}`);
+          // 今の積荷と積み待ち（着く日の目安に積み待ちの日数は入らない。26回目の Sol: 目安の1日差でライバルより先と読み、積み待ちで逆転した）
+          const st = m.order.stops[m.order.next];
+          const load = `${GOODS[x.good].name}${Math.floor(m.cargo[x.good] || 0)}個${m.order.holding && st?.waitFor ? `、${world.cities[m.city]?.name || ''}で${GOODS[st.waitFor.good].name}${st.waitFor.qty}個まで待っている` : ''}`;
+          out.push(`    #${m.id} ${m.name}（${load}。目安に積み待ちは入らない）: ${base[0] ? world.cities[base[0].city].name : ''}から${world.cities[x.fair].name}まで約${win.days}日 → ${have ? `予約ずみ（${have.from}〜${have.until}日目）` : win.late ? `${win.ready > world.day ? `${base[0] ? world.cities[base[0].city].name : ''}に戻れるのは${win.ready}日目。` : ''}市が閉じる前に着けない` : `臨時の便に切り替わる期間の目安 ${win.from}〜${win.until}日目（期間中に町に着くと切り替わり、白糖を積んでいれば市へ直に。${win.lastSale}日目までに着く${win.ready > win.from ? `。今の旅から戻るのは${win.ready}日目` : ''}。今予約すると早ければ${win.arrive}日目着、${win.afterStart > win.lastSale ? '始まってから切り替えたのでは間に合わない' : `始まってから切り替えると${win.afterStart}日目着で市の残り${win.lastSale - win.afterStart + 1}日`}）。order alt --shift ${x.id} -m ${m.id} で、${base[0] ? world.cities[base[0].city].name : ''}と${world.cities[x.fair].name}を往復する便を予約`}`);
         }
       }
       break;
@@ -1069,7 +1072,7 @@ function run(world, cmd, pos, opts) {
       const pl = world.player;
       const max = G.merchantCap(world);
       out.push('■ 投資の費用と条件');
-      out.push(`商人を雇う（hire confirm [--at 町]）: ${pl.merchants.length >= max ? `上限（${max}人）に達している` : `次は ${G.hireCost(world)} 銀（150×今の人数${pl.mods?.hireCost ? `×${pl.mods.hireCost}（家訓）` : ''}。雇うほど高くなる）。商人が滞在している町か、定期便が回っている町で雇える。最大${max}人。給金は1人1日${G.BALANCE.merchantWage}銀`}`);
+      out.push(`商人を雇う（hire confirm [--at 町]）: ${pl.merchants.length >= max ? `上限（${max}人）に達している` : `次は ${G.hireCost(world)} 銀（150×今の人数${pl.mods?.hireCost ? `×${pl.mods.hireCost}（家訓）` : ''}。雇うほど高くなる）。商人が滞在している町か、定期便が回っている町で雇える。今の上限は${max}人${G.branchesAllowed(world) ? '（商館を開くと1人ずつ増える）' : ''}。給金は1人1日${G.BALANCE.merchantWage}銀`}`);
       out.push('輸送手段（transport <種類> confirm。今のものは半額で下取り）:');
       for (const [k, t] of Object.entries(TRANSPORTS)) {
         if (!world.allowedTransports.includes(k)) { out.push(`  ${t.name}(${k}): このシナリオでは使えない`); continue; }

@@ -946,3 +946,16 @@ test('s7: ライバルの隊商も市の総量を取り合う。残りの分し�
   assert.ok(['hakuto', 'kanmi'].includes(m.dest));
   assert.equal(m.cargo.whitesugar, 13);
 });
+
+test('臨時の便の下書きは、市の品だけを上限なしで積む。待つ数に届かない積み方は知らせる', () => {
+  const w = G.createWorld('s3', { seed: 11 });
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const p = Object.values(w.cities).find((c) => c.founded).id;
+  const home = { city: p, buy: [], sell: [], load: ['whitesugar*8', 'molasses'], waitFor: { good: 'whitesugar', qty: 14 } };
+  G.drainEvents(w);
+  assert.ok(G.setOrder(w, 1, { stops: [home, { city: 'suitou', buy: [], sell: [{ good: 'whitesugar', min: 35 }], load: [] }] }).ok);
+  assert.ok(G.drainEvents(w).some((e) => e.type === 'orderNote' && /待つ数に届かない/.test(e.text)));
+  const draft = G.altDraftFor(w, w.player.merchants[0], w.shifts[0]);
+  assert.deepEqual(draft[0].load, ['whitesugar']);
+});
