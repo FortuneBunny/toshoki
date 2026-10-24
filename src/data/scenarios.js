@@ -256,7 +256,7 @@ const s6 = {
 const s7 = {
   id: 's7', no: 7, title: '白い黄金',
   // 版4: キビ原は集落になった。一族の館はそのそば。製糖所は、交易所を「市場」に格上げすると建てられる
-  intro: '一族の館は、北のキビ原のそばにある。そこに交易所を開き、「市場」に格上げして製糖所を建てよ。白糖は「白い黄金」と呼ばれる。紫衣のサルマン商会は南キビ村に製糖所を持ち、白糖を各地へ運んで値を崩していく。工房と定期便を整え、白糖を売った額でサルマン商会を上回れ（1万銀以上。市場で買った白糖の代金は差し引く＝自分で作った分の勝負。安く売り崩せば額は伸びない）。精製の技術は先に買った方が独占できる（上の「技術」/ CLI: techs）。',
+  intro: '一族の館は、北のキビ原のそばにある。そこに交易所を開き、「市場」に格上げして製糖所を建てよ。白糖は「白い黄金」と呼ばれる。紫衣のサルマン商会は南キビ村に製糖所を持ち、白糖を各地へ運んで値を崩していく。工房と定期便を整え、白糖を売った額でサルマン商会を上回れ（1万銀以上。市場で買った白糖の代金は差し引く＝自分で作った分の勝負。安く売り崩せば額は伸びない）。ときどき、白都か甘味の町に白糖が大量に入って安くしか売れなくなる。その期間には、地図の端の砂の井戸・南の浜・北の牧のどこかに隊商市が立ち、白糖を高く買う（3つの村を一巡するまで同じ村には立たない。市が買う総量も予告に出る）。サルマン商会は予告を読まないが、市が立ったと聞けば白糖を運んでくる──予告が出たら、定期便の「臨時の便」で先に売り先を回し、市の総量を先に取れ。精製の技術は先に買った方が独占できる（上の「技術」/ CLI: techs）。',
   goods: ['wheat', 'dates', 'honey', 'cane', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'salt'],
   start: { silver: 1800, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }] },
   cities: [
@@ -265,6 +265,11 @@ const s7 = {
     { id: 'mitsu', name: '蜜の森', x: 860, y: 120, pop: 520, produces: { honey: 3, dates: 2 } },
     { id: 'kanmi', name: '甘味の町', x: 860, y: 470, pop: 1500, produces: { wheat: 5, rawsugar: 1.5 } },
     { id: 'shio', name: '塩田', x: 520, y: 560, pop: 380, produces: { salt: 6 } },
+    // 隊商市の立つ遠い村（26回目の相談: 蜜の森・塩田は白都・甘味の町から5〜8日で、市の町をいつも通る固定の便が S 25〜63%を取った）。
+    // どの売り場からも寄り道が約15日以上になる、地図の端に置く。南キビ村からは 8・6・21日（北の牧にはライバルが届かない）
+    { id: 'ido', name: '砂の井戸', x: 45, y: 570, pop: 440, steady: true, produces: { dates: 3.5 } },
+    { id: 'hama', name: '南の浜', x: 400, y: 578, pop: 420, steady: true, produces: { salt: 2, dates: 2 } },
+    { id: 'kita', name: '北の牧', x: 965, y: 60, pop: 460, steady: true, produces: { wheat: 2.5, honey: 0.8 } },
   ],
   decor: ['cane-field', 'cane-field', 'field', 'forest', 'mountain'],
   edges: [
@@ -281,7 +286,7 @@ const s7 = {
     workshop: { city: 'kibi2', input: 'cane', output: 'whitesugar', inputPerDay: 8, ratio: 4, everyDays: 2 },
     merchants: [{ city: 'kibi2', transport: 'donkey', wait: 12, home: true }, { city: 'kibi2', transport: 'donkey', wait: 30, home: true }, { city: 'kanmi', transport: 'donkey', wait: 8 }],
   }],
-  knownAtStart: ['hakuto', 'kibi2', 'mitsu', 'kanmi', 'shio'],
+  knownAtStart: ['hakuto', 'kibi2', 'mitsu', 'kanmi', 'shio', 'ido', 'hama', 'kita'],
   pioneer: {
     families: [{ id: 'hasan', name: 'ハサン家', x: 200, y: 180, text: '北のキビ原のそばに館がある。' }],
     hamlets: [{ name: 'キビ原', x: 150, y: 150, pop: 600, foods: { cane: 12, wheat: 3 } }],
@@ -292,8 +297,13 @@ const s7 = {
   goals: [{ type: 'share', good: 'whitesugar', share: 0.5, min: 10000, by: 'value' }],
   // 白糖を食べる町は2つだけ。需要を抑えて、売り先と売る時機で値が変わるようにする（13回目の Sol の案）
   demandScale: { whitesugar: 0.6 },
+  // 売り場の交代（22回目の相談の s7 (a)。試作）: 白都か甘味の町で白糖が安くなる期間に、遠い3つの村のどこかに隊商市が立つ（一巡するまで同じ村に立たない）。
+  // 市が買う総量を、サルマン商会の隊商と取り合う。ライバルは予告を読まず、市が立ってから本拠地の蔵の白糖を市へ送る。
+  // 余波（ほかの売り場も下がる）は入れない: 売り場が2つとも下がると、いつもの売り場で売れる時間が少なく、市の村へ寄り道する固定の便の損が小さかった（26回目）
+  shifts: { good: 'whitesugar', markets: ['hakuto', 'kanmi'], fairs: ['ido', 'hama', 'kita'], fairBag: true, first: [45, 55], gap: [3, 8], lead: 20, days: 25, fairDays: 14, low: { demand: 0.15, price: 0.5 }, fair: { demand: 5, price: 1.1, stock: 0, want: [5, 50], rivalCaravans: true } },
   // 白都だけへの固定の便で 195〜240日（S は 0.45 だと4シード中2つ）。ライバルの隊商の行き先を読んで売り先を分けると縮む線にする
-  deadline: 480, rankS: 0.4,
+  // 26回目のあと: 売り場の交代を入れ、商人4人までの固定の手を探し直して、S を140日に置いた（いちばん強い固定の手が S 1割以下・線+3日で15%以下）
+  deadline: 480, rankS: 0.292,
   transports: ['donkey', 'cart'],
   techs: { refinery: { from: 0 }, wheel: { from: 20 } },
   buildings: ['mill', 'confectionery', 'road'],

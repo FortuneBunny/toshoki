@@ -920,3 +920,29 @@ test('臨時の便の下書きは、積む町と隊商市の往復。隊商市�
   while (w.day < G.fairEnd(x) - 8) G.advance(w, 1, { stopOn: new Set() });
   assert.equal(G.altWindowFor(w, m, x, draft).late, true);
 });
+
+test('s7: ライバルの隊商も市の総量を取り合う。残りの分しか売らず、売れ残りは積んだまま次の町へ運ぶ', () => {
+  const w = G.createWorld('s7', { seed: 3 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const x = w.shifts[0];
+  x.want = 5;
+  while (w.day < x.start) G.advance(w, 1, { stopOn: new Set() });
+  const r = w.rivals[0];
+  for (const y of r.merchants) { y.wait = 99; y.travelDays = 0; }
+  const m = r.merchants[0];
+  Object.assign(m, { dest: x.fair, travelDays: 1, cargo: { whitesugar: 18 }, wait: 0 });
+  const before = r.soldValue?.whitesugar || 0;
+  G.advance(w, 1, { stopOn: new Set() });
+  assert.equal(x.others, 5);
+  assert.equal(x.sold, 0);
+  assert.equal(m.cargo.whitesugar, 13);
+  assert.ok((r.soldValue.whitesugar || 0) > before);
+  assert.equal(G.fairRoom(w, w.cities[x.fair], 'whitesugar'), 0);
+  // 売れ残りは、白糖を買うほかの町へ運ぶ
+  m.wait = 0;
+  G.advance(w, 1, { stopOn: new Set() });
+  assert.ok(['hakuto', 'kanmi'].includes(m.dest));
+  assert.equal(m.cargo.whitesugar, 13);
+});

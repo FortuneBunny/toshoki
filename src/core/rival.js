@@ -8,6 +8,7 @@ import { emit } from './events.js';
 import { BALANCE as B } from '../data/balance.js';
 import { foundSites, createPost } from './posts.js';
 import { HQ_RANGE } from './pioneer.js';
+import { fairRoom, noteRivalFairSale } from './shifts.js';
 
 function bestPlan(world, r, m) {
   const here = world.cities[m.city];
@@ -31,6 +32,24 @@ function bestPlan(world, r, m) {
   }
   return best;
 }
+
+// 品 good を n 個、1日あたりいちばん高く売れる町（隊商市は残りの総量の分だけ数える）
+function bestSale(world, m, good, n) {
+  let best = null;
+  for (const to of Object.keys(world.cities)) {
+    if (to === m.city || !cityWants(world.cities[to], good)) continue;
+    const k = Math.min(n, fairRoom(world, world.cities[to], good));
+    if (k <= 0) continue;
+    const route = findPath(world, m.city, to, m.transport);
+    if (!route) continue;
+    const perDay = quote(world, world.cities[to], good, -k) / Math.max(1, route.days);
+    if (!best || perDay > best.perDay) best = { to, perDay, days: route.days };
+  }
+  return best;
+}
+
+// 白糖を買う隊商市が開いていて、まだ総量が残っているか（ライバルは始まってから知る）
+const openFair = (world, good) => (world.shifts || []).some((x) => x.good === good && world.day >= x.start && fairRoom(world, world.cities[x.fair], good) > 0 && fairRoom(world, world.cities[x.fair], good) !== Infinity);
 
 // ライバルの工房: 本拠地の市場から原料を買い、製品を蔵に貯める
 function rivalWorkshop(world, r) {
@@ -70,33 +89,39 @@ export function updateRivals(world) {
         // 到着して売る
         const city = world.cities[m.dest];
         m.city = m.dest;
-        for (const [id, n] of Object.entries(m.cargo)) {
-          const gain = cityWants(city, id) ? quote(world, city, id, -n) : 0;
+        const left = {};
+        for (const [id, n0] of Object.entries(m.cargo)) {
+          // 隊商市は、残りの総量までしか買わない。売れ残りは積んだまま、次に売れる町へ運ぶ（s7 の試作 (a)）
+          const room = fairRoom(world, city, id);
+          const n = Math.min(n0, room);
+          const gain = n > 0 && cityWants(city, id) ? quote(world, city, id, -n) : 0;
           if (gain > 0) {
             city.stock[id] = (city.stock[id] || 0) + n;
             r.silver += gain;
             r.sold[id] = (r.sold[id] || 0) + n;
             r.soldValue = r.soldValue || {};
             r.soldValue[id] = (r.soldValue[id] || 0) + gain;
-          }
+            if (room !== Infinity) noteRivalFairSale(world, city, id, n, gain);
+            if (n < n0) left[id] = n0 - n;
+          } else left[id] = n0;
         }
-        m.cargo = {};
+        m.cargo = left;
         m.wait = 1;
         continue;
       }
       if (m.wait > 0) { m.wait--; continue; }
+      // 売れ残りを積んでいれば、それを一番高く売れる町へ運ぶ
+      const carry = Object.entries(m.cargo || {}).find(([, n]) => n > 0);
+      if (carry) {
+        const best = bestSale(world, m, carry[0], carry[1]);
+        if (best) { m.dest = best.to; m.travelDays = best.days; m.from = m.city; m.departDay = world.day; continue; }
+        m.cargo = {};
+      }
       // 本拠地にいて蔵に製品があれば、それを一番高く売れる町へ運ぶ
       if (r.workshop && m.city === r.workshop.city && (r.store?.[r.workshop.output] || 0) >= 5) {
         const out = r.workshop.output;
         const n = Math.min(Math.floor(r.store[out]), TRANSPORTS[m.transport].cap);
-        let best = null;
-        for (const to of Object.keys(world.cities)) {
-          if (to === m.city || !cityWants(world.cities[to], out)) continue;
-          const route = findPath(world, m.city, to, m.transport);
-          if (!route) continue;
-          const perDay = quote(world, world.cities[to], out, -n) / Math.max(1, route.days);
-          if (!best || perDay > best.perDay) best = { to, perDay, days: route.days };
-        }
+        const best = bestSale(world, m, out, n);
         if (best) {
           r.store[out] -= n;
           m.cargo = { [out]: n };
@@ -111,8 +136,11 @@ export function updateRivals(world) {
           continue;
         }
       }
+      // 隊商市が立ったと聞いたら（始まってから。予告は読まない）、本拠地の商人は戻って、蔵の製品を市へ送る（s7 の試作 (a)）
+      const fairOn = r.workshop && m.home && world.scenario.shifts?.fair?.rivalCaravans && openFair(world, r.workshop.output);
+      if (fairOn && m.city === r.workshop.city) { m.wait = 1; continue; }
       // 本拠地へ戻る（蔵が貯まっていれば）
-      if (r.workshop && m.city !== r.workshop.city && (r.store?.[r.workshop.output] || 0) >= 10 && m.home) {
+      if (r.workshop && m.city !== r.workshop.city && ((r.store?.[r.workshop.output] || 0) >= 10 || fairOn) && m.home) {
         const route = findPath(world, m.city, r.workshop.city, m.transport);
         if (route) { m.cargo = {}; m.dest = r.workshop.city; m.travelDays = route.days; m.from = m.city; m.departDay = world.day; continue; }
       }

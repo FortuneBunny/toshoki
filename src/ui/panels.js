@@ -528,7 +528,7 @@ export function shiftDialog(app, sid) {
   draw();
   const body = h('div', {},
     G.fairClosed(world, x) ? h('p', { class: 'bad' }, `${fair}の隊商市は${G.fairStateText(world, x)}。`) : null,
-    h('p', {}, `${x.start - world.day > 0 ? `${x.start - world.day}日後` : '今'}（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${low}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に${fair}に隊商市が立ち、${G.fairEnd(x) - 1}日目まで${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。${x.want ? `${G.fairWantText(x)}。` : ''}${G.fairPriceText(world, x) ? `${G.fairPriceText(world, x)}。` : ''}市は安値より早く閉じる。下に、商人ごとに着く日の目安を出す（積み待ちの日数は入らない）。`),
+    h('p', {}, `${x.start - world.day > 0 ? `${x.start - world.day}日後` : '今'}（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${low}に${g}が大量に入り、安くしか売れなくなる。始まりと同時に${fair}に隊商市が立ち、${G.fairEnd(x) - 1}日目まで${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる）。${x.want ? `${G.fairWantText(x)}。` : ''}${G.fairPriceText(world, x) ? `${G.fairPriceText(world, x)}。` : ''}${G.caravanText(world, x)}市は安値より早く閉じる。下に、商人ごとに着く日の目安を出す（積み待ちの日数は入らない）。`),
     G.fairRound(world) ? h('p', { class: 'dim', style: { fontSize: '12px' } }, `🎪${G.fairRound(world).text}。`) : null,
     h('p', { class: 'dim', style: { fontSize: '12px' } }, `その期間だけ便の売り先を${fair}に回すと、安値を避けて高く売れる。全部の便を回すと、隊商市でも値が崩れる（売れていく速さに限りがある）。下の日付は、臨時の便に切り替わる期間（着く日が市の期間に入るよう、行く日数だけ前にずらしてある）。期間中に町に着くと切り替わり、白糖を積んでいれば市へ直に向かう（積んでいなければ積む町に戻ってから）。市が閉じる前に着けない町、市が立つより2日以上早く着いてしまう町では切り替わらない。何人を回すか、回さずにそのままにするかを決める。臨時の便は期間が過ぎると、いつもの便に戻る。`),
     list);

@@ -12,11 +12,19 @@ import { cpus } from 'node:os';
 import { basename } from 'node:path';
 import * as G from '../src/core/index.js';
 
-const SCEN = 's3';
-const FAIRS = G.SCENARIOS.s3.shifts.fairs;
-const CITIES = ['toumitsu', 'suitou', ...FAIRS];
+// --scen s7: ほかのシナリオの売り場の交代でも回す（s7 の試作 (a)）。売り先は shifts.markets、市の町は shifts.fairs
+const argScen = (() => { const i = process.argv.indexOf('--scen'); return i >= 0 ? process.argv[i + 1] : null; })();
+const SCEN = (isMainThread ? argScen : workerData?.scenId) || 's3';
+const FAIRS = G.SCENARIOS[SCEN].shifts.fairs;
+const MARKETS = G.SCENARIOS[SCEN].shifts.markets;
+const CITIES = [...MARKETS, ...FAIRS];
 const MINS = [0, 20, 27, 35, 45, 60, 80];
-const PATHS = [['post', 'toumitsu'], ['post', 'suitou'], ['post', 'hachi'], ['post', 'natsume'], ['toumitsu', 'hachi'], ['suitou', 'natsume'], ['toumitsu', 'natsume'], ['post', 'izumi'], ['suitou', 'izumi'], ['toumitsu', 'izumi']].filter((x) => x.every((c) => c === 'post' || G.SCENARIOS.s3.cities.some((y) => y.id === c)));
+// 雇える人数（s7 は4人まで）
+const MAXM = G.SCENARIOS[SCEN].maxMerchants ?? 3;
+const MS = MAXM >= 4 ? [2, 3, 3, 4, 4] : [3, 3, 3, 2];
+const PATHS = SCEN === 's3'
+  ? [['post', 'toumitsu'], ['post', 'suitou'], ['post', 'hachi'], ['post', 'natsume'], ['toumitsu', 'hachi'], ['suitou', 'natsume'], ['toumitsu', 'natsume'], ['post', 'izumi'], ['suitou', 'izumi'], ['toumitsu', 'izumi']]
+  : [...CITIES.map((c) => ['post', c]), ...MARKETS.flatMap((a) => FAIRS.map((b) => [a, b]))];
 const TALENT = ['any', 'sweettooth', 'appraiser', 'swift'];
 
 // ---- 1回の遊び ----
@@ -79,7 +87,10 @@ export function play(g, seed, mode, opts = {}) {
   const f = w.finished || {};
   const day = f.day ?? null;
   const sh = (w.shifts || []).filter((x) => x.start < (day ?? w.day));
-  return { seed, day, rank: f.rank ?? 'C', plan, fair: sh.reduce((a, x) => a + x.sold, 0), sent, each: sh.map((x) => ({ sold: x.sold, value: Math.round(x.value), low: Math.round(x.lowValue), want: x.want })) };
+  // 取り合い（s7）: ライバルの隊商が売った数（others）と、自分とライバルの白糖の売上
+  const good = w.scenario.shifts?.good;
+  const rivalValue = Math.round(w.rivals.reduce((a, r) => a + (r.soldValue?.[good] || 0), 0));
+  return { seed, day, rank: f.rank ?? 'C', plan, fair: sh.reduce((a, x) => a + x.sold, 0), sent, each: sh.map((x) => ({ sold: x.sold, value: Math.round(x.value), low: Math.round(x.lowValue), want: x.want, others: x.others || 0 })), mine: Math.round((w.stats.soldValue?.[good] || 0) - (w.stats.boughtValue?.[good] || 0)), rivalValue };
 }
 
 // 読む手: 予告を見て、k 人まで、その期間だけ隊商市へ回す（低迷する町へ売る便から先に）。
@@ -117,8 +128,8 @@ function rng(seed) {
 function randRoute(r) {
   const out = [];
   const n = pick(r, [1, 2, 2, 3, 3]);
-  let c = pick(r, ['toumitsu', 'suitou']);
-  for (let i = 0; i < n; i++) { out.push({ city: c, min: pick(r, [0, 20, 27, 27, 35, 35, 45, 60]) }); c = c === 'toumitsu' ? 'suitou' : 'toumitsu'; }
+  let c = pick(r, MARKETS);
+  for (let i = 0; i < n; i++) { out.push({ city: c, min: pick(r, [0, 20, 27, 27, 35, 35, 45, 60]) }); c = MARKETS[(MARKETS.indexOf(c) + 1) % MARKETS.length]; }
   if (r() < 0.25) out.splice(int(r, 0, out.length), 0, { city: pick(r, FAIRS), min: pick(r, [0, 27, 35]) });
   for (let j = out.length - 1; j > 0; j--) if (out[j].city === out[j - 1].city) out.splice(j, 1);
   return out;
@@ -127,12 +138,12 @@ const randPath = (r) => [...pick(r, PATHS), r() < 0.8 ? 'trail' : 'road'];
 export function randomGenome(r) {
   const r0 = randRoute(r);
   const paths = [];
-  if (r() < 0.6) paths.push(['post', pick(r, ['toumitsu', 'toumitsu', 'suitou']), 'trail']);
+  if (r() < 0.6) paths.push(['post', pick(r, [MARKETS[1], MARKETS[1], MARKETS[0]]), 'trail']);
   while (r() < 0.3 && paths.length < 3) { const x = randPath(r); if (!paths.some((y) => y[0] === x[0] && y[1] === x[1])) paths.push(x); }
   return {
     site: r() < 0.9 ? 0 : 1,
     wait: int(r, 6, 20), cartWait: int(r, 20, 60), molasses: pick(r, [0, 4, 4]),
-    maxM: pick(r, [3, 3, 3, 2]), hireMargin: pick(r, [0, 100, 220, 220, 400]), talent: pick(r, TALENT),
+    maxM: pick(r, MS), hireMargin: pick(r, [0, 100, 220, 220, 400]), talent: pick(r, TALENT),
     tech: r() < 0.05 ? null : pick(r, [800, 950, 1100, 1350, 1350, 1700]),
     paths, pathMargin: pick(r, [0, 150, 300, 300, 600]),
     cart: r() < 0.2, cartMargin: pick(r, [0, 200, 500]),
@@ -158,7 +169,7 @@ export function mutate(g0, r) {
     else if (k === 'cart') { g.cart = !g.cart; g.cartWait = int(r, 20, 60); }
     else if (k === 'molasses') g.molasses = pick(r, [0, 2, 4]);
     else if (k === 'site') g.site = 1 - g.site;
-    else if (k === 'maxM') g.maxM = pick(r, [2, 3]);
+    else if (k === 'maxM') g.maxM = pick(r, MAXM >= 4 ? [2, 3, 4] : [2, 3]);
     for (const x of g.routes) for (let j = x.length - 1; j > 0; j--) if (x[j].city === x[j - 1].city) x.splice(j, 1);
   }
   return g;
@@ -218,7 +229,7 @@ if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
   const LINE = Number(opt('line', Math.floor(sc.deadline * sc.rankS)));
   LINES = opt('lines') ? opt('lines').split(',').map(Number) : [];
   // 既定は CPU の半分（全部使うと PC が重くなる）
-  const pool = new Pool(Number(opt('workers', Math.max(2, Math.floor(cpus().length / 2)))), { set, scen });
+  const pool = new Pool(Number(opt('workers', Math.max(2, Math.floor(cpus().length / 2)))), { set, scen, scenId: SCEN });
   const evalOn = (g, seeds, mode, opts) => Promise.all(seeds.map((s) => pool.run(g, s, mode, opts)));
   // auto18: 総量を18個で割った人数を読んで回す。reactauto18: 同じ人数を、始まってから回す
   const modeOf = (m) => {
@@ -246,6 +257,12 @@ if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
       const rs = await evalOn(g, seeds, modeOf(m));
       out[m] = rs;
       console.log(`${m.padEnd(7)} ${fmt(summary(rs, LINE))}${rs.some((r) => r.err) ? `  失敗 ${rs.filter((r) => r.err).length}（${rs.find((r) => r.err).err}）` : ''}`);
+      // ライバルと同じ市で売ったシード（s7 の試作 (a)。取り合いが飾りでないか。26回目の Sol）
+      if (rs.some((r) => r.each?.some((e) => e.others > 0))) {
+        const both = rs.filter((r) => r.each?.some((e) => e.sold > 0 && e.others > 0)).length;
+        const rivalOnly = rs.filter((r) => r.each?.some((e) => e.others > 0)).length;
+        console.log(`        取り合い: 自分もライバルも売った市のあるシード ${both}/${rs.length}（${pct(both, rs.length)}）・ライバルが市で売ったシード ${rivalOnly}  ライバルが市で売った数 中央 ${median(rs.map((r) => r.each.reduce((a, e) => a + e.others, 0)))}`);
+      }
     }
     const ok = (c) => (c ? '✔' : '✖');
     const lines = [];
@@ -323,7 +340,7 @@ if (isMainThread && basename(process.argv[1] || '') === 'search-s3.js') {
     await Promise.all(Array.from({ length: N }, async () => { const g = randomGenome(r); pre.push({ g, f: await score(g, S1.slice(0, 8)) }); }));
     pre.sort((a, b) => b.f - a.f);
     // --from: 前の探索の上位（と F*）も混ぜて始める（値を変えた版で、強い手を探し直すとき）
-    const seeded = opt('from') ? [...JSON.parse(readFileSync(opt('from'), 'utf8')).top.map((x) => x.g), FSTAR] : [];
+    const seeded = opt('from') ? [...JSON.parse(readFileSync(opt('from'), 'utf8')).top.map((x) => x.g), ...(SCEN === 's3' ? [FSTAR] : [])] : [];
     await Promise.all([...pre.slice(0, Math.ceil(N / 8)).map((x) => x.g), ...seeded].map(async (g) => scored.push({ g, f: await score(g, S1) })));
     scored.sort((a, b) => b.f - a.f);
     console.log(`ランダム ${N}: 最上位 ${scored.slice(0, 5).map((x) => x.f.toFixed(3)).join(' ')}（${Math.round((Date.now() - t0) / 1000)}秒）`);

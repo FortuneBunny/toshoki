@@ -637,7 +637,7 @@ function run(world, cmd, pos, opts) {
       if (!list.length) { out.push(world.scenario.shifts ? `今、予告された売り場の交代はない（予告は始まる約${world.scenario.shifts.lead}日前に出る）` : 'このシナリオには、予告された売り場の交代はない'); break; }
       for (const x of list) {
         if (G.fairClosed(world, x)) { out.push(`#${x.id}: ${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い ${G.lowStateText(world, x)} / ${world.cities[x.fair].name}(${x.fair})の隊商市は${G.fairStateText(world, x)}`); continue; }
-        out.push(`#${x.id}: ${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い ${G.lowStateText(world, x)} / ${world.cities[x.fair].name}(${x.fair})に隊商市 ${G.fairStateText(world, x)}（${GOODS[x.good].name}を高く買う。毎日約${world.scenario.shifts.fair.demand}個ずつ売れていき、まとめて売ると値が下がる${x.want ? `。${G.fairWantText(x)}` : ''}）。${G.fairPriceText(world, x)}`);
+        out.push(`#${x.id}: ${world.cities[x.low].name}(${x.low})で${GOODS[x.good].name}が安い ${G.lowStateText(world, x)} / ${world.cities[x.fair].name}(${x.fair})に隊商市 ${G.fairStateText(world, x)}（${GOODS[x.good].name}を高く買う。毎日約${world.scenario.shifts.fair.demand}個ずつ売れていき、まとめて売ると値が下がる${x.want ? `。${G.fairWantText(x)}` : ''}）。${G.fairPriceText(world, x)}${G.caravanText(world, x) ? ` ${G.caravanText(world, x)}` : ''}`);
         for (const m of world.player.merchants.filter((y) => y.order)) {
           const win = G.altWindowFor(world, m, x, m.order.stops);
           const base = G.baseStops(m.order);
