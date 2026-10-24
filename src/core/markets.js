@@ -62,7 +62,7 @@ export function notePortSale(world, m, city, good, n) {
     rest = Math.max(0, n - free);
     if (m.whLoaded?.city === city.id && m.whLoaded[good]) m.whLoaded[good] = Math.max(0, here - rest);
   }
-  world.portRoom = Math.max(0, portRoomLeft(world) - rest);
+  world.portRoom = Math.max(0, (world.portRoom ?? world.scenario.portMarket.max) - rest);
 }
 
 // 市の値の倍率
