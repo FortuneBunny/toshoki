@@ -113,6 +113,12 @@ export function gangCrossings(world, m, tiles, steps, { i = 0, part = 0, day = w
 // きわどいときは、遅れるとどうなるかも書く（食料切れや砂嵐の遅れは、着く日を後ろへずらすだけ。32回目の Opus）
 const marginText = (h) => (h.caught ? '' : h.to < h.gang.start && h.gang.start - h.to <= 3 ? `。⚠余裕は${h.gang.start - h.to}日だけ。遅れると捕まる` : h.from >= h.gang.end && h.from - h.gang.end <= 3 ? '。遅れる分には安全' : '');
 export const gangCrossText = (world, hs) => hs.map((h) => `${gangZone(world, h.gang).name}を${h.from === h.to ? `${h.from}日目` : `${h.from}〜${h.to}日目`}に通る（強盗団は${h.gang.start}〜${h.gang.end - 1}日目 → ${h.caught ? '⚠捕まる' : '重ならない'}${marginText(h)}）`).join('。') + (hs.length ? '（食料切れや砂嵐で遅れると、日が後ろへずれる）' : '');
+// 捕まらずに出られるいちばん早い日（画面だけのテスト4回目の Opus: 何日に出れば安全かを自分で数え、待ちすぎた）
+export function safeDepartDay(world, m, route) {
+  const last = Math.max(0, ...knownGangs(world).map((g) => g.end));
+  for (let d = world.day; d <= last; d++) if (!gangCrossings(world, m, route.tiles, route.steps, { day: d + 1 }).some((h) => h.caught)) return d;
+  return last;
+}
 // 今の旅の残り
 export const travelGangCrossings = (world, m) => (m.travel ? gangCrossings(world, m, m.travel.tiles, m.travel.steps, { i: m.travel.i, part: m.travel.part, day: Math.max(world.day + 1, m.travel.gangHeldUntil ?? 0) }).filter((h) => !(m.gangHeldIds || []).includes(h.gang.id)) : []);
 

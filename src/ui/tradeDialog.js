@@ -174,6 +174,8 @@ export function openTrade(app, merchantId) {
       const input = h('input', {
         class: `qty ${q > 0 ? 'buy' : q < 0 ? 'sell' : ''}`, value: q ? (q > 0 ? `+${q}` : q) : '0', inputmode: 'numeric',
         'aria-label': `${g.name}の数量`,
+        // 押したら中身を選ぶ（打った数字が今の数に付け足された。画面だけのテスト4回目の Opus）
+        onfocus: (e) => e.target.select(),
         onchange: (e) => setQty(id, parseInt(e.target.value, 10) || 0),
         // 打ったそばから集計に反映する（Tab や Enter を押すまで変わらず、入力が効いていないように見えたため）
         oninput: (e) => {
