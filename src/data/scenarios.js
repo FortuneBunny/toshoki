@@ -338,7 +338,7 @@ const s7 = {
 const s8 = {
   id: 's8', no: 8, title: 'グルコース・ロード',
   // 版4: 甘蔗平原とぶどう高原は集落になった。一族を2つから選ぶ（館の場所が違う）
-  intro: '一族を選べ。甘蔗平原の一族はサトウキビとキビ、ぶどう高原の一族はぶどうと蜂蜜から始める。西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げ、一族の資産を40000銀にせよ。琥珀京の食卓は、地図じゅうの食べ物でも足りない──古い町の区画にも畑を置ける（町の欄の「地図の上で建てる」）。さらに、自分の交易所のどれかを「都市」（人口3000）まで育てて、一族の拠点とせよ（交易所は上の「交易所」/ CLI: sites）。大型帆船や菓子の技は技術として買える。一族の名を歴史に刻め。',
+  intro: '一族を選べ。甘蔗平原の一族はサトウキビとキビ、ぶどう高原の一族はぶどうと蜂蜜から始める。西の海から東の砂漠まで、大陸を貫く糖の道。ここまでに学んだすべて──相場の読み、食卓の多様さ、工房、砂漠、季節風、ライバル──を使って、都・琥珀京を「大都市」に育て上げ、一族の資産を40000銀にせよ。琥珀京の食卓は、地図じゅうの食べ物でも足りない──古い町の区画にも畑を置ける（町の欄の「地図の上で建てる」）。さらに、自分の交易所のどれかを「都市」（人口3000）まで育てて、一族の拠点とせよ（交易所は上の「交易所」/ CLI: sites）。大型帆船や菓子の技は技術として買える。一族の名を歴史に刻め。ときどき、琥珀京に絹か白糖が大量に入り、長いあいだ安くしか売れなくなる。そのあいだ、北の山並みの向こうの北端の村か北東端の村に隊商市が28日間立ち、その品を高く買う（総量つき。サルマン商会も、市が立ってから玻璃の都で仕入れて運んでくる）。予告は、玻璃の都からラクダで市まで行く日数より少し早く出る。予告を読んで、先に市へ便を回せ。',
   goods: ['wheat', 'rice', 'millet', 'dates', 'grapes', 'raisins', 'cane', 'honey', 'rawsugar', 'molasses', 'whitesugar', 'sweets', 'sugarart', 'wine', 'silk', 'spice', 'tea', 'pottery', 'salt', 'spicesugar', 'teacake'],
   start: { silver: 1400, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }, { name: 'ライラ', portrait: 'merchant-2' }] },
   cities: [
@@ -350,12 +350,16 @@ const s8 = {
     { id: 'shio', name: '塩の村', x: 760, y: 500, pop: 380, produces: { salt: 6, dates: 2 }, tags: ['desert'] },
     { id: 'kome', name: '米どころ', x: 470, y: 540, pop: 900, produces: { rice: 10, wheat: 4 } },
     { id: 'minami', name: '南の港', x: 90, y: 560, pop: 900, produces: { spice: 1.5, rawsugar: 2.5 }, tags: ['port'] },
+    // 隊商市の村（30回目の相談。北の山並みの向こう、西口から入る。どの道からも寄り道が長い）
+    { id: 'kitaichi', name: '北端の村', x: 250, y: 6, pop: 120, steady: true, produces: { wheat: 2 } },
+    { id: 'higashiichi', name: '北東端の村', x: 450, y: 6, pop: 120, steady: true, produces: { wheat: 2 } },
   ],
   shapes: [
     { kind: 'sea', points: [[0, 330], [40, 330], [150, 400], [180, 600], [0, 600]] },
     { kind: 'sea', points: [[0, 0], [30, 0], [20, 200], [0, 220]] },
     { kind: 'desert', points: [[600, 60], [1000, 60], [1000, 600], [640, 600], [620, 330]] },
     { kind: 'green', points: [[160, 360], [420, 380], [440, 600], [200, 600]] },
+    { kind: 'mountain', points: [[120, 50], [1000, 50], [1000, 75], [120, 75]] },
   ],
   decor: ['dunes', 'mountain', 'palm', 'field', 'forest', 'cane-field'],
   decorCount: 36,
@@ -373,7 +377,15 @@ const s8 = {
     name: 'サルマン商会', silver: 1500, skill: 0.8, goods: ['wheat', 'rice', 'dates', 'rawsugar', 'whitesugar', 'silk', 'spice', 'tea', 'salt'],
     merchants: [{ city: 'hari', transport: 'camel', wait: 5 }, { city: 'seikai', transport: 'donkey', wait: 10 }],
   }],
-  knownAtStart: ['kohaku', 'seikai', 'natsume', 'hari', 'shio', 'kome', 'minami'],
+  knownAtStart: ['kohaku', 'seikai', 'natsume', 'hari', 'shio', 'kome', 'minami', 'kitaichi', 'higashiichi'],
+  // 売り場の交代（30回目の相談）: 琥珀京の絹か白糖（袋から一巡ずつ）が長く安くなり、北の村に隊商市。サルマン商会は市が立ってから玻璃の都で仕入れて運ぶ。
+  // 予告は玻璃の都からラクダで市までの日数＋4日前（始まってから向かっても、ライバルより先には着けない）
+  shifts: {
+    goods: ['silk', 'whitesugar'], markets: ['kohaku'], fairs: ['kitaichi', 'higashiichi'], fairBag: true,
+    first: [90, 140], gap: [5, 15], days: 130, lead: 65, travelLead: 'hari', fairDays: 28,
+    low: { demand: 0.1, price: 0.12 },
+    fair: { demand: 5, price: 4, stock: 0, wants: [40, 80], rivalCaravans: true, rivalCity: 'hari', priceMax: 6 },
+  },
   pioneer: {
     families: [
       { id: 'kibi', name: '甘蔗平原の一族', x: 270, y: 445, text: '南の緑地、甘蔗平原のそばに館がある。サトウキビとキビの土地。' },
@@ -390,7 +402,7 @@ const s8 = {
   // 交易所は集落を取り込んで大きく始まるので、目標は「都市」（町の段階では、取り込んだだけで届いた）
   // 資産25000は放っておいても届き、琥珀京8000が重かった（17回目の Opus）
   goals: [{ type: 'cityTier', city: 'kohaku', tier: 4 }, { type: 'networth', amount: 40000 }, { type: 'postTier', tier: 3, pop: 3000 }],
-  deadline: 900, rankS: 0.55,
+  deadline: 900, rankS: 443 / 900,
   transports: ['donkey', 'camel', 'cart', 'dhow'],
   buildings: ['mill', 'confectionery', 'winery', 'malthouse', 'road'],
   techs: { carrack: { from: 240 }, refinery: { from: 0 }, caravanserai: { from: 0 }, wheel: { from: 60 }, sugarcraft: { from: 0 }, teaceremony: { from: 60 }, spicesugar: { from: 120 } },

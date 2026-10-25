@@ -19,7 +19,7 @@ export function midPrice(city, id, stock = city.stock[id] || 0) {
   mult *= city.priceMods?.[id] ?? 1;
   // 需要施設の求める品は高く売れる（宮殿 +15%、寺院・学問所 +10%）
   for (const b of city.district?.buildings || []) { const cv = CIVICS[b.type]; if (cv?.priceUp && cv.wants[id]) mult *= 1 + cv.priceUp; }
-  mult = Math.min(B.priceMax, Math.max(B.priceMin, mult));
+  mult = Math.min(city.fairPriceMax?.[id] ?? B.priceMax, Math.max(B.priceMin, mult));
   return g.base * mult;
 }
 

@@ -1172,3 +1172,22 @@ test('港の市（from あり）: 市の間に上限なしで売れるのは、�
     sc.portMarket = pm0;
   }
 });
+
+test('s8 の売り場の交代: 絹と白糖を袋から一巡ずつ引き、予告は玻璃の都からの日数＋4日前。セーブには予告ずみの分だけを書く', () => {
+  const w = G.createWorld('s8', { seed: 5 });
+  G.chooseFamily(w, 'budou');
+  const st = G.foundSites(w, 1)[0];
+  G.foundPost(w, st.x, st.y);
+  const xs = w.shifts;
+  assert.ok(xs.length >= 4);
+  for (let i = 0; i + 1 < xs.length; i += 2) assert.deepEqual(new Set([xs[i].good, xs[i + 1].good]), new Set(['silk', 'whitesugar']));
+  for (const x of xs) {
+    assert.equal(x.start - x.announce, w.shiftTravelDays[x.fair] + 4);
+    assert.equal(x.fairEnd - x.start, 28);
+  }
+  assert.equal(JSON.parse(G.serialize(w)).shifts.length, 0);
+  while (w.day < xs[0].start) G.advance(w, 1, { stopOn: new Set() });
+  assert.ok(w.cities[xs[0].fair].fairDemand?.[xs[0].good] > 0);
+  const w2 = G.deserialize(G.serialize(w));
+  assert.deepEqual(w2.shifts.map((x) => [x.good, x.fair, x.start]), xs.map((x) => [x.good, x.fair, x.start]));
+});

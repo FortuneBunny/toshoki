@@ -80,7 +80,8 @@ export function buildGrid(world) {
       for (const sh of shapes) {
         if (!sh.points || sh.kind === 'river') continue;
         if (!pointInPoly(px, py, sh.points)) continue;
-        if (sh.kind === 'sea') t = T.WATER;
+        if (sh.kind === 'mountain') t = T.MOUNTAIN;
+        else if (sh.kind === 'sea') t = T.WATER;
         else if (sh.kind === 'desert') t = v > 0.8 ? T.HILL : T.SAND;
         else if (sh.kind === 'green') t = v > 0.8 ? T.HILL : T.FERTILE;
       }

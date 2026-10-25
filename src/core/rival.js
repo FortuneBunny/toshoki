@@ -16,6 +16,7 @@ function bestPlan(world, r, m) {
   let best = null;
   for (const to of Object.keys(world.cities)) {
     if (to === m.city) continue;
+    if (world.scenario.shifts?.fair?.rivalCity && world.scenario.shifts.fairs.includes(to)) continue;
     const route = findPath(world, m.city, to, m.transport);
     if (!route) continue;
     const dest = world.cities[to];
@@ -38,6 +39,7 @@ function bestSale(world, m, good, n) {
   let best = null;
   for (const to of Object.keys(world.cities)) {
     if (to === m.city || !cityWants(world.cities[to], good)) continue;
+    if (world.scenario.shifts?.fair?.rivalCity && world.scenario.shifts.fairs.includes(to)) continue;
     const k = Math.min(n, fairRoom(world, world.cities[to], good));
     if (k <= 0) continue;
     const route = findPath(world, m.city, to, m.transport);
@@ -155,6 +157,32 @@ export function updateRivals(world) {
         continue;
       }
       if (m.wait > 0) { m.wait--; continue; }
+      // s8（30回目の相談）: 予告は読まない。市が立ってから、最初の隊商が玻璃の都へ戻り、市場の在庫を買って一便だけ市へ送る
+      const fairHome = world.scenario.shifts?.fair?.rivalCity;
+      if (fairHome && m === r.merchants[0]) {
+        const x = knownShifts(world).find((x) => world.day >= x.start && world.day < fairEnd(x) && !x.citySent);
+        if (x) {
+          const to = m.city === fairHome ? x.fair : fairHome;
+          const route = findPath(world, m.city, to, m.transport);
+          if (route) {
+            if (m.city === fairHome) {
+              const city = world.cities[fairHome];
+              const good = x.good;
+              let n = Math.min(Math.floor(city.stock[good] || 0), Math.floor(TRANSPORTS[m.transport].cap / GOODS[good].weight), x.want - x.sold - (x.others || 0));
+              while (n > 0 && quote(world, city, good, n) > r.silver) n--;
+              if (n < 1) { m.wait = 1; continue; }
+              const cost = quote(world, city, good, n);
+              city.stock[good] -= n;
+              r.silver -= cost;
+              m.cargo = { [good]: n };
+              x.citySent = true;
+              emit(world, { type: 'rival', city: x.fair, text: `${r.name}が${city.name}の市場で${GOODS[good].name}${n}個を買い、市へ出発（約${route.days}日）` });
+            }
+            Object.assign(m, { dest: to, travelDays: route.days, from: m.city, departDay: world.day });
+            continue;
+          }
+        }
+      }
       // 売れ残りを積んでいれば、それを一番高く売れる町へ運ぶ
       const carry = Object.entries(m.cargo || {}).find(([, n]) => n > 0);
       if (carry) {
