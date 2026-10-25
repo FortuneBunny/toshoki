@@ -68,6 +68,7 @@ const s2 = {
   // 琥珀京へのなつめやしの目標（琥珀京に一度も売らず、谷の中の交換だけでSが取れた。17回目の Sol）。なつめやしは自分の食卓にも要るので、売るか食べさせるかを読む
   goals: [{ type: 'postTier', tier: 2, pop: 1000 }, { type: 'networth', amount: 3000 }, { type: 'deliver', good: 'dates', city: 'kohaku', amount: 150 }],
   deadline: 400, rankS: 0.55,
+  eventStream: true, // 通常の出来事・盗賊・生産のゆらぎは、行動と別の乱数（28回目の相談。読む・読まないを同じ出来事の列で比べるため）
   // 産地の不作の予告（22回目の相談の作業5）は試したが、入れていない（27回目: 読んでも速くならず、ゴール直前の不作が税になった。s2 には貯める倉庫もない）。
   // 試すときは blights: { goods: ['dates', 'wheat'], first: [60, 80], gap: [20, 40], lead: 20, days: 30, cut: 0.3 }
   maxPosts: 4, postCost: 300, maxPaths: 3,
