@@ -259,7 +259,7 @@ function merchantLine(world, m) {
   const t = TRANSPORTS[m.transport];
   const cargo = Object.entries(m.cargo).map(([id, q]) => `${GOODS[id].name}${q}`).join(' ') || '空';
   const where = m.travel
-    ? `移動中 → ${world.cities[m.travel.to].name}（あと約${Math.max(1, Math.ceil(m.travel.totalDays - m.travel.elapsed))}日${m.guards ? `、護衛${m.guards}` : ''}）`
+    ? `移動中 → ${world.cities[m.travel.to].name}（あと約${Math.max(1, Math.ceil(m.travel.totalDays - m.travel.elapsed))}日${m.guards ? `、護衛${m.guards}` : ''}${world.day < (m.travel.gangHeldUntil ?? -Infinity) ? `、強盗団に足止め中・${m.travel.gangHeldUntil}日目まで` : ''}）`
     : `${world.cities[m.city].name}(${m.city})に滞在`;
   const order = (m.order ? (m.order.paused ? ' [定期便:停止中]' : m.order.altOn ? ` [臨時の便〜${m.order.alts.find((a) => a.id === m.order.altOn)?.until}日目]` : ' [定期便]') : '') + G.orderShiftWarnings(world, m).map((w) => w.covered ? ` [${w.text}]` : ` ⚠${w.text}`).join('') + (m.settlers ? ` [開拓団${m.settlers.n}人→${world.cities[m.settlers.to].name}]` : '');
   return `#${m.id} ${m.name}${m.talent ? `【${G.TALENTS[m.talent].name}】` : ''} ${t.name} ${G.cargoUsed(m)}/${G.cargoCap(m)}  ${where}${order}  積荷: ${cargo}  累計損益 ${Math.round(m.lifetime)}`;

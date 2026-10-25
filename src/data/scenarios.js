@@ -141,10 +141,19 @@ const s3 = {
   maxMerchants: 3,
 };
 
+// 強盗団の予告（28・30回目の相談。src/core/gangs.js）
+export const GANGS_S4 = {
+  zones: [
+    { id: 'north', name: '北の隊商路（玻璃の都の西）', x: 660, y: 245, r: 65, hint: '出る前に、区域を通る日を確かめよ。玻璃の都からは、塩の村を回れば避けられる（5日ほど遠い）' },
+    { id: 'west', name: '緑門の道（隊商宿の町の西）', x: 215, y: 270, r: 50, hint: '緑門への道はここしかない。期間の前に運び終えるか、手前で待て' },
+  ],
+  first: [40, 60], gap: [25, 45], lead: 20, days: 15, chance: 1, loss: 0, holdDays: 30, stopAfter: 405,
+};
+
 const s4 = {
   id: 's4', no: 4, title: '砂の海',
   // 版4: 一族の館は砂の海の真ん中、蜃気楼オアシスのそば。オアシスは集落になった（ほかの町は古い町のまま）
-  intro: '一族の館は、砂の海の真ん中、蜃気楼オアシスのそばにある。オアシスのそばに交易所を開き、東の玻璃の都の絹を西の緑門へ運べ。隊商は砂漠で食べ物を食べ、盗賊も出る。ラクダ（隊商宿の町などの砂漠の町で買える）と護衛と食料を整えて渡れ。絹を緑門で150反売り、オアシスの交易所を「町」（人口1000）に育てよ。オアシスはなつめやしと塩しか採れない──麦やぶどう、甘味を届けると育つ。',
+  intro: '一族の館は、砂の海の真ん中、蜃気楼オアシスのそばにある。オアシスのそばに交易所を開き、東の玻璃の都の絹を西の緑門へ運べ。隊商は砂漠で食べ物を食べ、盗賊も出る。ラクダ（隊商宿の町などの砂漠の町で買える）と護衛と食料を整えて渡れ。絹を緑門で150反売り、オアシスの交易所を「町」（人口1000）に育てよ。オアシスはなつめやしと塩しか採れない──麦やぶどう、甘味を届けると育つ。ときどき、護衛では防げない強盗団が、20日前に予告されて、北の隊商路か緑門の道に15日間居座る。区域に入った隊商は捕まって30日足止めされる（積荷は無事）。予告が出たら、区域を通る日を確かめて、先に運ぶか、回り道か、手前で待て。',
   goods: ['wheat', 'dates', 'grapes', 'raisins', 'rawsugar', 'salt', 'spice', 'silk'],
   start: { silver: 900, merchants: [{ name: 'ハサン', portrait: 'merchant-1' }] },
   cities: [
@@ -174,27 +183,17 @@ const s4 = {
   decor: ['dunes', 'dunes', 'dunes', 'palm', 'mountain'],
   decorCount: 34,
   goals: [{ type: 'deliver', good: 'silk', city: 'ryokumon', amount: 150 }, { type: 'hamletPost', hamlet: '蜃気楼オアシス', pop: 1000 }],
-  deadline: 540, rankS: 0.4,
+  deadline: 540, rankS: 208 / 540, gangs: GANGS_S4, // S は208日（30回目。強盗団の予告を入れて、選抜で一度だけ決めた）
   maxPosts: 2, postCost: 400, maxPaths: 2,
   transports: ['donkey', 'camel'],
   techs: { caravanserai: { from: 0 } },
   eventStream: true, // 通常の出来事・盗賊・生産のゆらぎは、行動と別の乱数（28回目の相談。読む・読まないを同じ出来事の列で比べるため）
   events: true, contracts: true, bandits: true, newsDaysPerHop: 5,
   maxMerchants: 4,
-  // 強盗団の予告の試作（28回目の相談。src/core/gangs.js。まだ入れていない。評価が通ったら gangs: GANGS_S4 にする）
 };
 
 // 港の市の予告（29・30回目の相談。src/core/markets.js）: 市で上限なしに売れるのは、胡椒港から直に来て、市の間に着いた船だけ
 export const PORT_MARKET_S6 = { city: 'byakudan', good: 'spice', first: [90, 120], gap: [30, 45], lead: 30, days: 6, rate: 0.5, max: 15, price: 1.3, from: 'koshou' };
-
-export const GANGS_S4 = {
-  zones: [
-    { id: 'north', name: '北の隊商路（玻璃の都の西）', x: 720, y: 245, r: 55, hint: '玻璃の都からは、塩の村を回れば避けられる（5日ほど遠い）' },
-    { id: 'west', name: '緑門の道（隊商宿の町の西）', x: 215, y: 270, r: 50, hint: '緑門への道はここしかない。期間の前に運び終えるか、手前で待て' },
-    { id: 'south', name: '南の道（塩の村の東）', x: 700, y: 470, r: 55, hint: '塩の村を回る道に出る。北の道を使えば避けられる' },
-  ],
-  first: [40, 60], gap: [25, 45], lead: 20, days: 25, chance: 0.5, loss: 0.5,
-};
 
 const s5 = {
   id: 's5', no: 5, title: '甘い熱狂',

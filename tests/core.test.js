@@ -1038,10 +1038,11 @@ test('大祭の予告（試作）: 大祭の期間に始まったラッシュだ
   }
 });
 
-test('強盗団の予告（試作）: 期間中に区域を通ると護衛がいても奪われ、セーブには予告ずみの分だけを書く', async () => {
+test('強盗団の予告（奪う形）: 期間中に区域を通ると護衛がいても奪われ、セーブには予告ずみの分だけを書く', async () => {
   const { GANGS_S4 } = await import('../src/data/scenarios.js');
   const sc = G.SCENARIOS.s4;
-  sc.gangs = { ...GANGS_S4, chance: 1 };
+  const g0 = sc.gangs;
+  sc.gangs = { ...GANGS_S4, chance: 1, loss: 0.5, holdDays: 0 };
   try {
     const w = G.createWorld('s4', { seed: 7 });
     if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
@@ -1062,8 +1063,40 @@ test('強盗団の予告（試作）: 期間中に区域を通ると護衛がい
     const w2 = G.deserialize(G.serialize(w));
     assert.deepEqual(w2.gangs.map((y) => [y.zone, y.start]), w.gangs.map((y) => [y.zone, y.start]));
   } finally {
-    delete sc.gangs;
+    sc.gangs = g0;
   }
+});
+
+test('強盗団の予告（s4 の足止め）: 区域で捕まると、積荷は無事のまま30日動けず、同じ一団には二度捕まらない', () => {
+  const w = G.createWorld('s4', { seed: 7 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  const st = G.foundSites(w, 1)[0];
+  G.foundPost(w, st.x, st.y);
+  const x = w.gangs.find((g) => g.zone === 'north');
+  while (w.day < x.start) G.advance(w, 1, { stopOn: new Set() });
+  const m = w.player.merchants[0];
+  m.city = 'hari';
+  m.transport = 'camel';
+  m.cargo = { silk: 20 };
+  w.player.silver = 5000;
+  G.travel(w, m.id, 'yado', { guards: 10 });
+  for (let i = 0; i < 12 && m.travel && !m.travel.gangHeldUntil; i++) G.advance(w, 1, { stopOn: new Set() });
+  const t = m.travel;
+  assert.ok(t?.gangHeldUntil > w.day);
+  assert.equal(m.cargo.silk, 20);
+  assert.deepEqual(m.gangHeldIds, [x.id]);
+  const at = [t.i, t.part];
+  G.advance(w, 5, { stopOn: new Set() });
+  assert.deepEqual([t.i, t.part], at);
+  // 保存して読み直しても足止めは続く
+  const w2 = G.deserialize(G.serialize(w));
+  const m2 = w2.player.merchants.find((y) => y.id === m.id);
+  assert.equal(m2.travel.gangHeldUntil, t.gangHeldUntil);
+  while (w2.day < m2.travel.gangHeldUntil && m2.travel) G.advance(w2, 1, { stopOn: new Set() });
+  for (let i = 0; i < 40 && m2.travel; i++) G.advance(w2, 1, { stopOn: new Set() });
+  assert.equal(m2.travel, null);
+  assert.equal(m2.cargo.silk, 20);
+  assert.equal(w2.stats.gangHeldCount, 1);
 });
 
 test('港の市の予告（試作）: ふだんは空きの分だけ売れ、市の間は運んできた分を上限なしで売れる。倉庫から積んだ分はふだんの空きに数える', async () => {

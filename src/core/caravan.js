@@ -229,6 +229,12 @@ function banditCheck(world, m, danger) {
 export function stepTravel(world, m) {
   const t = m.travel;
   if (!t) return;
+  // 強盗団に捕まって足止め中（gangs.js）: 時間だけを失う。食料・盗賊・護衛の給金はない
+  if (world.day < (t.gangHeldUntil ?? -Infinity)) {
+    t.elapsed += 1;
+    world.stats.gangHeldDays = (world.stats.gangHeldDays || 0) + 1;
+    return;
+  }
   const grid = world.grid;
   const [x, y] = travelTile(m);
   const k = gridKey(x, y);
@@ -242,6 +248,12 @@ export function stepTravel(world, m) {
   // 盗賊のくじは、商人とマスと日ごとの乱数（eventStream のとき）
   inStream(world, `bandit:${m.id}:${k}`, () => banditCheck(world, m, grid.danger[k]));
   gangCheck(world, m, x, y, k); // 予告された強盗団（護衛では防げない）
+  // 今日捕まった
+  if (world.day < (t.gangHeldUntil ?? -Infinity)) {
+    t.elapsed += 1;
+    world.stats.gangHeldDays = (world.stats.gangHeldDays || 0) + 1;
+    return;
+  }
   world.player.silver -= m.guards * B.guardWage;
   t.elapsed += 1;
   while (budget > 1e-9 && t.i < t.steps.length) {
