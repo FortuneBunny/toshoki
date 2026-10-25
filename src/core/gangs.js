@@ -85,6 +85,45 @@ export function gangCheck(world, m, x, y, k) {
 // 強盗団に遭うとどうなるか
 const harmText = (sc) => (sc.holdDays ? `区域に入った隊商は捕まって${sc.holdDays}日足止めされる（一団につき一度。積荷は無事）` : `区域を通る隊商は積荷の約${Math.round(sc.loss * 10)}割を奪われうる`);
 
+// 旅が予告ずみの区域を通る日（31回目の Opus: 自分の便が区域を通るか・何日目に入るかが、どの画面にも出なかった）
+// tiles・steps は findPath の経路。i・part は旅の途中から数えるとき。1日に進む量は才能だけを入れる（砂嵐・飢えの遅れは入らない）
+// 旅の1日ぶんは、日付が進んだあとに、その日の始めのマスで強盗団を確かめる（caravan.js の stepTravel）。今日出ると、最初に確かめるのは明日
+export function gangCrossings(world, m, tiles, steps, { i = 0, part = 0, day = world.day + 1 } = {}) {
+  const known = knownGangs(world);
+  if (!known.length || !tiles?.length) return [];
+  const per = m.talent === 'swift' && !['dhow', 'carrack'].includes(m.transport) ? 1.15 : 1;
+  const hits = new Map();
+  for (let d = day; i < steps.length && d < day + 400; d++) {
+    const [x, y] = tiles[Math.min(i, tiles.length - 1)];
+    for (const g of known) {
+      if (!inGangZone(gangZone(world, g), x, y)) continue;
+      const h = hits.get(g.id) || { gang: g, from: d, to: d };
+      h.to = d;
+      hits.set(g.id, h);
+    }
+    let budget = per;
+    while (budget > 1e-9 && i < steps.length) {
+      const need = steps[i] - part;
+      if (budget >= need) { budget -= need; part = 0; i++; } else { part += budget; budget = 0; }
+    }
+  }
+  return [...hits.values()].map((h) => ({ ...h, caught: h.from < h.gang.end && h.to >= h.gang.start }));
+}
+export const gangCrossText = (world, hs) => hs.map((h) => `${gangZone(world, h.gang).name}を${h.from === h.to ? `${h.from}日目` : `${h.from}〜${h.to}日目`}に通る（強盗団は${h.gang.start}〜${h.gang.end - 1}日目 → ${h.caught ? '⚠捕まる' : '重ならない'}）`).join('。') + (hs.length ? '（食料切れや砂嵐で遅れると、日がずれる）' : '');
+// 今の旅の残り
+export const travelGangCrossings = (world, m) => (m.travel ? gangCrossings(world, m, m.travel.tiles, m.travel.steps, { i: m.travel.i, part: m.travel.part, day: Math.max(world.day + 1, m.travel.gangHeldUntil ?? 0) }).filter((h) => !(m.gangHeldIds || []).includes(h.gang.id)) : []);
+
+// 予告の文。区域のおおよその場所（どの町とどの町の間か）と、今の旅で区域を通る商人も添える（31回目の Opus: 「玻璃の都の西」だけでは、辻からの行きも通ると分からなかった）
+const announceText = (world, x, z, sc) => `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${x.end - x.start}日間）、${z.name}に強盗団が居座る。護衛では防げず、${harmText(sc)}。${z.hint}`;
+function travelersText(world, x) {
+  const out = [];
+  for (const m of world.player.merchants) {
+    const h = travelGangCrossings(world, m).find((y) => y.gang.id === x.id && y.caught);
+    if (h) out.push(`${m.name}（${h.from}日目に区域に入る）`);
+  }
+  return out.length ? `。⚠今の旅のままだと捕まる: ${out.join('、')}` : '';
+}
+
 // 予告・始まり・終わりの知らせ（毎日）
 export function updateGangs(world) {
   const sc = world.scenario.gangs;
@@ -92,7 +131,7 @@ export function updateGangs(world) {
   if (!world.gangs) planGangs(world);
   for (const x of world.gangs || []) {
     const z = gangZone(world, x);
-    if (world.day === x.announce) emit(world, { type: 'gang', big: true, zone: x.zone, gang: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${x.end - x.start}日間）、${z.name}に強盗団が居座る。護衛では防げず、${harmText(sc)}。${z.hint}` });
+    if (world.day === x.announce) emit(world, { type: 'gang', big: true, zone: x.zone, gang: x.id, text: `${announceText(world, x, z, sc)}${travelersText(world, x)}` });
     if (world.day === x.start) emit(world, { type: 'gangStart', zone: x.zone, text: `${z.name}に強盗団が現れた（${x.end - 1}日目まで）` });
     if (world.day === x.end) emit(world, { type: 'gangEnd', zone: x.zone, text: `${z.name}の強盗団が去った` });
   }

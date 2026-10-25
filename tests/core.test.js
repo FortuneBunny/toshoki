@@ -1191,3 +1191,22 @@ test('s8 の売り場の交代: 絹と白糖を袋から一巡ずつ引き、予
   const w2 = G.deserialize(G.serialize(w));
   assert.deepEqual(w2.shifts.map((x) => [x.good, x.fair, x.start]), xs.map((x) => [x.good, x.fair, x.start]));
 });
+
+test('強盗団の区域を通る日の見積もり: 食料を積んだラクダの旅で、捕まる日が見積もりどおり', () => {
+  const w = G.createWorld('s4', { seed: 3 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  const st = G.foundSites(w, 1)[0];
+  G.foundPost(w, st.x, st.y);
+  const x = w.gangs.find((g) => g.zone === 'north');
+  while (w.day < x.start - 3) G.advance(w, 1, { stopOn: new Set() });
+  const m = w.player.merchants[0];
+  m.transport = 'camel';
+  m.city = 'hari';
+  m.cargo = { dates: 40 };
+  w.player.silver = 5000;
+  G.travel(w, m.id, 'yado', {});
+  const h = G.travelGangCrossings(w, m).find((y) => y.gang.id === x.id);
+  assert.ok(h?.caught);
+  for (let i = 0; i < 60 && m.travel && !m.travel.gangHeldUntil; i++) G.advance(w, 1, { stopOn: new Set() });
+  assert.equal(m.travel.gangHeldUntil - 30, Math.max(h.from, x.start));
+});

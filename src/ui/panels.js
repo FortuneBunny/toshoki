@@ -351,6 +351,8 @@ export function departDialog(app, mid, to) {
     add(body, 
       h('div', {}, `${route.path.map((id) => world.cities[id].name).join(' → ')}`),
       h('div', { class: 'total-big' }, `約 ${route.days} 日`),
+      // 予告された強盗団の区域を通る日（31回目の Opus）
+      ...(() => { const hs = G.gangCrossings(world, m, route.tiles, route.steps); return hs.length ? [h('div', { class: hs.some((x) => x.caught) ? 'bad' : 'amber' }, `🗡 今出ると、${G.gangCrossText(world, hs)}`)] : []; })(),
       route.edges.some((e) => e.monsoon) ? h('div', { class: 'dim' }, `季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（追い風なら速く、向かい風なら遅い）`) : null,
       desertDays ? h('div', { class: food >= need ? 'good' : 'bad' }, `砂漠 約${desertDays}日。隊商の食料 ${food} / 必要 ${need}${food < need ? '（足りない！なつめやし・干しぶどう・キビ・麦・米を積もう）' : ''}`, food && need ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `道中で積荷の${G.PROVISIONS.filter((g) => m.cargo[g]).map((g) => GOODS[g].name).join('・')}を約${Math.min(food, need)}個食べる（売るつもりの分も減る）`) : null) : null,
       route.edges.some((e) => e.danger) && world.scenario.bandits ? h('div', {},

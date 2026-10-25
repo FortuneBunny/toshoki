@@ -31,5 +31,5 @@ export { HEIRLOOMS, heirloomText, heirloomFor } from '../data/heirlooms.js';
 export { validateOrder, baseStops } from './orders.js';
 export { knownBlights, blightActive, blightStateText } from './blights.js';
 export { knownMarkets, marketActive, marketOn, marketStateText, portRoomLeft, portRoom, shipText as marketShipText } from './markets.js';
-export { knownGangs, gangActive, gangZone, gangStateText, inGangZone } from './gangs.js';
+export { knownGangs, gangActive, gangZone, gangStateText, inGangZone, gangCrossings, gangCrossText, travelGangCrossings } from './gangs.js';
 export { knownFestivals, festivalActive, festivalOn, festivalStateText, festivalCountText } from './festivals.js';

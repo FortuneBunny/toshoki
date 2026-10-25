@@ -538,7 +538,7 @@ function renderMerchants() {
     const t = TRANSPORTS[m.transport];
     const used = G.cargoUsed(m);
     const cap = G.cargoCap(m);
-    const held = m.travel && w.day < (m.travel.gangHeldUntil ?? -Infinity) ? `。🗡強盗団に足止め中、${m.travel.gangHeldUntil}日目まで` : '';
+    const held = m.travel && w.day < (m.travel.gangHeldUntil ?? -Infinity) ? `。🗡強盗団に足止め中、${m.travel.gangHeldUntil}日目まで` : m.travel && G.travelGangCrossings(w, m).some((x) => x.caught) ? '。🗡⚠この旅で強盗団の区域に入る' : '';
     const where = m.travel ? `→ ${w.cities[m.travel.to].name}（あと${Math.max(1, Math.ceil(m.travel.totalDays - m.travel.elapsed))}日${held}）` : `${w.cities[m.city].name}に滞在`;
     const cargo = Object.entries(m.cargo);
     const card = h('div', { class: `mcard ${app.state.selMerchant === m.id ? 'sel' : ''}`, onclick: () => { app.state.selMerchant = m.id; if (!m.travel) app.state.selCity = m.city; app.render(); } },
