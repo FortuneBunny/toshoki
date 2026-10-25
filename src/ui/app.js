@@ -276,6 +276,15 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'milestone': fx.toast(e.text, { icon: 'ui/star' }); sfx.rare(); break;
       // 売り場の交代の予告: 便を組み替える判断の時なので、時間を止めて画面を開く
       case 'shift': if (!app.state.modals) { setSpeed(0); app.state.modals++; shiftDialog(app, e.shift); } else fx.toast(e.text, { kind: 'rare', icon: 'ui/festival' }); sfx.rare(); break;
+      // 強盗団・港の市・大祭・不作の予告と、捕まった知らせも、時間を止めて読ませる（売り場の交代だけ止めていたので、
+      // 全部の便を定期便にして進めると、予告を読まずに期限まで進んだ。画面だけのテスト4回目の Sol）
+      case 'gang': case 'portMarket': case 'grandFest': case 'blight': case 'gangHeld': {
+        const title = { gang: '🗡 強盗団の予告', portMarket: '⚓ 港の市の予告', grandFest: '🎆 大祭の予告', blight: '🌾 不作の予告', gangHeld: '🗡 強盗団に捕まった' }[e.type];
+        if (e.type === 'gangHeld') sfx.bad(); else sfx.rare();
+        if (!app.state.modals) { setSpeed(0); app.state.modals++; modal(app, title, h('p', {}, e.text), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn primary', onclick: close }, '分かった')]); }
+        else fx.toast(e.text, { kind: e.type === 'gangHeld' ? 'bad' : 'rare', icon: 'ui/festival' });
+        break;
+      }
       case 'shiftStart': fx.toast(e.text, { icon: 'ui/festival' }); break;
       case 'shiftEnd': fx.toast(e.text, { kind: e.rare ? 'rare' : undefined, icon: 'ui/silver' }); if (e.rare) sfx.rare(); break;
       case 'orderAlt': fx.toast(e.text, { icon: 'ui/star' }); break;
@@ -656,6 +665,8 @@ function loop() {
       const evs = flushEvents({ events: adv.events });
       if (w.day % 10 === 0) app.save();
       if (evs.some((e) => e.type === 'victory' || e.type === 'defeat')) { finish(); break; }
+      // 予告などで止めたら、この描画のうちに残りの日を進めない（速いと数日進みすぎた）
+      if (!app.state.speed) break;
       // 町で待っているだけの商人がいたら知らせる（行き先を選び損ねたまま35日が過ぎた。画面だけのテストの指摘）
       for (const m of w.player.merchants) {
         if (m.travel || (m.order && !m.order.paused) || w.player.buildings.some((b) => b.city === m.city)) { m.idleSince = null; continue; } // 工房の町で待つのは、手引きどおりのことがある
