@@ -159,9 +159,18 @@ export function updateShifts(world) {
       const txt = x.sold > 0
         ? `${nm(world, x.fair)}の隊商市が${x.full ? `${x.want}個を買い終えて` : ''}閉じた。${g}を${x.sold}個売って${Math.round(x.value)}銀（同じ日に${nm(world, x.low)}で売っていたら約${Math.round(x.lowValue)}銀）${rv}`
         : `${nm(world, x.fair)}の隊商市が${x.full ? `${x.want}個を買い終えて` : ''}閉じた${rv}`;
-      emit(world, { type: 'shiftEnd', city: x.fair, rare: x.sold > 0 && x.value > x.lowValue * 1.2, text: txt });
+      emit(world, { type: 'shiftEnd', city: x.fair, rare: x.sold > 0 && x.value > x.lowValue * 1.2, text: `${txt}${tailText(world, x)}` });
     }
   }
+}
+
+// 市が閉じたあとも安値が長く続くとき（s8）: 安値の終わりと次の予告の早い日、荷の扱い方（32回目の相談: 市のあとの約100日が、荷の整理と待ちになった）
+function tailText(world, x) {
+  const sc = world.scenario.shifts;
+  if (x.end - fairEnd(x) < 20) return '';
+  const lead = sc.travelLead ? Math.max(...Object.values(world.shiftTravelDays || {}), 0) + 4 : sc.lead;
+  const next = Math.max(world.day + 1, x.end + (sc.gap?.[0] ?? 0) - lead);
+  return `。${nm(world, x.low)}の${GOODS[x.good].name}の安値は${x.end - 1}日目まで続く。持っている${GOODS[x.good].name}は、倉庫に置くか、最低売値をつけて持ち越すか、ほかの品の便に組み替えよ（安値の間は、ほかの品で稼ぐ時期）。次の予告は早くて${next}日目`;
 }
 
 // 終わったとき（勝ち・負け）に開いている隊商市の途中の結果（市が閉じる前に終わると、最後に効いた判断の答えが見えなかった。24回目の Sol）

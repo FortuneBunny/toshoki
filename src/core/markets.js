@@ -6,8 +6,10 @@
 import { GOODS } from '../data/goods.js';
 import { hashSeed } from './rng.js';
 import { emit } from './events.js';
+import { BALANCE as B } from '../data/balance.js';
 import { findPath, seasonOf, SEASON_NAMES } from './caravan.js';
 import { cityWants } from './market.js';
+import { dailyDemand } from './city.js';
 
 // シナリオの定義: portMarket: { city, good, first, gap（なければ1回だけ）, lead, days, rate: 空きの戻り（個/日）, max: 空きの上限, price: 市の値の倍率,
 //   from: あれば、市で上限なしに売れるのは、その港から直に来て、市の期間に着いた船だけ（30回目の相談。積んだまま泊めておく手を塞ぐ） }
@@ -73,6 +75,8 @@ export function notePortSale(world, m, city, good, n) {
     const free = Math.max(0, (m.cargo[good] || 0) - here);
     rest = Math.max(0, n - free);
     if (m.whLoaded?.city === city.id && m.whLoaded[good]) m.whLoaded[good] = Math.max(0, here - rest);
+    const x = world.markets.find((y) => y.city === city.id && y.good === good && marketActive(world, y));
+    if (x) x.sold = (x.sold || 0) + Math.min(n, free);
   }
   world.portRoom = Math.max(0, (world.portRoom ?? world.scenario.portMarket.max) - rest);
 }
@@ -100,6 +104,16 @@ function sailText(world) {
   const nm = (id) => world.cities[id]?.name || id;
   return `ダウ船で${nm(sc.from)}から${nm(sc.city)}まで、${SEASON_NAMES[0]}なら約${days[0]}日、${SEASON_NAMES[1]}なら約${days[1]}日（今は${SEASON_NAMES[seasonOf(world)].replace(/（.*/, '')}、${next}日目から${SEASON_NAMES[1 - seasonOf(world)].replace(/（.*/, '')}）`;
 }
+// 仕入れ先の量（32回目の相談: 差は1回の市に売れる量で決まるのに、量が予告から読めなかった）
+function supplyText(world) {
+  const sc = world.scenario.portMarket;
+  const c = sc.from && world.cities[sc.from];
+  const rate = c?.produces?.[sc.good];
+  if (!rate) return '';
+  const spare = rate - dailyDemand(c, sc.good, false);
+  const cap = Math.max(20, dailyDemand(c, sc.good, false) * B.stockCapDays, rate * 15);
+  return `${c.name}の${GOODS[sc.good].name}は、1日に約${Math.round(spare * 10) / 10}袋の余りがたまり、約${Math.round(cap)}袋で頭打ちになる（1隻が1回に積めるのはそこまで。2隻目は在庫が戻るのを待つ。早くから買い集めて、${c.name}の商館の倉庫に貯めておくと多く運べる。倉庫から積んだ分も「直に来た船」に数える）。`;
+}
 // まだ買い取らない町への一言（31回目の Opus: 町のうちに予告が出て、売れないのに気づかなかった）
 const notYetText = (world, sc) => (cityWants(world.cities[sc.city], sc.good) ? '' : `今の${world.cities[sc.city].name}は、まだ${GOODS[sc.good].name}を買い取らない（都市に育ててから）。`);
 
@@ -113,19 +127,20 @@ export function updateMarkets(world) {
   for (const x of world.markets || []) {
     const c = world.cities[x.city]?.name || x.city;
     const g = GOODS[x.good].name;
-    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う（ただし、たくさん売るほど値は下がる。2隻目は1隻目よりずっと安い）。市に合わせて、${g}を積んだ船を着かせよ。${notYetText(world, sc)}${sailText(world)}` });
+    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う（ただし、たくさん売るほど値は下がる。2隻目は1隻目よりずっと安い）。市に合わせて、${g}を積んだ船を着かせよ。${notYetText(world, sc)}${supplyText(world)}${sailText(world)}` });
     if (world.day === x.start) emit(world, { type: 'portMarketStart', city: x.city, text: `${c}に${g}の大口の商人が来た（${x.end - 1}日目まで）。${who}${g}は上限なしで売れる` });
-    if (world.day === x.end) emit(world, { type: 'portMarketEnd', city: x.city, text: `${c}の${g}の市が終わった` });
+    if (world.day === x.end) emit(world, { type: 'portMarketEnd', city: x.city, text: `${c}の${g}の市が終わった（あなたが上限なしで売ったのは${Math.floor(x.sold || 0)}個）` });
   }
 }
 
 // 町の「これから」に出す行
 export function marketNotes(world, city) {
   const sc = world.scenario.portMarket;
+  if (sc?.from === city.id && knownMarkets(world).length) return [{ kind: 'shift', text: `⚓${world.cities[sc.city].name}の${GOODS[sc.good].name}の市 ${knownMarkets(world).map((x) => marketStateText(world, x)).join('、')}。${supplyText(world)}${sailText(world)}` }];
   if (!sc || sc.city !== city.id) return [];
   const g = GOODS[sc.good].name;
   const out = knownMarkets(world).map((x) => ({ kind: marketActive(world, x) ? 'up' : 'shift', text: `⚓${g}の市 ${marketStateText(world, x)}。${shipText(world)}${g}は上限なしで約${Math.round(sc.price * 10) / 10}倍` }));
-  if (out.length && sc.from) out.push({ kind: 'shift', text: `${notYetText(world, sc)}${sailText(world)}` });
+  if (out.length && sc.from) out.push({ kind: 'shift', text: `${notYetText(world, sc)}${supplyText(world)}${sailText(world)}` });
   out.push({ kind: 'shift', text: `${g}の買い取りの空き ${portRoomLeft(world)}/${sc.max}個（1日に約${sc.rate}個戻る。市の間は上限なし）` });
   return out;
 }

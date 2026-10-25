@@ -7,6 +7,7 @@ import { GOODS } from '../data/goods.js';
 import { hashSeed, inStream, chance } from './rng.js';
 import { emit } from './events.js';
 import { TILE_PX } from './grid.js';
+import { dailyCost } from './world.js';
 
 // シナリオの定義: gangs: { zones: [{ id, name, x, y, r（px）, hint }], first, gap, lead, days, chance: 区域の1マス1日の襲われる率, loss: 奪われる割合,
 //   holdDays: あれば奪わずに足止めする日数（一団につき各便一度）, stopAfter: その日で強盗団は来なくなる }
@@ -62,7 +63,7 @@ export function gangCheck(world, m, x, y, k) {
         m.travel.gangHeldUntil = Math.min(world.day + sc.holdDays, sc.stopAfter ?? Infinity);
         m.travel.totalDays += m.travel.gangHeldUntil - world.day;
         world.stats.gangHeldCount = (world.stats.gangHeldCount || 0) + 1;
-        emit(world, { type: 'gangHeld', merchant: m.id, bad: true, gang: g.id, text: `${m.name}が${z.name}で強盗団に捕まり、${m.travel.gangHeldUntil - world.day}日間足止めされる（${m.travel.gangHeldUntil}日目まで）。積荷は無事で、待つ間は食料も護衛の給金も要らない` });
+        emit(world, { type: 'gangHeld', merchant: m.id, bad: true, gang: g.id, text: `${m.name}が${z.name}で強盗団に捕まり、${m.travel.gangHeldUntil - world.day}日間足止めされる（${m.travel.gangHeldUntil}日目まで）。積荷は無事で、待つ間はこの商人の給金・乗り物の維持費・食料・護衛代はかからない。${moneyText(world, m.travel.gangHeldUntil)}` });
         return;
       }
       let lost = 0;
@@ -83,7 +84,7 @@ export function gangCheck(world, m, x, y, k) {
 }
 
 // 強盗団に遭うとどうなるか
-const harmText = (sc) => (sc.holdDays ? `区域に入った隊商は捕まって${sc.holdDays}日足止めされる（一団につき一度。積荷は無事）` : `区域を通る隊商は積荷の約${Math.round(sc.loss * 10)}割を奪われうる`);
+const harmText = (sc) => (sc.holdDays ? `区域に入った隊商は捕まって${sc.holdDays}日足止めされる（一団につき一度。積荷は無事で、その間の給金と維持費はかからないが、売上も入らない）` : `区域を通る隊商は積荷の約${Math.round(sc.loss * 10)}割を奪われうる`);
 
 // 旅が予告ずみの区域を通る日（31回目の Opus: 自分の便が区域を通るか・何日目に入るかが、どの画面にも出なかった）
 // tiles・steps は findPath の経路。i・part は旅の途中から数えるとき。1日に進む量は才能だけを入れる（砂嵐・飢えの遅れは入らない）
@@ -112,6 +113,17 @@ export function gangCrossings(world, m, tiles, steps, { i = 0, part = 0, day = w
 export const gangCrossText = (world, hs) => hs.map((h) => `${gangZone(world, h.gang).name}を${h.from === h.to ? `${h.from}日目` : `${h.from}〜${h.to}日目`}に通る（強盗団は${h.gang.start}〜${h.gang.end - 1}日目 → ${h.caught ? '⚠捕まる' : '重ならない'}）`).join('。') + (hs.length ? '（食料切れや砂嵐で遅れると、日がずれる）' : '');
 // 今の旅の残り
 export const travelGangCrossings = (world, m) => (m.travel ? gangCrossings(world, m, m.travel.tiles, m.travel.steps, { i: m.travel.i, part: m.travel.part, day: Math.max(world.day + 1, m.travel.gangHeldUntil ?? 0) }).filter((h) => !(m.gangHeldIds || []).includes(h.gang.id)) : []);
+
+// 足止めの間のお金の見通し（32回目の相談: 足止めの間に銀が尽き、借金で定期便が何も買えなくなった）
+function moneyText(world, until) {
+  const pl = world.player;
+  const cost = dailyCost(world, { guards: true });
+  if (cost <= 0) return '';
+  const left = Math.floor(pl.silver / cost);
+  const tail = '銀が尽きると、定期便は何も買えなくなる。倉庫の品を売る・護衛を減らす・商人に暇を出す、で備えよ';
+  if (pl.silver < 0) return `今の銀は${Math.floor(pl.silver)}（借金）。1日の出費は約${Math.round(cost)}銀。${tail}`;
+  return left < until - world.day ? `今の銀${Math.floor(pl.silver)}、1日の出費約${Math.round(cost)}銀 → 売上が入らなければ${world.day + left}日目ごろに借金になる。${tail}` : `今の銀${Math.floor(pl.silver)}なら、足止めが終わるまで出費（1日約${Math.round(cost)}銀）をまかなえる`;
+}
 
 // 予告の文。区域のおおよその場所（どの町とどの町の間か）と、今の旅で区域を通る商人も添える（31回目の Opus: 「玻璃の都の西」だけでは、辻からの行きも通ると分からなかった）
 const announceText = (world, x, z, sc) => `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${x.end - x.start}日間）、${z.name}に強盗団が居座る。護衛では防げず、${harmText(sc)}。${z.hint}`;

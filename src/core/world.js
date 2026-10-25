@@ -253,7 +253,8 @@ function diffuse(world) {
 export function dailyCost(world, { guards = false } = {}) {
   const pl = world.player;
   let cost = 0;
-  for (const m of pl.merchants) cost += B.merchantWage + TRANSPORTS[m.transport].upkeep;
+  // 強盗団に足止めされている商人は、給金も乗り物の維持費もかからない（32回目の相談。足止めは時間だけを失う）
+  for (const m of pl.merchants) if (!(m.travel && world.day < (m.travel.gangHeldUntil ?? -Infinity))) cost += B.merchantWage + TRANSPORTS[m.transport].upkeep;
   // 表示用: 工房の維持費（止めていてもかかる。13回目の Sol の指摘）と、移動中の護衛代（定期便は次も同じ人数を雇う）
   if (guards) for (const b of pl.buildings) cost += BUILDINGS[b.type]?.upkeep || 0;
   if (guards) for (const m of pl.merchants) cost += (m.travel ? m.guards : m.order?.guards || 0) * B.guardWage;
@@ -267,7 +268,8 @@ function upkeep(world) {
   const pl = world.player;
   const cost = dailyCost(world);
   pl.silver -= cost;
-  const noCargo = pl.merchants.every((m) => !Object.keys(m.cargo).length);
+  // 足止め中の積荷は売れないので数えない（32回目の相談）
+  const noCargo = pl.merchants.every((m) => !Object.keys(m.cargo).length || (m.travel && world.day < (m.travel.gangHeldUntil ?? -Infinity)));
   if (pl.silver < 0 && noCargo && !pl.aidUsed) {
     pl.aidUsed = true;
     pl.silver += 200;
