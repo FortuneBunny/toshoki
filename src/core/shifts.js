@@ -83,6 +83,14 @@ export function fairStateText(world, x) {
 }
 export const lowStateText = (world, x) => (shiftActive(world, x) ? `今（あと${x.end - world.day}日、${x.end - 1}日目まで）` : `${x.start - world.day}日後から（${x.start}〜${x.end - 1}日目）`);
 const wantText = (x) => (x.want ? `${fairWantText(x)}。` : '');
+// rivalMid のライバルが買い付ける日（市のちょうど真ん中に着くように、本拠地から市までの日数だけ前）
+export function rivalBuyDay(world, x) {
+  const home = world.scenario.shifts.fair.rivalCity;
+  const r = world.rivals[0];
+  const days = findPath(world, home, x.fair, r?.merchants[0]?.transport || 'camel')?.days ?? 0;
+  return x.start + Math.floor((fairEnd(x) - x.start) / 2) - days;
+}
+
 // ライバルの隊商（s7）: 予告は読まず、市が立ってから本拠地の蔵の品を市へ送る。本拠地から市までの日数を出す
 export function caravanText(world, x) {
   if (!x.caravans) return '';
@@ -90,6 +98,7 @@ export function caravanText(world, x) {
   if (!r) return '';
   const home = world.scenario.shifts?.fair?.rivalCity || r.workshop.city;
   const route = findPath(world, home, x.fair, r.merchants[0]?.transport || 'donkey');
+  if (world.scenario.shifts.fair.rivalMid && route) { const b = rivalBuyDay(world, x); return `${r.name}は噂を聞いて、${b}日目ごろ${nm(world, home)}の市場で${GOODS[x.good].name}を買い付け、${b + route.days}日目ごろ市に着く（それまでにあなたが売った分は取られない。着いたあとは、残りの総量を取り合う）。`; }
   return `${r.name}は予告を読まず、市が立ってから${nm(world, home)}${world.scenario.shifts?.fair?.rivalCity ? 'の市場で買った' : 'の蔵の'}${GOODS[x.good].name}を市へ送る（${nm(world, home)}を出てから${route ? `約${route.days}日。商人が${nm(world, home)}へ戻るのを待つと、もっと遅い` : '道がない'}${route && route.days >= fairEnd(x) - x.start ? '。市が閉じるまでに着かない' : ''}）。`;
 }
 

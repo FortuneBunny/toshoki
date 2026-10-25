@@ -8,7 +8,7 @@ import { emit } from './events.js';
 import { BALANCE as B } from '../data/balance.js';
 import { foundSites, createPost } from './posts.js';
 import { HQ_RANGE } from './pioneer.js';
-import { fairRoom, noteRivalFairSale, knownShifts, fairEnd } from './shifts.js';
+import { fairRoom, noteRivalFairSale, knownShifts, fairEnd, rivalBuyDay } from './shifts.js';
 
 function bestPlan(world, r, m) {
   const here = world.cities[m.city];
@@ -160,11 +160,14 @@ export function updateRivals(world) {
       // s8（30回目の相談）: 予告は読まない。市が立ってから、最初の隊商が玻璃の都へ戻り、市場の在庫を買って一便だけ市へ送る
       const fairHome = world.scenario.shifts?.fair?.rivalCity;
       if (fairHome && m === r.merchants[0]) {
-        const x = knownShifts(world).find((x) => world.day >= x.start && world.day < fairEnd(x) && !x.citySent);
+        // rivalMid（32回目の相談）: 予告は読まないが、噂を聞いて、市のちょうど真ん中に着くように玻璃の都で買い付けて出る（前半は読む人のもの）
+        const mid = world.scenario.shifts.fair.rivalMid;
+        const x = knownShifts(world).find((y) => !y.citySent && world.day < fairEnd(y) && (mid ? world.day >= rivalBuyDay(world, y) - (findPath(world, m.city, fairHome, m.transport)?.days ?? 0) : world.day >= y.start));
         if (x) {
           const to = m.city === fairHome ? x.fair : fairHome;
           const route = findPath(world, m.city, to, m.transport);
           if (route) {
+            if (m.city === fairHome && mid && world.day < rivalBuyDay(world, x)) { m.wait = 1; continue; }
             if (m.city === fairHome) {
               const city = world.cities[fairHome];
               const good = x.good;
