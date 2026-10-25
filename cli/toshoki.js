@@ -218,7 +218,7 @@ function statusText(world) {
   if (ab.length && pl.silver < G.BALANCE.autoBuyReserve * 2) out.push(`⚠ 手元の銀 ${Math.floor(pl.silver)}。${G.BALANCE.autoBuyReserve}銀を切ると工房の自動仕入れが止まる（倉庫の製品を売って銀に戻そう）`);
   for (const m of pl.merchants) out.push('  ' + merchantLine(world, m));
   // 予告された売り場の交代（詳しくは shifts）
-  for (const x of G.knownMarkets(world)) out.push(`⚓ 港の市の予告#${x.id}: ${world.cities[x.city].name}の${x.good} ${G.marketStateText(world, x)}。運んできた分は上限なしで高値`);
+  for (const x of G.knownMarkets(world)) out.push(`⚓ 港の市の予告#${x.id}: ${world.cities[x.city].name}の${GOODS[x.good].name} ${G.marketStateText(world, x)}。${G.marketShipText(world)}${GOODS[x.good].name}は上限なしで高値`);
   for (const x of G.knownGangs(world)) out.push(`🗡 強盗団の予告#${x.id}: ${G.gangZone(world, x).name} ${G.gangStateText(world, x)}。護衛では防げない`);
   for (const x of G.knownFestivals(world)) out.push(`🎆 大祭の予告#${x.id}: ${world.cities[x.city].name}で大祭 ${G.festivalStateText(world, x)}。${G.festivalCountText(world, x.city) || 'この間に始まったラッシュは祝いが大きい'}`);
   for (const x of G.knownBlights(world)) out.push(`🌾 不作の予告#${x.id}: ${GOODS[x.good].name}が不作 ${G.blightStateText(world, x)}。どの産地も作る量が約${Math.round(world.scenario.blights.cut * 10)}割に`);
@@ -278,7 +278,7 @@ function marketText(world, m) {
     const trend = hist.length >= 2 ? spark(hist.map((h) => h[1])) : '';
     let all = '';
     if (have && wants) {
-      const total = G.quote(world, city, id, -have);
+      const total = G.sellValue(world, m, city, id, Math.min(have, G.fairRoom(world, city, id), G.portRoom(world, m, city, id)));
       const pl = total - (m.cost[id] || 0) * have;
       all = `${Math.round(total)}（${pl >= 0 ? '+' : ''}${Math.round(pl)}）`;
     }
@@ -852,7 +852,7 @@ function run(world, cmd, pos, opts) {
         if (avg > first * 1.4) out.push(`⚠ ${gname(l.good)}はまとめて買うと値上がりする（1個目 ${fmt(first)} → 平均 ${fmt(avg)}）。少なめに買うか quote で確かめよう`);
       }
       const r = after(G.trade(world, m.id, lines));
-      for (const row of r.rows) out.push(`  ${row.qty > 0 ? '買' : '売'} ${gname(row.good)} ×${Math.abs(row.qty)}  ${row.total > 0 ? '+' : ''}${fmt(row.total)} 銀`);
+      for (const row of r.rows) out.push(`  ${row.qty > 0 ? '買' : '売'} ${gname(row.good)} ×${Math.abs(row.qty)}  ${row.total > 0 ? '+' : ''}${fmt(row.total)} 銀${row.capped ? `（${row.capped}個のうち、買い取りの上限で${Math.abs(row.qty)}個だけ）` : ''}`);
       out.push(`銀 ${Math.floor(world.player.silver)}（${r.silverDelta >= 0 ? '+' : ''}${fmt(r.silverDelta)}）  積載 ${G.cargoUsed(m)}/${G.cargoCap(m)}`);
       for (const f of r.fx) {
         if (f.type === 'profit') out.push(`💰 利益 +${Math.round(f.amount)} 銀${f.streak > 1 ? `  🔥${f.streak}連続黒字！` : ''}  評判 +${f.rep}`);
@@ -883,7 +883,8 @@ function run(world, cmd, pos, opts) {
       const r = after(G.travel(world, m.id, pos[0], { guards: Number(opts.guards || 0) }));
       out.push(`${m.name}が${world.cities[pos[0]].name}へ出発（約${r.days}日）`);
       if ('nowait' in opts) { out.push('（時間は進めていない。ほかの商人にも指示してから wait で進める）'); break; }
-      const adv = G.advance(world, r.days + 30, { stopOn: new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck']) });
+      // 予告でも止める（16日の航海中に港の市の予告を通り過ぎた。31回目の Opus）
+      const adv = G.advance(world, r.days + 30, { stopOn: new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'shift', 'blight', 'grandFest', 'gang', 'gangHeld', 'portMarket']) });
       out.push(...compactEvents(adv.events));
       if (!m.travel && m.city === pos[0]) out.push('', marketText(world, m));
       break;

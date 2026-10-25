@@ -73,9 +73,12 @@ export function previewTrade(world, m, lines) {
       const have = m.cargo[good] || 0;
       if (-qty > have) errors.push(`${g.name}は${have}個しか積んでいない`);
       if (!cityWants(city, good)) errors.push(`${city.name}では${g.name}を買い取ってもらえない`);
-      const gain = sellValue(world, m, city, good, Math.min(-qty, have));
+      // 隊商市の総量・港の買い取りの空きで、売れる数が減る（頼んだ数と見積もりがそのまま出ていた。31回目の Opus）
+      const want = Math.min(-qty, have);
+      const n = Math.min(want, fairRoom(world, city, good), portRoom(world, m, city, good));
+      const gain = sellValue(world, m, city, good, n);
       silverDelta += gain;
-      rows.push({ good, qty, total: gain });
+      rows.push({ good, qty: -n, total: gain, ...(n < want ? { capped: want } : {}) });
     }
     cargoDelta += qty * g.weight;
   }
