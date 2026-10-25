@@ -1210,3 +1210,21 @@ test('強盗団の区域を通る日の見積もり: 食料を積んだラクダ
   for (let i = 0; i < 60 && m.travel && !m.travel.gangHeldUntil; i++) G.advance(w, 1, { stopOn: new Set() });
   assert.equal(m.travel.gangHeldUntil - 30, Math.max(h.from, x.start));
 });
+
+test('町を育てる次の一手: 届ける品と量・成長の見込み・買える町を出す（s4 の交易所・s6 のまだ買い取らない白檀港）', () => {
+  const w = G.createWorld('s4', { seed: 31401 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  const st = G.foundSites(w, 1)[0];
+  G.foundPost(w, st.x, st.y);
+  G.advance(w, 30, { stopOn: new Set() });
+  const h = G.goalHints(w).find((x) => x.plan);
+  assert.ok(h && /次の一手/.test(h.plan) && /で買える/.test(h.plan));
+  const p = G.growthPlan(w, w.cities[h.city], 1000);
+  assert.ok(p.rateAfter > p.now && p.daysAfter < p.daysNow);
+  const w6 = G.createWorld('s6', { seed: 7 });
+  if (G.setupStage(w6) === 'family') G.chooseFamily(w6, G.familyList(w6)[0].id);
+  const st6 = G.foundSites(w6, 1)[0];
+  G.foundPost(w6, st6.x, st6.y);
+  G.advance(w6, 20, { stopOn: new Set() });
+  assert.ok(G.goalHints(w6).some((x) => x.city === 'byakudan' && x.plan && /まだ香辛料を買い取らない/.test(x.text)));
+});

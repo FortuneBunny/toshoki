@@ -207,6 +207,8 @@ function statusText(world) {
       out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、${rushGap(here ? c.glucose : k?.glucose, (here ? c.sweetLevel : k?.sweetLevel) || 0, G.rushSweetPlan(world, c), G.rushLineOf(world))}` : ''}${here ? (() => { const why = G.growthBlocker(world, c); return why ? `。⚠ ${why}` : ''; })() : k?.blocker ? `。⚠ ${world.day - k.day}日前に見たとき: ${k.blocker}` : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}（20日ごとの便なら1回に約${Math.ceil(a.perDay * 20)}個）`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
     }
   });
+  // 町を育てる次の一手（画面と同じ。画面だけのテスト4回目）
+  for (const x of G.goalHints(world)) if (x.plan) out.push(`  💡 ${world.cities[x.city].name}: ${x.plan}`);
   out.push('商人:');
   // 定期便が直近10日に買値の上限で見送った品
   const skipped = (world.log || []).filter((e) => e.type === 'orderNote' && world.day - e.day <= 10 && /上限/.test(e.text));

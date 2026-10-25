@@ -271,6 +271,39 @@ export function dietAdvice(world, city) {
   return out.sort((a, b) => b.gain - a.gain);
 }
 
+// 町を育てる次の一手（画面だけのテスト4回目: 2人とも、町を育てる目標をどう進めればよいか画面から読めなかった）
+// 伸びしろの大きい食べ物を2つまで選び、届け続けたときの糖度・成長・日数の見込みと、どこで買えるかを出す。家の上限で止まるならそれも
+export function growthPlan(world, city, target) {
+  if (!target || city.pop >= target || city.steady) return null;
+  const tier = cityTier(city);
+  const days = (r) => (r > 0 ? Math.ceil(Math.log(target / city.pop) / Math.log(1 + r)) : Infinity);
+  const rateAt = (g) => { const keep = city.glucose; city.glucose = g; try { return growthRate(city); } finally { city.glucose = keep; } };
+  const now = growthRate(city);
+  const picks = dietAdvice(world, city).filter((a) => a.kind === 'food' || !(city.crash > 0)).slice(0, 2);
+  const base = Math.max(city.glucose, city.glucoseTarget ?? city.glucose);
+  // 伸びしろは上限の値なので、実際に上がるのはその6割ほど（毎日その量を届ける試しで、139の見込みが104で止まった）
+  const g2 = Math.min(220, base + 0.6 * picks.reduce((s, a) => s + a.gain, 0));
+  const r2 = picks.length ? rateAt(Math.min(g2, B.rushLine - 1)) : now;
+  const cap = city.district ? housingCap(city, tier) : Infinity;
+  return {
+    now, daysNow: days(now), picks, glucoseAfter: Math.round(Math.min(g2, B.rushLine - 1)), rateAfter: r2, daysAfter: days(r2), cap,
+    where: picks.map((a) => ({ good: a.good, cities: producersOf(world, a.good, city.id).slice(0, 2).map((c) => c.name) })),
+  };
+}
+export function growthPlanText(world, city, target) {
+  const p = growthPlan(world, city, target);
+  if (!p) return '';
+  const parts = [];
+  if (p.picks.length) {
+    const what = p.picks.map((a, i) => `${GOODS[a.good].name} 1日約${Math.max(1, Math.round(a.perDay * 10) / 10)}個（${i ? '同じく' : '20日ごとの便なら'}約${Math.ceil(a.perDay * 20)}個）`).join('・');
+    const where = p.where.filter((w) => w.cities.length).map((w) => `${GOODS[w.good].name}は${w.cities.join('・')}`).join('、');
+    parts.push(`次の一手: ${what}を届け続けると（人口が増えたら量も増やす）、糖度は約${p.glucoseAfter}まで上がり、成長は1日${(p.rateAfter * 100).toFixed(2)}%${Number.isFinite(p.daysAfter) ? `（${target}人まで約${p.daysAfter}日。今のままなら${Number.isFinite(p.daysNow) && p.daysNow < 3000 ? `約${p.daysNow}日` : 'ほとんど育たない'}）` : ''}${where ? `。${where}で買える` : ''}`);
+  }
+  // 家は空き地があれば建っていく。今の家がほぼ埋まっているときだけ言う（家の数は増えていくので、上限のように書かない）
+  if (city.pop >= p.cap * 0.9) parts.push(`ただし、今の家はほぼ埋まっている（約${Math.floor(p.cap)}人分）。住居の求める品をそろえると家が速く建ち、空き地がなければ市場への格上げで圏を広げる`);
+  return parts.join('。');
+}
+
 // 町のこれから（版4: 読む材料は相場の古さではなく、町の糖度の流れ）。相場の横に出す短い印
 // kind: rush / crash / rushSoon / up / down / hungry
 export function cityOutlook(world, city) {

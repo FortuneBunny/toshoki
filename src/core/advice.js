@@ -5,7 +5,7 @@ import { quote, cityWants } from './market.js';
 import { settlersAllowed, settlerCost, settleCheck, settlerSourceCheck } from './settlers.js';
 import { routeInfo, merchantCap, hireCost, branchesAllowed, branchCost, branchCheck, donateCost, hasPresence } from './actions.js';
 import { dailyCost } from './world.js';
-import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan } from './city.js';
+import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan, growthPlanText } from './city.js';
 import { dwellingStatus } from './dwelling.js';
 import { goalsStatus } from './scoring.js';
 import { knowledgeAge } from './knowledge.js';
@@ -196,6 +196,18 @@ export function silverAdvice(world) {
   return out;
 }
 
+// その町を目標で育てる人数（町の画面の「次の一手」に使う）
+export function goalTargetPop(world, cityId) {
+  for (const g of world.scenario.goals || []) {
+    if (g.type === 'cityTier' && g.city === cityId) return B.tierPops[g.tier];
+    if (g.type === 'deliver' && g.city === cityId && !cityWants(world.cities[cityId], g.good)) return B.tierPops[Math.min(3, GOODS[g.good].tier || 3)];
+    if (g.type === 'cityPop' && g.city === cityId) return g.pop;
+    if (g.type === 'postTier' && world.cities[cityId]?.founded) return g.pop || B.tierPops[g.tier];
+    if (g.type === 'hamletPost' && (world.hamlets || []).some((x) => x.name === g.hamlet && x.absorbedBy === cityId)) return g.pop;
+  }
+  return null;
+}
+
 // 目標の町の案内: 目標のバーの下に出す一言。人口・成長の速さ・止めているもの・このままだと何日かを、
 // 自分が知っている範囲（最後に商人がいたときの様子）で示す。正解は決めつけず、何が足りないかを見せる
 // （s2 で「麦の里を町に育てる」の手の打ち方が分からず、2人の画面だけのテストが迷った）
@@ -221,6 +233,15 @@ export function goalHints(world) {
     else if (g.type === 'postTier') {
       const post = Object.values(world.cities).filter((c) => c.founded).sort((a, b) => b.pop - a.pop)[0];
       if (post) { id = post.id; target = g.pop || B.tierPops[g.tier]; }
+    } else if (g.type === 'hamletPost') {
+      // 集落を取り込んだ交易所を育てる（s4。交易所を育てる手がかりがなかった。画面だけのテスト4回目の Opus）
+      const hm = (world.hamlets || []).find((x) => x.name === g.hamlet);
+      const c = hm?.absorbedBy ? world.cities[hm.absorbedBy] : null;
+      if (c?.founded && !c.rivalPost) { id = c.id; target = g.pop; }
+    } else if (g.type === 'deliver' && g.city && world.cities[g.city] && !cityWants(world.cities[g.city], g.good)) {
+      // 売り先の町がまだその品を買い取らない（s6 の白檀港。都市に育てる手がかりがなく、香辛料を一度も売れなかった。画面だけのテスト4回目の Sol）
+      id = g.city;
+      target = B.tierPops[Math.min(3, GOODS[g.good].tier || 3)];
     }
     if (!id || seen.has(id)) return;
     seen.add(id);
@@ -232,6 +253,7 @@ export function goalHints(world) {
     let late = false;
     const r = k.growth ?? 0;
     const parts = [];
+    if (g.type === 'deliver') parts.push(`まだ${GOODS[g.good].name}を買い取らない（人口${target}で買い取る）`);
     if (target) parts.push(`人口 ${Math.floor(k.pop)}/${target}`);
     parts.push(`成長 ${(r * 100).toFixed(2)}%/日`);
     if (target && k.pop < target) {
@@ -244,7 +266,9 @@ export function goalHints(world) {
     }
     if (g.type === 'rushes') parts.push(`糖度 ${Math.round(k.glucose)}（ラッシュは ${B.rushLine} 以上）`);
     const block = k.blocker ? `止めているもの: ${k.blocker}` : late ? `このままでは期限（残り${left}日）に間に合わない。食べ物の種類と量を増やす${settlersAllowed(world) && c.founded ? '・開拓団を送る' : ''}` : '順調。届け続ける';
-    out.push({ city: id, text: `${c.name}（${when}）: ${parts.join('・')}。${block}` });
+    // 次の一手（何を何個届ければ、何日で届くか）。今の様子が分かる町だけ（画面だけのテスト4回目）
+    const plan = target && (age === 0 || c.founded) ? growthPlanText(world, c, target) : '';
+    out.push({ city: id, text: `${c.name}（${when}）: ${parts.join('・')}。${block}`, ...(plan ? { plan } : {}) });
   });
   return out;
 }

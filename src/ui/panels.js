@@ -108,7 +108,7 @@ function cityPanel(app, id) {
       h('dl', { class: 'kv' },
         h('dt', {}, '糖度'), h('dd', {}, `${Math.round(c.glucose)}（向かう先 ${Math.round(c.glucoseTarget)}）${c.rush ? ` 🍬ラッシュ あと${c.rush}日` : ''}${c.crash ? ` 💥クラッシュ あと${c.crash}日` : ''}`),
         h('dt', {}, '人口'), h('dd', {}, `${fmt(c.pop)}${next ? ` / 次の段階 ${fmt(next)}` : ''}`),
-        h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`, G.growthBlocker(world, c) ? h('div', { class: 'dim', style: { fontSize: '11px' } }, `止めているもの: ${G.growthBlocker(world, c)}`) : null),
+        h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`, G.growthBlocker(world, c) ? h('div', { class: 'dim', style: { fontSize: '11px' } }, `止めているもの: ${G.growthBlocker(world, c)}`) : null, (() => { const t = G.goalTargetPop(world, c.id); const p = t ? G.growthPlanText(world, c, t) : ''; return p ? h('div', { class: 'amber', style: { fontSize: '11px' } }, `💡 ${p}`) : null; })()),
         c.founded && G.settlersAllowed(world) ? h('dt', {}, '開拓団') : null,
         c.founded && G.settlersAllowed(world) ? h('dd', {}, `${c.settlerGroups || 0}/${G.BALANCE.settlerMax}団 住みついた${world.player.merchants.some((m) => m.settlers?.to === id) ? `（運んでいる途中 ${world.player.merchants.filter((m) => m.settlers?.to === id).length}団）` : ''}`, h('div', { class: 'dim', style: { fontSize: '11px' } }, G.settleCheck(world, id) ? `受け入れ ✖ ${G.settleCheck(world, id)}` : '受け入れ ○ 今なら住みつける')) : null,
         h('dt', {}, '住居'), h('dd', {}, `家 ${G.houseCount(c)}軒・住める人数 ${fmt(G.housingCap(c, tier))}${c.pop >= G.housingCap(c, tier) * 0.98 ? '（頭打ち）' : ''}`),
