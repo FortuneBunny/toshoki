@@ -798,10 +798,14 @@ function run(world, cmd, pos, opts) {
       const r = G.routeInfo(world, m.id, pos[0]);
       if (!r) { out.push(`${TRANSPORTS[m.transport].name}では行けない`); break; }
       out.push(`${r.path.map((id) => world.cities[id].name).join(' → ')}  約${r.days}日${r.danger ? `  最大危険度${r.danger}（護衛 ${r.danger * 2 + 1}人でたいてい撃退）` : ''}`);
-      if (G.knownGangs(world).length && !m.travel) {
-        const rr = G.findPath(world, m.city, r.path.at(-1), m.transport);
-        const hs = rr ? G.gangCrossings(world, m, rr.tiles, rr.steps) : [];
-        out.push(`  🗡 今出ると、${hs.length ? G.gangCrossText(world, hs) : '予告された強盗団の区域は通らない'}`);
+      if (G.knownGangs(world).length) {
+        // 移動中なら、今の旅のあとに出たときの見積もり（32回目の Opus: 移動中に route を打つと出なかった）
+        const from = m.travel ? m.travel.to : m.city;
+        const day = m.travel ? world.day + Math.max(1, Math.ceil(m.travel.totalDays - m.travel.elapsed)) + 1 : world.day + 1;
+        const rr = G.findPath(world, from, r.path.at(-1), m.transport);
+        const hs = rr ? G.gangCrossings(world, m, rr.tiles, rr.steps, { day }) : [];
+        out.push(`  🗡 ${m.travel ? `今の旅のあと（${world.cities[from].name}を${day - 1}日目に出ると）` : '今出ると'}、${hs.length ? G.gangCrossText(world, hs) : '予告された強盗団の区域は通らない'}`);
+        if (m.travel && G.travelGangCrossings(world, m).length) out.push(`  🗡 今の旅: ${G.gangCrossText(world, G.travelGangCrossings(world, m))}`);
       }
       if (r.desertDays) {
         const need = G.foodNeeded(world, m, r.desertDays);
@@ -904,6 +908,9 @@ function run(world, cmd, pos, opts) {
         ? (() => { const evs = []; for (let i = 0; i < n; i++) { const a = G.advance(world, 1); evs.push(...a.events); if (a.events.some((e) => ['arrive', 'orderArrive'].includes(e.type) && e.merchant === watch) || a.events.some((e) => ['victory', 'defeat'].includes(e.type))) break; } return { events: evs }; })()
         : G.advance(world, n);
       out.push(...compactEvents(adv.events));
+      // 町で止まったままの商人を知らせる（取引が1つ失敗して出発せず、9〜11日気づかなかった。32回目の Opus）
+      const idle = world.player.merchants.filter((y) => !y.travel && (!y.order || y.order.paused) && !y.settlers);
+      if (idle.length && n > 1) out.push(`⚠ 町で止まったままの商人: ${idle.map((y) => `${y.name}（${world.cities[y.city]?.name || ''}${y.order?.paused ? '、定期便は止めている' : ''}）`).join('、')}`);
       out.push(`（${world.day}日目${asked > 120 ? '。wait は1回120日まで' : ''}${adv.events.some((e) => e.type === 'arrive') ? '。商人が到着したので止まった' : ''}）`);
       break;
     }
