@@ -79,13 +79,14 @@ function dwellingLine(world, c) {
 }
 
 // ラッシュまでの目安: 糖度140以上と、その日の甘味の摂取（必要量に対する割合）70%以上の両方
+// まとめて届ける量の目安も出す（白糖7個が数日で切れ、摂取69%で止まった。31回目の Gemini）
 function rushGap(glucose, sweet, plan = null, line = 140) {
   if (glucose === undefined) return 'ラッシュの目安は町を見ないと分からない';
   const g = Math.round(glucose);
   const s = Math.round(sweet * 100);
   const need = [];
   if (g < line) need.push(`糖度をあと${line - g}（今${g}。食べ物を何種類も届ける）`);
-  if (s < G.BALANCE.rushSweetLine * 100) need.push(`甘味の摂取をあと${Math.round(G.BALANCE.rushSweetLine * 100) - s}%（今${s}%＝今日の甘味の必要量のうち食べた割合。甘味を2種類以上まとめて届ける${plan?.length ? `。目安は ${plan.slice(0, 2).map((p) => `${GOODS[p.good].name} 1日約${Math.ceil(p.perDay)}個（20日ごとの便なら1回に約${Math.ceil(p.perDay * 20)}個）`).join(' ＋ ')}。届けた日だけでなく、毎日切らさないこと（ほかの甘味でもよい）` : ''}）`);
+  if (s < G.BALANCE.rushSweetLine * 100) need.push(`甘味の摂取をあと${Math.round(G.BALANCE.rushSweetLine * 100) - s}%（今${s}%＝今日の甘味の必要量のうち食べた割合。甘味を2種類以上まとめて届ける${plan?.length ? `。目安は ${plan.slice(0, 2).map((p) => `${GOODS[p.good].name} 1日約${Math.ceil(p.perDay)}個（20日ごとの便なら1回に約${Math.ceil(p.perDay * 20)}個。まとめて届けて火をつけるなら、ラッシュまでの約1週間もつ${Math.ceil(p.perDay * 7)}個以上）`).join(' ＋ ')}。届けた日だけでなく、毎日切らさないこと（ほかの甘味でもよい）` : ''}）`);
   return need.length ? `ラッシュまで ${need.join('、')}` : '条件はそろっている（明日にもラッシュ）';
 }
 
