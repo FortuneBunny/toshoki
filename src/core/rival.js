@@ -160,9 +160,10 @@ export function updateRivals(world) {
       // s8（30回目の相談）: 予告は読まない。市が立ってから、最初の隊商が玻璃の都へ戻り、市場の在庫を買って一便だけ市へ送る
       const fairHome = world.scenario.shifts?.fair?.rivalCity;
       if (fairHome && m === r.merchants[0]) {
-        // rivalMid（32回目の相談）: 予告は読まないが、噂を聞いて、市のちょうど真ん中に着くように玻璃の都で買い付けて出る（前半は読む人のもの）
+        // rivalMid（32回目の相談）: 予告は読まないが、噂を聞いて、市のちょうど真ん中に着くように玻璃の都で買い付けて出る（前半は読む人のもの）。
+        // 噂が立ったら、最初の隊商はほかの旅に出ず、玻璃の都へ戻って買い付けの日を待つ（ほかの旅に出て17日遅れ、予告の日と食い違った。32回目の Sol）
         const mid = world.scenario.shifts.fair.rivalMid;
-        const x = knownShifts(world).find((y) => !y.citySent && world.day < fairEnd(y) && (mid ? world.day >= rivalBuyDay(world, y) - (findPath(world, m.city, fairHome, m.transport)?.days ?? 0) : world.day >= y.start));
+        const x = knownShifts(world).find((y) => !y.citySent && world.day < fairEnd(y) && (mid ? world.day >= y.announce : world.day >= y.start));
         if (x) {
           const to = m.city === fairHome ? x.fair : fairHome;
           const route = findPath(world, m.city, to, m.transport);

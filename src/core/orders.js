@@ -97,6 +97,10 @@ export function runOrder(world, m, { depart = true } = {}) {
     for (const s of stop.sell || []) {
       const have = (m.cargo[s.good] || 0) - (s.keep || 0);
       if (have <= 0 || !cityWants(city, s.good)) continue;
+      // 隊商市への臨時の便を予約していて、まだ切り替わっていないなら、その品は市のために残す
+      // （予約してから切り替わるまでの間に、いつもの売り場で売り切って、空荷で市に着いた。32回目の Sol）
+      const saved = (o.alts || []).find((a) => a.shift && a.id !== o.altOn && a.until > world.day && (world.shifts || []).some((x) => x.id === a.shift && x.good === s.good && x.fair !== city.id && world.day < fairEnd(x)));
+      if (saved) { notes.push(`${GOODS[s.good].name}は予約した隊商市のために売らずに残す（${saved.from}日目から臨時の便）`); continue; }
       // 仕入れ値も割らない（最低売値を低く入れると赤字売りが続いた。16回目の Sonnet）。
       // ただし、仕入れ値の縛りで60日売れないままなら、最低売値だけで売る（積荷が埋まって便が止まらないように）
       o.hold = o.hold || {};

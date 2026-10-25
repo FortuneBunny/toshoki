@@ -83,6 +83,15 @@ export function fairStateText(world, x) {
 }
 export const lowStateText = (world, x) => (shiftActive(world, x) ? `今（あと${x.end - world.day}日、${x.end - 1}日目まで）` : `${x.start - world.day}日後から（${x.start}〜${x.end - 1}日目）`);
 const wantText = (x) => (x.want ? `${fairWantText(x)}。` : '');
+// ライバルの最初の隊商が本拠地に戻れる日（今の旅を終えてから戻る）
+function rivalReadyDay(world, r, home) {
+  const m = r.merchants[0];
+  if (!m) return world.day;
+  const at = m.dest || m.city;
+  const free = m.dest ? Math.max(world.day, (m.departDay ?? world.day) + (m.travelDays ?? 0)) : world.day;
+  return free + (at === home ? 0 : findPath(world, at, home, m.transport)?.days ?? 0);
+}
+
 // rivalMid のライバルが買い付ける日（市のちょうど真ん中に着くように、本拠地から市までの日数だけ前）
 export function rivalBuyDay(world, x) {
   const home = world.scenario.shifts.fair.rivalCity;
@@ -98,7 +107,14 @@ export function caravanText(world, x) {
   if (!r) return '';
   const home = world.scenario.shifts?.fair?.rivalCity || r.workshop.city;
   const route = findPath(world, home, x.fair, r.merchants[0]?.transport || 'donkey');
-  if (world.scenario.shifts.fair.rivalMid && route) { const b = rivalBuyDay(world, x); return `${r.name}は噂を聞いて、${b}日目ごろ${nm(world, home)}の市場で${GOODS[x.good].name}を買い付け、${b + route.days}日目ごろ市に着く（それまでにあなたが売った分は取られない。着いたあとは、残りの総量を取り合う）。`; }
+  if (world.scenario.shifts.fair.rivalMid && route) {
+    if (x.citySent) return `${r.name}は${GOODS[x.good].name}を積んで市へ向かっている（着いたあとは、残りの総量を取り合う）。`;
+    if (!(world.cities[home]?.stock[x.good] >= 1) && !(world.cities[home]?.produces?.[x.good] > 0)) return `${r.name}は、${nm(world, home)}で${GOODS[x.good].name}が手に入らないので、この市には来ない。`;
+    const b = rivalBuyDay(world, x);
+    const late = rivalReadyDay(world, r, home);
+    const buy = Math.max(b, late);
+    return `${r.name}は噂を聞いて、${buy}日目ごろ${nm(world, home)}の市場で${GOODS[x.good].name}を買い付け、${buy + route.days}日目ごろ市に着く${late > b ? `（ほかの荷を運んでいて、ねらいの${b}日目より遅れる見込み）` : ''}${buy + route.days >= fairEnd(x) ? '。市が閉じるまでに着かない見込み' : ''}（それまでにあなたが売った分は取られない。着いたあとは、残りの総量を取り合う。ライバルの旅の具合で日はずれる）。`;
+  }
   return `${r.name}は予告を読まず、市が立ってから${nm(world, home)}${world.scenario.shifts?.fair?.rivalCity ? 'の市場で買った' : 'の蔵の'}${GOODS[x.good].name}を市へ送る（${nm(world, home)}を出てから${route ? `約${route.days}日。商人が${nm(world, home)}へ戻るのを待つと、もっと遅い` : '道がない'}${route && route.days >= fairEnd(x) - x.start ? '。市が閉じるまでに着かない' : ''}）。`;
 }
 
@@ -149,7 +165,7 @@ export function updateShifts(world) {
   for (const x of world.shifts || []) {
     const g = GOODS[x.good].name;
     if (world.day === x.announce) {
-      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${nm(world, x.low)}に${g}が大量に入り、安くしか売れなくなる（値はふだんの約${Math.round(sc.low.price * 100)}%、買う数は約${Math.round(sc.low.demand * 100)}%）${sc.lowOthers ? `（ほかのいつもの売り場も、値が約${Math.round((1 - sc.lowOthers.price) * 100)}%下がり、買う数が約${Math.round((1 - sc.lowOthers.demand) * 100)}%減る）` : ''}。始まりと同時に、${nm(world, x.fair)}に隊商市が立ち、${fairEnd(x) - x.start}日間（${fairEnd(x) - 1}日目まで）${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる${sc.fair.priceMax ? `。値は基準の${sc.fair.priceMax}倍まで上がる` : ''}）。${wantText(x)}${fairPriceText(world, x)}。${caravanText(world, x)}市は安値より早く閉じる。商人ごとの着く日は予告の画面で分かる。定期便の「臨時の便（期間予約）」で、先に売り先を変えておける` });
+      emit(world, { type: 'shift', big: true, city: x.fair, shift: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${nm(world, x.low)}で${g}があふれ、安くしか売れなくなる（値が下がるだけで、買える在庫が増えるわけではない。値はふだんの約${Math.round(sc.low.price * 100)}%、買う数は約${Math.round(sc.low.demand * 100)}%）${sc.lowOthers ? `（ほかのいつもの売り場も、値が約${Math.round((1 - sc.lowOthers.price) * 100)}%下がり、買う数が約${Math.round((1 - sc.lowOthers.demand) * 100)}%減る）` : ''}。始まりと同時に、${nm(world, x.fair)}に隊商市が立ち、${fairEnd(x) - x.start}日間（${fairEnd(x) - 1}日目まで）${g}を高く買う（毎日約${sc.fair.demand}個ずつ売れていく。まとめて売ると値が下がる${sc.fair.priceMax ? `。値は基準の${sc.fair.priceMax}倍まで上がる` : ''}）。${wantText(x)}${fairPriceText(world, x)}。${caravanText(world, x)}市は安値より早く閉じる。商人ごとの着く日は予告の画面で分かる。定期便の「臨時の便（期間予約）」で、先に売り先を変えておける` });
     }
     if (world.day === x.start) {
       // 隊商市は、よその商人の白糖も少し持って始まる（空の市場は値が基準の3倍近くになり、隊商市の町をいつも通る固定の便が強すぎた）
@@ -194,6 +210,8 @@ export function fairPrice(world, x) {
   const sc = world.scenario.shifts;
   const c = world.cities[x.fair];
   if (!sc || !c || fairClosed(world, x)) return null;
+  // 総量を買い終えた市には目安を出さない（「あと0個」と「残りは1個」が並んだ。32回目の Sol）
+  if (x.want && x.want - x.sold - (x.others || 0) <= 0) return null;
   // まとめ売りの目安は、市があと買う数を超えない（総量5個の市に「10個まとめて」と出ていた。25回目の Sol）
   const n = Math.max(1, Math.min(10, x.want ? x.want - x.sold - (x.others || 0) : 10));
   if (fairActive(world, x)) return { one: quote(world, c, x.good, -1), ten: quote(world, c, x.good, -n) / n, n, now: true };
