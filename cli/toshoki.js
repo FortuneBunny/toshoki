@@ -807,7 +807,7 @@ function run(world, cmd, pos, opts) {
         const rr = G.findPath(world, from, r.path.at(-1), m.transport);
         const hs = rr ? G.gangCrossings(world, m, rr.tiles, rr.steps, { day }) : [];
         out.push(`  🗡 ${m.travel ? `今の旅のあと（${world.cities[from].name}を${day - 1}日目に出ると）` : '今出ると'}、${hs.length ? G.gangCrossText(world, hs) : '予告された強盗団の区域は通らない'}`);
-        if (!m.travel && rr && hs.some((h) => h.caught)) { const safe = G.safeDepartDay(world, m, rr); out.push(`  → ${safe}日目（あと${safe - world.day}日）に出れば捕まらない`); }
+        if (!m.travel && rr && hs.some((h) => h.caught)) { const safe = G.safeDepartDay(world, m, rr); const g = G.gambleDepartDay(world, m, rr); out.push(`  → ${safe}日目（あと${safe - world.day}日）に出れば捕まらない${g ? `。賭けるなら${g.day}日目に出ると、捕まる見込み約${Math.round(g.risk * 100)}%` : ''}`); }
         if (m.travel && G.travelGangCrossings(world, m).length) out.push(`  🗡 今の旅: ${G.gangCrossText(world, G.travelGangCrossings(world, m))}`);
       }
       if (r.desertDays) {

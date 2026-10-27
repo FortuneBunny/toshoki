@@ -9,10 +9,11 @@ import { emit } from './events.js';
 import { BALANCE as B } from '../data/balance.js';
 import { findPath, seasonOf, SEASON_NAMES } from './caravan.js';
 import { cityWants } from './market.js';
-import { dailyDemand } from './city.js';
+import { dailyDemand, growthPlan } from './city.js';
 
 // シナリオの定義: portMarket: { city, good, first, gap（なければ1回だけ）, lead, days, rate: 空きの戻り（個/日）, max: 空きの上限, price: 市の値の倍率,
-//   from: あれば、市で上限なしに売れるのは、その港から直に来て、市の期間に着いた船だけ（30回目の相談。積んだまま泊めておく手を塞ぐ） }
+//   from: あれば、市で上限なしに売れるのは、その港から直に来て、市の期間に着いた船だけ（30回目の相談。積んだまま泊めておく手を塞ぐ）,
+//   trial: あれば、最初の市だけ、まだその品を買い取らない港でも、直に来た船から合わせて trial 個まで買う（33回目の相談: 最初の市が都市化の前に来て、何もできずに終わった） }
 export function planMarkets(world) {
   const sc = world.scenario.portMarket;
   if (!sc) return;
@@ -45,6 +46,20 @@ const limited = (world, city, good) => {
   const sc = world.scenario.portMarket;
   return sc && sc.city === city.id && sc.good === good;
 };
+// 試しの市（最初の市の間、まだ買い取らない港が少しだけ買う）。残りの数。試しでなければ null
+function baseWants(city, good) {
+  const t = city.trialWants;
+  city.trialWants = null;
+  try { return cityWants(city, good); } finally { city.trialWants = t; }
+}
+export function trialLeft(world) {
+  const sc = world.scenario.portMarket;
+  const x = world.markets?.[0];
+  const c = sc && world.cities[sc.city];
+  if (!sc?.trial || !x || !c || baseWants(c, sc.good)) return null;
+  return Math.max(0, sc.trial - Math.floor(x.sold || 0));
+}
+
 // ふだんの空き（最初は上限まで空いている）
 export const portRoomLeft = (world) => Math.floor(world.portRoom ?? world.scenario.portMarket?.max ?? 0);
 
@@ -60,6 +75,8 @@ function marketShip(world, m, city, good) {
 // 今この商人が、この港でその品を売れる数
 export function portRoom(world, m, city, good) {
   if (!limited(world, city, good)) return Infinity;
+  const trial = city.trialWants?.[good] ? trialLeft(world) : null;
+  if (trial != null) return marketShip(world, m, city, good) ? Math.min(trial, Math.max(0, (m.cargo[good] || 0) - (m.whLoaded?.city === city.id ? m.whLoaded[good] || 0 : 0))) : 0;
   const normal = portRoomLeft(world);
   if (!marketShip(world, m, city, good)) return normal;
   const here = m.whLoaded?.city === city.id ? m.whLoaded[good] || 0 : 0;
@@ -69,6 +86,7 @@ export function portRoom(world, m, city, good) {
 // 売る直前（積荷を減らす前）: 市の分を先に使い、残りでふだんの空きを減らす
 export function notePortSale(world, m, city, good, n) {
   if (!limited(world, city, good)) return;
+  if (city.trialWants?.[good] && trialLeft(world) != null) { const x = world.markets[0]; x.sold = (x.sold || 0) + n; return; }
   let rest = n;
   if (marketShip(world, m, city, good)) {
     const here = m.whLoaded?.city === city.id ? m.whLoaded[good] || 0 : 0;
@@ -115,19 +133,19 @@ function supplyText(world) {
   return `${c.name}の${GOODS[sc.good].name}は、1日に約${Math.round(spare * 10) / 10}袋の余りがたまり、約${Math.round(cap)}袋で頭打ちになる（1隻が1回に積めるのはそこまで。2隻目は在庫が戻るのを待つ。早くから買い集めて、${c.name}の商館の倉庫に貯めておくと多く運べる。倉庫から積んだ分も「直に来た船」に数える）。`;
 }
 // まだ買い取らない町への一言（31回目の Opus: 町のうちに予告が出て、売れないのに気づかなかった）
-const notYetText = (world, sc) => (cityWants(world.cities[sc.city], sc.good) ? '' : `今の${world.cities[sc.city].name}は、まだ${GOODS[sc.good].name}を買い取らない（都市に育ててから）。`);
+const notYetText = (world, sc, x) => (baseWants(world.cities[sc.city], sc.good) ? '' : `今の${world.cities[sc.city].name}は、まだ${GOODS[sc.good].name}を買い取らない（都市に育ててから）。${sc.trial && x?.id === 1 ? `ただし今回の最初の市だけは「試しの市」で、直に来た船の${GOODS[sc.good].name}を合わせて${sc.trial}袋まで買う。` : ''}`);
 
 // 予告の要点のカード（33回目の相談）。参加できる条件と、今足りない準備は隠さない（33回目の Sol）
 function marketCard(world, x, sc) {
   const nm = (id) => world.cities[id]?.name || id;
   const g = GOODS[sc.good].name;
   const days = sc.from ? findPath(world, sc.from, sc.city, 'dhow')?.days : null;
-  const ready = cityWants(world.cities[sc.city], sc.good);
+  const ready = baseWants(world.cities[sc.city], sc.good);
   return {
     when: `${x.start}〜${x.end - 1}日目（${x.start - world.day}日後から${sc.days}日間）`,
     where: nm(sc.city),
     what: `${sc.from ? `${nm(sc.from)}から直に来た船の` : 'よそから運んだ'}${g}を、上限なしで約${Math.round(sc.price * 10) / 10}倍で買う`,
-    you: `${ready ? '' : `⚠ 今の${nm(sc.city)}は、まだ${g}を買い取らない（都市に育ててから）。`}${days != null ? `今の風ならダウ船で${nm(sc.from)}から約${days}日 → ${x.start - days}日目ごろに出る（出航の目安の日に知らせる）` : ''}`,
+    you: `${ready ? '' : sc.trial && x.id === 1 ? `今の${nm(sc.city)}はまだ${g}を買い取らないが、この最初の市だけは試しに合わせて${sc.trial}袋まで買う。` : `⚠ 今の${nm(sc.city)}は、まだ${g}を買い取らない（都市に育ててから）。`}${days != null ? `今の風ならダウ船で${nm(sc.from)}から約${days}日 → ${x.start - days}日目ごろに出る（出航の目安の日に知らせる）` : ''}`,
   };
 }
 
@@ -137,15 +155,26 @@ export function updateMarkets(world) {
   if (!sc) return;
   if (!world.markets) planMarkets(world);
   world.portRoom = Math.min(sc.max, (world.portRoom ?? sc.max) + sc.rate);
+  const pc = world.cities[sc.city];
+  if (pc) { pc.trialWants = null; const x = world.markets?.[0]; if (sc.trial && x && marketActive(world, x) && trialLeft(world) > 0) pc.trialWants = { [sc.good]: true }; }
   const who = shipText(world);
   for (const x of world.markets || []) {
     const c = world.cities[x.city]?.name || x.city;
     const g = GOODS[x.good].name;
-    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う（ただし、たくさん売るほど値は下がる。2隻目は1隻目よりずっと安い）。市に合わせて、${g}を積んだ船を着かせよ。${notYetText(world, sc)}${supplyText(world)}${sailText(world)}`, card: marketCard(world, x, sc) });
+    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う（ただし、たくさん売るほど値は下がる。2隻目は1隻目よりずっと安い）。市に合わせて、${g}を積んだ船を着かせよ。${notYetText(world, sc, x)}${supplyText(world)}${sailText(world)}`, card: marketCard(world, x, sc) });
     sailNote(world, x, sc);
     if (world.day === x.start) emit(world, { type: 'portMarketStart', city: x.city, text: `${c}に${g}の大口の商人が来た（${x.end - 1}日目まで）。${who}${g}は上限なしで売れる` });
-    if (world.day === x.end) emit(world, { type: 'portMarketEnd', city: x.city, text: `${c}の${g}の市が終わった（あなたが上限なしで売ったのは${Math.floor(x.sold || 0)}個）` });
+    if (world.day === x.end) emit(world, { type: 'portMarketEnd', city: x.city, text: `${c}の${g}の市が終わった（あなたが${x.id === 1 && sc.trial && !baseWants(world.cities[x.city], x.good) ? '試しの市で' : '上限なしで'}売ったのは${Math.floor(x.sold || 0)}個）${endText(world, sc)}` });
   }
+}
+
+// 市が閉じたとき、まだ買い取らない港なら、都市になる見込みを添える（33回目の Opus: 0個のまま終わる市は学びにならない）
+function endText(world, sc) {
+  const c = world.cities[sc.city];
+  if (!c || baseWants(c, sc.good)) return '';
+  const T = B.tierPops[3];
+  const p = growthPlan(world, c, T);
+  return `。次の市から売るには、${c.name}を都市（人口${T}）に育てる。今は${Math.round(c.pop)}人${p && Number.isFinite(p.daysNow) && world.day + p.daysNow < world.scenario.deadline ? `、今の育ち方なら約${p.daysNow}日で届く` : '。今の育ち方では期限までに届かない'}${p?.picks?.length ? `（${p.picks.map((a) => GOODS[a.good].name).join('・')}を届けると速まる）` : ''}`;
 }
 
 // 出航の目安の日: 今日仕入れ先を出ると、ダウ船で市の間に着く最初の日に知らせる（画面だけのテスト4回目の Sol: 市の始まりで止まっても、出航には遅い）
@@ -168,7 +197,7 @@ export function marketNotes(world, city) {
   if (!sc || sc.city !== city.id) return [];
   const g = GOODS[sc.good].name;
   const out = knownMarkets(world).map((x) => ({ kind: marketActive(world, x) ? 'up' : 'shift', text: `⚓${g}の市 ${marketStateText(world, x)}。${shipText(world)}${g}は上限なしで約${Math.round(sc.price * 10) / 10}倍` }));
-  if (out.length && sc.from) out.push({ kind: 'shift', text: `${notYetText(world, sc)}${supplyText(world)}${sailText(world)}` });
+  if (out.length && sc.from) out.push({ kind: 'shift', text: `${notYetText(world, sc, knownMarkets(world)[0])}${supplyText(world)}${sailText(world)}` });
   out.push({ kind: 'shift', text: `${g}の買い取りの空き ${portRoomLeft(world)}/${sc.max}個（1日に約${sc.rate}個戻る。市の間は上限なし）` });
   return out;
 }

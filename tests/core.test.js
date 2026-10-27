@@ -1267,3 +1267,44 @@ test('出航の目安の日・人口の節目・備蓄の日数・格上げで�
   const note = G.upgradeNote(w, post);
   if (note) assert.ok(/格上げ/.test(note) && /圏に入る/.test(note));
 });
+
+test('強盗団の端の日と値上がり（s4 では採らなかった決まり。値を重ねて確かめる）・s6 の試しの市（33回目の相談）', () => {
+  const keep = G.SCENARIOS.s4.gangs;
+  G.SCENARIOS.s4.gangs = { ...keep, edgeDays: 2, edgeChance: 0.5, boost: { city: 'ryokumon', good: 'silk', mult: 1.3, after: 10 } };
+  try {
+  const w = G.createWorld('s4', { seed: 31401 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  G.foundPost(w, G.foundSites(w, 1)[0].x, G.foundSites(w, 1)[0].y);
+  const x = w.gangs[0];
+  assert.equal(G.gangChanceOn(w, x, x.start), 0.5);
+  assert.equal(G.gangChanceOn(w, x, x.end - 1), 0.5);
+  assert.equal(G.gangChanceOn(w, x, x.start + 5), 1);
+  assert.equal(G.gangChanceOn(w, x, x.end), 0);
+  const before = G.midPrice(w.cities.ryokumon, 'silk');
+  while (w.day < x.start) G.advance(w, 1, { stopOn: new Set() });
+  const stock = w.cities.ryokumon.stock.silk;
+  w.cities.ryokumon.stock.silk = stock;
+  assert.ok(Math.abs(w.cities.ryokumon.priceMods.silk - 1.3) < 1e-9, '強盗団がいる間は緑門の絹が1.3倍');
+  while (w.day < x.end + 10) G.advance(w, 1, { stopOn: new Set() });
+  assert.ok(!(w.cities.ryokumon.priceMods.silk > 1) || w.gangs.some((y) => G.gangBoostOn(w, y)), '去って10日で戻る');
+  assert.ok(before > 0);
+  } finally { G.SCENARIOS.s4.gangs = keep; }
+  // s6: 最初の市だけ、まだ買い取らない白檀港が、直に来た船から合わせて15袋まで買う
+  const w6 = G.createWorld('s6', { seed: 7 });
+  if (G.setupStage(w6) === 'family') G.chooseFamily(w6, G.familyList(w6)[0].id);
+  G.foundPost(w6, G.foundSites(w6, 1)[0].x, G.foundSites(w6, 1)[0].y);
+  const mk = w6.markets[0];
+  while (w6.day < mk.start) G.advance(w6, 1, { stopOn: new Set() });
+  const m = w6.player.merchants[0];
+  Object.assign(m, { city: 'byakudan', lastFrom: 'koshou', arriveDay: w6.day, cargo: { spice: 20 }, cost: { spice: 10 } });
+  const r = G.trade(w6, m.id, [{ good: 'spice', qty: -20 }]);
+  assert.ok(r.ok && m.cargo.spice === 5 && mk.sold === 15);
+  // 直に来ていない船は売れない
+  const w7 = G.createWorld('s6', { seed: 7 });
+  if (G.setupStage(w7) === 'family') G.chooseFamily(w7, G.familyList(w7)[0].id);
+  G.foundPost(w7, G.foundSites(w7, 1)[0].x, G.foundSites(w7, 1)[0].y);
+  while (w7.day < w7.markets[0].start) G.advance(w7, 1, { stopOn: new Set() });
+  const m7 = w7.player.merchants[0];
+  Object.assign(m7, { city: 'byakudan', lastFrom: 'cha', arriveDay: w7.day, cargo: { spice: 20 }, cost: { spice: 10 } });
+  assert.equal(G.portRoom(w7, m7, w7.cities.byakudan, 'spice'), 0);
+});

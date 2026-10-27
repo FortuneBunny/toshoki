@@ -10,6 +10,7 @@ import { goodLocked } from './techs.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { applyShifts, updateShifts } from './shifts.js';
 import { applyBlights, updateBlights } from './blights.js';
+import { applyGangs } from './gangs.js';
 import { updateFestivals } from './festivals.js';
 import { updateGangs } from './gangs.js';
 import { updateMarkets } from './markets.js';
@@ -66,6 +67,7 @@ export function applyModifiers(world) {
   }
   applyShifts(world); // 予告された売り場の交代（s3）
   applyBlights(world); // 予告された産地の不作（s2）
+  applyGangs(world); // 強盗団で道がふさがる間の値上がり（s4）
 }
 
 const EVENT_TYPES = [
@@ -219,7 +221,7 @@ function rollContract(world) {
   const reward = Math.round(qty * GOODS[id].base * 0.8 + 40);
   const c = { id: world.nextId++, city: city.id, good: id, qty, delivered: 0, deadline: world.day + days, reward };
   world.contracts.push(c);
-  emit(world, { type: 'contract', city: city.id, contract: c.id, rare: true, text: `大口注文: ${city.name}が${GOODS[id].name}を${qty}個求めている（${days}日以内、報酬 ${reward} 銀）。${city.name}でこの品を売れば数に入る。${where.length ? `仕入れられそうな町: ${where.join('、')}` : `余って売られている町は少ない${sourceText(world, id, city.id) ? `（${sourceText(world, id, city.id)}）` : '（工房でつくるか、産地の在庫を待つ）'}`}` });
+  emit(world, { type: 'contract', city: city.id, contract: c.id, rare: true, text: `大口注文: ${city.name}が${GOODS[id].name}を${qty}個求めている（${days}日以内、報酬 ${reward} 銀）。${city.name}でこの品を売れば数に入る。${where.length ? `仕入れられそうな町: ${where.join('、')}` : (sourceText(world, id, city.id) ? `仕入れ先: ${sourceText(world, id, city.id)}` : '余って売られている町は少ない（工房でつくるか、産地の在庫を待つ）')}` });
 }
 
 function expireContracts(world) {

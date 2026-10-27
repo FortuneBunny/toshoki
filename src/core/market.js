@@ -25,6 +25,7 @@ export function midPrice(city, id, stock = city.stock[id] || 0) {
 
 // 町がその品を買い取るか（需要がない品は売れない）
 export function cityWants(city, id) {
+  if (city.trialWants?.[id]) return true; // s6 の試しの市（まだ買い取らない港が、最初の市の間だけ少し買う）
   if (dailyDemand(city, id, false) > 0) return true;
   if (cityTier(city) >= 3) return true;
   if ((city.produces?.[id] || 0) > 0) return true;

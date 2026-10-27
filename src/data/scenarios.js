@@ -193,7 +193,7 @@ const s4 = {
 };
 
 // 港の市の予告（29・30回目の相談。src/core/markets.js）: 市で上限なしに売れるのは、胡椒港から直に来て、市の間に着いた船だけ
-export const PORT_MARKET_S6 = { city: 'byakudan', good: 'spice', first: [90, 120], gap: [30, 45], lead: 30, days: 6, rate: 0.5, max: 15, price: 1.3, from: 'koshou' };
+export const PORT_MARKET_S6 = { city: 'byakudan', good: 'spice', first: [90, 120], gap: [30, 45], lead: 30, days: 6, rate: 0.5, max: 15, price: 1.3, from: 'koshou', trial: 15 };
 
 const s5 = {
   id: 's5', no: 5, title: '甘い熱狂',

@@ -10,7 +10,9 @@ import { TILE_PX } from './grid.js';
 import { dailyCost } from './world.js';
 
 // シナリオの定義: gangs: { zones: [{ id, name, x, y, r（px）, hint }], first, gap, lead, days, chance: 区域の1マス1日の襲われる率, loss: 奪われる割合,
-//   holdDays: あれば奪わずに足止めする日数（一団につき各便一度）, stopAfter: その日で強盗団は来なくなる }
+//   holdDays: あれば奪わずに足止めする日数（一団につき各便一度）, stopAfter: その日で強盗団は来なくなる,
+//   edgeDays・edgeChance: 居座る期間の始めと終わりの edgeDays 日は、捕まる率を edgeChance にする（33回目の相談: きわどく攻めるのを賭けにする）,
+//   boost: { city, good, mult, after, zones }: 強盗団がいる間と、去ってから after 日は、city で good が mult 倍で売れる（33回目の Opus: 避けるだけでは当たった手応えがない）。zones があれば、その区域の強盗団だけ }
 export function planGangs(world) {
   const sc = world.scenario.gangs;
   if (!sc) return;
@@ -41,6 +43,22 @@ export function knownGangs(world) {
   return (world.gangs || []).filter((x) => world.day >= x.announce && world.day < x.end);
 }
 export const gangActive = (world, x) => world.day >= x.start && world.day < x.end;
+// その日、区域にいる便が捕まる率
+export function gangChanceOn(world, x, day) {
+  const sc = world.scenario.gangs;
+  if (day < x.start || day >= x.end) return 0;
+  const e = sc.edgeDays || 0;
+  return e && (day - x.start < e || x.end - 1 - day < e) ? sc.edgeChance ?? sc.chance : sc.chance;
+}
+// 値上がりの期間（強盗団がいる間と、去ってから after 日）
+const boostZone = (b, x) => !b.zones || b.zones.includes(x.zone);
+export const gangBoostOn = (world, x) => !!world.scenario.gangs?.boost && boostZone(world.scenario.gangs.boost, x) && world.day >= x.start && world.day < x.end + (world.scenario.gangs.boost.after || 0);
+export function applyGangs(world) {
+  const b = world.scenario.gangs?.boost;
+  if (!b || !world.gangs?.some((x) => gangBoostOn(world, x))) return;
+  const c = world.cities[b.city];
+  if (c) c.priceMods[b.good] = (c.priceMods[b.good] ?? 1) * b.mult;
+}
 export const gangZone = (world, x) => world.scenario.gangs.zones.find((z) => z.id === x.zone);
 export const gangStateText = (world, x) => (gangActive(world, x) ? `今（あと${x.end - world.day}日、${x.end - 1}日目まで）` : `${x.start - world.day}日後から（${x.start}〜${x.end - 1}日目）`);
 // マス（x, y）がその区域に入るか
@@ -55,7 +73,7 @@ export function gangCheck(world, m, x, y, k) {
     const z = gangZone(world, g);
     if (!inGangZone(z, x, y)) continue;
     inStream(world, `gang:${m.id}:${k}`, () => {
-      if (!chance(world, sc.chance)) return;
+      if (!chance(world, gangChanceOn(world, g, world.day))) return;
       if (sc.holdDays) {
         m.gangHeldIds ??= [];
         if (m.gangHeldIds.includes(g.id) || !m.travel) return;
@@ -84,7 +102,9 @@ export function gangCheck(world, m, x, y, k) {
 }
 
 // 強盗団に遭うとどうなるか
-const harmText = (sc) => (sc.holdDays ? `区域に入った隊商は捕まって${sc.holdDays}日足止めされる（一団につき一度。積荷は無事で、その間の給金と維持費はかからないが、売上も入らない）` : `区域を通る隊商は積荷の約${Math.round(sc.loss * 10)}割を奪われうる`);
+const harmText = (sc) => (sc.holdDays ? `区域に入った隊商は捕まって${sc.holdDays}日足止めされる（一団につき一度。積荷は無事で、その間の給金と維持費はかからないが、売上も入らない）${edgeText(sc)}` : `区域を通る隊商は積荷の約${Math.round(sc.loss * 10)}割を奪われうる`);
+const edgeText = (sc) => (sc.edgeDays ? `。ただし居座る期間の始めと終わりの${sc.edgeDays}日は、見張りが手薄で、捕まるのは1日に約${Math.round((sc.edgeChance ?? sc.chance) * 10)}割` : '');
+const boostText = (world, sc, x) => (sc.boost && boostZone(sc.boost, x) ? `。道がふさがる間${sc.boost.after ? `と、去ってから${sc.boost.after}日` : ''}（${x.end + sc.boost.after - 1}日目まで）は、${world.cities[sc.boost.city]?.name}で${GOODS[sc.boost.good].name}が品薄になり、約${sc.boost.mult}倍で売れる` : '');
 
 // 旅が予告ずみの区域を通る日（31回目の Opus: 自分の便が区域を通るか・何日目に入るかが、どの画面にも出なかった）
 // tiles・steps は findPath の経路。i・part は旅の途中から数えるとき。1日に進む量は才能だけを入れる（砂嵐・飢えの遅れは入らない）
@@ -98,8 +118,9 @@ export function gangCrossings(world, m, tiles, steps, { i = 0, part = 0, day = w
     const [x, y] = tiles[Math.min(i, tiles.length - 1)];
     for (const g of known) {
       if (!inGangZone(gangZone(world, g), x, y)) continue;
-      const h = hits.get(g.id) || { gang: g, from: d, to: d };
+      const h = hits.get(g.id) || { gang: g, from: d, to: d, safe: 1 };
       h.to = d;
+      h.safe *= 1 - gangChanceOn(world, g, d);
       hits.set(g.id, h);
     }
     let budget = per;
@@ -108,16 +129,25 @@ export function gangCrossings(world, m, tiles, steps, { i = 0, part = 0, day = w
       if (budget >= need) { budget -= need; part = 0; i++; } else { part += budget; budget = 0; }
     }
   }
-  return [...hits.values()].map((h) => ({ ...h, caught: h.from < h.gang.end && h.to >= h.gang.start }));
+  return [...hits.values()].map(({ safe, ...h }) => ({ ...h, risk: 1 - safe, caught: h.from < h.gang.end && h.to >= h.gang.start }));
 }
 // きわどいときは、遅れるとどうなるかも書く（食料切れや砂嵐の遅れは、着く日を後ろへずらすだけ。32回目の Opus）
 const marginText = (h) => (h.caught ? '' : h.to < h.gang.start && h.gang.start - h.to <= 3 ? `。⚠余裕は${h.gang.start - h.to}日だけ。遅れると捕まる` : h.from >= h.gang.end && h.from - h.gang.end <= 3 ? '。遅れる分には安全' : '');
-export const gangCrossText = (world, hs) => hs.map((h) => `${gangZone(world, h.gang).name}を${h.from === h.to ? `${h.from}日目` : `${h.from}〜${h.to}日目`}に通る（強盗団は${h.gang.start}〜${h.gang.end - 1}日目 → ${h.caught ? '⚠捕まる' : '重ならない'}${marginText(h)}）`).join('。') + (hs.length ? '（食料切れや砂嵐で遅れると、日が後ろへずれる）' : '');
+export const gangCrossText = (world, hs) => hs.map((h) => `${gangZone(world, h.gang).name}を${h.from === h.to ? `${h.from}日目` : `${h.from}〜${h.to}日目`}に通る（強盗団は${h.gang.start}〜${h.gang.end - 1}日目 → ${h.caught ? (h.risk > 0.995 ? '⚠捕まる' : `⚠捕まる見込み 約${Math.round(h.risk * 100)}%`) : '重ならない'}${marginText(h)}）`).join('。') + (hs.length ? '（食料切れや砂嵐で遅れると、日が後ろへずれる）' : '');
 // 捕まらずに出られるいちばん早い日（画面だけのテスト4回目の Opus: 何日に出れば安全かを自分で数え、待ちすぎた）
 export function safeDepartDay(world, m, route) {
   const last = Math.max(0, ...knownGangs(world).map((g) => g.end));
   for (let d = world.day; d <= last; d++) if (!gangCrossings(world, m, route.tiles, route.steps, { day: d + 1 }).some((h) => h.caught)) return d;
   return last;
+}
+// 安全な日より前で、捕まる見込みが5割以下になるいちばん早い日（端の日の賭け。33回目の Opus）
+export function gambleDepartDay(world, m, route) {
+  const safe = safeDepartDay(world, m, route);
+  for (let d = world.day; d < safe; d++) {
+    const risk = Math.max(0, ...gangCrossings(world, m, route.tiles, route.steps, { day: d + 1 }).filter((h) => h.caught).map((h) => h.risk));
+    if (risk > 0 && risk <= 0.5 + 1e-9) return { day: d, risk };
+  }
+  return null;
 }
 // 今の旅の残り
 export const travelGangCrossings = (world, m) => (m.travel ? gangCrossings(world, m, m.travel.tiles, m.travel.steps, { i: m.travel.i, part: m.travel.part, day: Math.max(world.day + 1, m.travel.gangHeldUntil ?? 0) }).filter((h) => !(m.gangHeldIds || []).includes(h.gang.id)) : []);
@@ -134,7 +164,7 @@ function moneyText(world, until) {
 }
 
 // 予告の文。区域のおおよその場所（どの町とどの町の間か）と、今の旅で区域を通る商人も添える（31回目の Opus: 「玻璃の都の西」だけでは、辻からの行きも通ると分からなかった）
-const announceText = (world, x, z, sc) => `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${x.end - x.start}日間）、${z.name}に強盗団が居座る。護衛では防げず、${harmText(sc)}。${z.hint}`;
+const announceText = (world, x, z, sc) => `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${x.end - x.start}日間）、${z.name}に強盗団が居座る。護衛では防げず、${harmText(sc)}${boostText(world, sc, x)}。${z.hint}`;
 function travelersText(world, x) {
   const out = [];
   for (const m of world.player.merchants) {
@@ -150,7 +180,7 @@ function gangCard(world, x, z, sc) {
   return {
     when: `${x.start}〜${x.end - 1}日目（${x.start - world.day}日後から${x.end - x.start}日間）`,
     where: z.name,
-    what: sc.holdDays ? `区域に入った隊商は${sc.holdDays}日足止め（護衛では防げない。積荷は無事）` : `区域を通る隊商は積荷の約${Math.round(sc.loss * 10)}割を奪われうる`,
+    what: `${sc.holdDays ? `区域に入った隊商は${sc.holdDays}日足止め（護衛では防げない。積荷は無事${sc.edgeDays ? `。始めと終わりの${sc.edgeDays}日は1日に約${Math.round((sc.edgeChance ?? sc.chance) * 10)}割` : ''}）` : `区域を通る隊商は積荷の約${Math.round(sc.loss * 10)}割を奪われうる`}${sc.boost && boostZone(sc.boost, x) ? `。${x.end + sc.boost.after - 1}日目まで、${world.cities[sc.boost.city]?.name}で${GOODS[sc.boost.good].name}が約${sc.boost.mult}倍` : ''}`,
     you: t ? t.replace(/^。/, '') : '今の旅で区域に入る商人はいない。出る前に、出発の画面で通る日を確かめる',
   };
 }
@@ -170,8 +200,10 @@ export function updateGangs(world) {
 
 // 町の「これから」に出す行（区域のそばの町）
 export function gangNotes(world, city) {
-  return knownGangs(world).filter((x) => {
+  const b = world.scenario.gangs?.boost;
+  const boost = b && b.city === city.id ? (world.gangs || []).filter((x) => boostZone(b, x) && world.day >= x.announce && world.day < x.end + b.after).map((x) => ({ kind: gangBoostOn(world, x) ? 'up' : 'shift', text: `🧵${GOODS[b.good].name}が品薄 ${gangBoostOn(world, x) ? `今（${x.end + b.after - 1}日目まで）` : `${x.start}〜${x.end + b.after - 1}日目`}、約${b.mult}倍で売れる（強盗団で道がふさがるため）` })) : [];
+  return [...boost, ...knownGangs(world).filter((x) => {
     const z = gangZone(world, x);
     return Math.hypot(z.x - city.x, z.y - city.y) <= z.r + 220;
-  }).map((x) => ({ kind: 'shift', text: `🗡強盗団 ${gangZone(world, x).name} ${gangStateText(world, x)}。護衛では防げない${world.scenario.gangs.holdDays ? `（捕まると${world.scenario.gangs.holdDays}日足止め）` : ''}` }));
+  }).map((x) => ({ kind: 'shift', text: `🗡強盗団 ${gangZone(world, x).name} ${gangStateText(world, x)}。護衛では防げない${world.scenario.gangs.holdDays ? `（捕まると${world.scenario.gangs.holdDays}日足止め）` : ''}` }))];
 }
