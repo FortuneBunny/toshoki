@@ -240,9 +240,9 @@ function setSpeed(s) {
 // 次の知らせまで進める（画面だけのテスト4回目: 止めたい日に止められず、待ちすぎた・期限まで飛んだ。33回目の相談）
 // 止まるのは、行動を変える必要があるときだけ。定期便の到着では止まらない。30日で必ず止めて、その間をまとめる
 const SKIP_DAYS = 30;
-const SKIP_STOP = new Set(['gang', 'portMarket', 'portMarketSail', 'portMarketStart', 'grandFest', 'grandFestStart', 'blight', 'shift', 'gangHeld', 'tierUp', 'tierDown', 'contract', 'debt', 'orderStuck', 'settled', 'settlersLost', 'popMilestone', 'victory', 'defeat']);
+const SKIP_STOP = new Set(['gang', 'gangSoon', 'portMarket', 'portMarketSail', 'portMarketStart', 'grandFest', 'grandFestStart', 'blight', 'shift', 'gangHeld', 'tierUp', 'tierDown', 'contract', 'debt', 'orderStuck', 'settled', 'settlersLost', 'popMilestone', 'victory', 'defeat']);
 // 止めた理由の短い名前（知らせの本文は別に出るので、同じ文を二度出さない）
-const SKIP_WHY = { gang: '強盗団の予告', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
+const SKIP_WHY = { gang: '強盗団の予告', gangSoon: '強盗団が5日後から', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
 function skipStop(w, evs) {
   return evs.find((e) => SKIP_STOP.has(e.type) || (['arrive', 'robbed', 'starve'].includes(e.type) && !(G.getMerchant(w, e.merchant)?.order && !G.getMerchant(w, e.merchant).order.paused)));
 }
@@ -316,10 +316,11 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'shift': if (!app.state.modals) { setSpeed(0); app.state.modals++; shiftDialog(app, e.shift); } else fx.toast(e.text, { kind: 'rare', icon: 'ui/festival' }); sfx.rare(); break;
       // 強盗団・港の市・大祭・不作の予告と、捕まった知らせも、時間を止めて読ませる（売り場の交代だけ止めていたので、
       // 全部の便を定期便にして進めると、予告を読まずに期限まで進んだ。画面だけのテスト4回目の Sol）
-      case 'gang': case 'portMarket': case 'portMarketSail': case 'grandFest': case 'blight': case 'gangHeld': {
-        const title = { gang: '🗡 強盗団の予告', portMarket: '⚓ 港の市の予告', portMarketSail: '⚓ 出航の目安', grandFest: '🎆 大祭の予告', blight: '🌾 不作の予告', gangHeld: '🗡 強盗団に捕まった' }[e.type];
+      case 'gang': case 'gangSoon': case 'portMarket': case 'portMarketSail': case 'grandFest': case 'blight': case 'gangHeld': {
+        const title = { gang: '🗡 強盗団の予告', portMarket: '⚓ 港の市の予告', portMarketSail: '⚓ 出航の目安', gangSoon: '🗡 強盗団が5日後から', grandFest: '🎆 大祭の予告', blight: '🌾 不作の予告', gangHeld: '🗡 強盗団に捕まった' }[e.type];
         if (e.type === 'gangHeld') sfx.bad(); else sfx.rare();
-        if (!app.state.modals) { setSpeed(0); app.state.modals++; modal(app, title, noticeBody(e), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn primary', onclick: close }, '分かった')]); }
+        // 「分かった」で、止める前の速さに戻す（5回目の Opus: 押したあと止まったままで、押し直していた）
+        if (!app.state.modals) { const was = app.state.speed; setSpeed(0); app.state.modals++; modal(app, title, noticeBody(e), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, '止めたまま'), h('button', { class: 'btn primary', onclick: () => { close(); if (was) setTimeout(() => { if (!app.state.modals) setSpeed(was); }, 0); } }, '分かった')]); }
         else fx.toast(e.text, { kind: e.type === 'gangHeld' ? 'bad' : 'rare', icon: 'ui/festival' });
         break;
       }
@@ -335,9 +336,28 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
 
 // 予告の要点のカード（いつ・どこ・何が起きる・あなたの便）。長い文は「詳しく」の中へ（33回目の相談）
 function noticeBody(e) {
-  if (!e.card) return h('p', {}, e.text);
+  const extra = e.gang && ['gang', 'gangSoon'].includes(e.type) ? gangOrderBox(e.gang) : null;
+  if (!e.card) return h('div', {}, h('p', {}, e.text), extra);
   const rows = [['いつ', e.card.when], ['どこ', e.card.where], ['何が起きる', e.card.what], ['あなたの便', e.card.you]].filter(([, v]) => v);
-  return h('div', {}, h('dl', { class: 'kv notice-card' }, rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', { class: /⚠/.test(v) ? 'bad' : '' }, v)])), h('details', { style: { marginTop: '8px' } }, h('summary', { class: 'dim' }, '詳しく'), h('p', { style: { fontSize: '13px' } }, e.text)));
+  return h('div', {}, h('dl', { class: 'kv notice-card' }, rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', { class: /⚠/.test(v) ? 'bad' : '' }, v)])), h('details', { style: { marginTop: '8px' } }, h('summary', { class: 'dim' }, '詳しく'), h('p', { style: { fontSize: '13px' } }, e.text)), extra);
+}
+// 定期便ごとに「区域を通る便は手前で待つ」を選ぶ（画面だけのテスト5回目の Opus: 定期便の商人には予告に手を打つ場面がなかった）
+function gangOrderBox(gangId) {
+  const w = app.world;
+  const ms = w.player.merchants.filter((m) => m.order && !m.order.paused);
+  if (!ms.length) return null;
+  const box = h('div', { style: { marginTop: '10px' } });
+  const draw = () => {
+    clear(box);
+    add(box, h('div', { class: 'section' }, '定期便: 区域を通る旅は、強盗団が去るまで手前の町で待つ？'), h('div', { class: 'faint', style: { fontSize: '11px' } }, '待つと30日の足止めは避けられるが、その間は売上が入らない。回り道をさせるなら、定期便の停泊地を組み替える'));
+    for (const m of ms) {
+      const on = m.order.gangWait?.includes(gangId);
+      const now = m.travel && G.travelGangCrossings(w, m).some((x) => x.gang.id === gangId && x.caught);
+      add(box, h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' } }, h('span', { style: { flex: 1 } }, `${m.name}（${m.order.stops.map((s) => w.cities[s.city].name).join('→')}）`, now ? h('span', { class: 'bad' }, ' ⚠今の旅で区域に入る') : null), h('button', { class: `btn small ${on ? 'primary' : ''}`, onclick: () => { G.setOrderGangWait(w, m.id, gangId, !on); app.save(); draw(); } }, on ? '待つ' : '待たない')));
+    }
+  };
+  draw();
+  return box;
 }
 
 function cityScreen(id) {
@@ -628,7 +648,8 @@ function transportButton(m) {
   const w = app.world;
   const city = w.cities[m.city];
   const opts = Object.keys(TRANSPORTS).filter((t) => t !== m.transport && G.canBuyTransportAt(w, city, t));
-  if (!opts.length) return null;
+  // 替えられない町でも、ボタンを消さずに理由を出す（5回目の Opus: 雇った商人に「乗り物を替える」がなく、理由が分からなかった）
+  if (!opts.length) { const at = Object.values(w.cities).filter((c) => c.id !== city.id && Object.keys(TRANSPORTS).some((t) => t !== m.transport && G.canBuyTransportAt(w, c, t))).map((c) => c.name).slice(0, 3); return h('button', { class: 'btn small', disabled: true, title: `${city.name}では乗り物を買えない${at.length ? `（${at.join('・')}で替えられる）` : ''}` }, '乗り物を替える'); }
   return h('button', { class: 'btn small', onclick: (e) => {
     e.stopPropagation();
     app.state.modals++;

@@ -1308,3 +1308,29 @@ test('強盗団の端の日と値上がり（s4 では採らなかった決ま�
   Object.assign(m7, { city: 'byakudan', lastFrom: 'cha', arriveDay: w7.day, cargo: { spice: 20 }, cost: { spice: 10 } });
   assert.equal(G.portRoom(w7, m7, w7.cities.byakudan, 'spice'), 0);
 });
+
+test('定期便の「区域を通る旅は手前で待つ」と、強盗団が始まる5日前の知らせ（画面だけのテスト5回目）', () => {
+  const mk = () => {
+    const w = G.createWorld('s4', { seed: 31401 });
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    G.foundPost(w, G.foundSites(w, 1)[0].x, G.foundSites(w, 1)[0].y);
+    const m = w.player.merchants[0];
+    assert.ok(G.setOrder(w, m.id, { stops: [{ city: m.city, buy: [], sell: [] }, { city: 'hari', buy: [], sell: [] }] }).ok);
+    return [w, m, w.gangs[0]];
+  };
+  // 待たない便: 捕まる。始まる5日前に知らせが出る（区域に入りそうなとき）
+  const [w1, m1, x1] = mk();
+  let soon = null;
+  while (w1.day < x1.end) { const ev = G.advance(w1, 1, { stopOn: new Set() }).events; soon ??= ev.find((e) => e.type === 'gangSoon'); }
+  const held = (m1.gangHeldIds || []).includes(x1.id);
+  assert.ok(held, 'この種では、待たない便が捕まる');
+  assert.ok(soon && /このままだと捕まる/.test(soon.text), '始まる5日前に知らせる');
+  // 予告の日に「待つ」を選んだ便: 捕まらない
+  const [w2, m2, x2] = mk();
+  while (w2.day < x2.announce) G.advance(w2, 1, { stopOn: new Set() });
+  G.setOrderGangWait(w2, m2.id, x2.id, true);
+  let waited = false;
+  while (w2.day < x2.end + 5) { G.advance(w2, 1, { stopOn: new Set() }); waited ||= !!m2.order.gangHolding; }
+  assert.ok(!(m2.gangHeldIds || []).includes(x2.id), '待つ便は捕まらない');
+  assert.ok(waited, '手前で待った');
+});

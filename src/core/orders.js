@@ -9,6 +9,7 @@ import { observe } from './knowledge.js';
 import { executeTrade, moveWarehouse } from './trade.js';
 import { quote, cityWants } from './market.js';
 import { cargoUsed, cargoCap, startTravel, findPath, edgeDays, foodNeeded } from './caravan.js';
+import { gangCrossings, safeDepartDay } from './gangs.js';
 import { PROVISIONS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
 import { knownShifts, fairRoom, fairEnd, altEntry, noteAltMiss } from './shifts.js';
@@ -164,6 +165,20 @@ export function runOrder(world, m, { depart = true } = {}) {
   if (!depart) return;
   const target = o.stops[o.next].city;
   if (target === m.city) return;
+  // 予告された強盗団の間は、区域を通る便を手前の町で待たせる（予告の窓で便ごとに選ぶ。画面だけのテスト5回目の Opus: 定期便の商人は出発の画面を通らず、予告を読んでも手が打てなかった）
+  if (o.gangWait?.length) {
+    const route = findPath(world, m.city, target, m.transport);
+    const hs = route ? gangCrossings(world, m, route.tiles, route.steps).filter((x) => x.caught && o.gangWait.includes(x.gang.id)) : [];
+    if (hs.length) {
+      const safe = safeDepartDay(world, m, route);
+      if (!o.gangHolding) emit(world, { type: 'orderNote', merchant: m.id, city: m.city, text: `${m.name}（定期便）: ${world.cities[target].name}への道が強盗団の区域を通るので、${safe}日目まで${world.cities[m.city].name}で待つ` });
+      o.gangHolding = true;
+      o.holding = true;
+      return;
+    }
+    if (o.gangHolding) { o.gangHolding = false; o.holding = false; }
+    o.gangWait = o.gangWait.filter((id) => (world.gangs || []).some((x) => x.id === id && world.day < x.end));
+  }
   autoProvision(world, m, target);
   m.guards = o.guards || 0;
   const res = departWithExpectation(world, m, target);

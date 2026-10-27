@@ -8,6 +8,7 @@ import { hashSeed, inStream, chance } from './rng.js';
 import { emit } from './events.js';
 import { TILE_PX } from './grid.js';
 import { dailyCost } from './world.js';
+import { findPath } from './caravan.js';
 
 // シナリオの定義: gangs: { zones: [{ id, name, x, y, r（px）, hint }], first, gap, lead, days, chance: 区域の1マス1日の襲われる率, loss: 奪われる割合,
 //   holdDays: あれば奪わずに足止めする日数（一団につき各便一度）, stopAfter: その日で強盗団は来なくなる,
@@ -185,6 +186,30 @@ function gangCard(world, x, z, sc) {
   };
 }
 
+// 定期便の便ごとに、この強盗団の間は区域を通る便を手前で待たせるか（予告の窓で選ぶ）
+export function setOrderGangWait(world, mid, gangId, on) {
+  const m = world.player.merchants.find((x) => x.id === mid);
+  if (!m?.order) return { ok: false, error: '定期便がない' };
+  const set = new Set(m.order.gangWait || []);
+  if (on) set.add(gangId); else set.delete(gangId);
+  m.order.gangWait = [...set];
+  return { ok: true };
+}
+// 始まる5日前の知らせ: 区域に入りそうな商人がいれば（今の旅と、定期便の次の旅）。速く進めていても止める（画面だけのテスト5回目の Opus: ▶▶▶で始まる前を飛ばした）
+function soonText(world, x) {
+  const out = [];
+  for (const m of world.player.merchants) {
+    if (m.travel) { const h = travelGangCrossings(world, m).find((y) => y.gang.id === x.id && y.caught); if (h) out.push(`${m.name}（今の旅で${h.from}日目に区域に入る）`); continue; }
+    const o = m.order;
+    if (!o || o.paused || o.gangWait?.includes(x.id)) continue;
+    const to = o.stops[o.next]?.city;
+    const r = to && to !== m.city ? findPath(world, m.city, to, m.transport) : null;
+    const h = r && gangCrossings(world, m, r.tiles, r.steps).find((y) => y.gang.id === x.id && y.caught);
+    if (h) out.push(`${m.name}（定期便の次の旅で${h.from}日目に区域に入る）`);
+  }
+  return out;
+}
+
 // 予告・始まり・終わりの知らせ（毎日）
 export function updateGangs(world) {
   const sc = world.scenario.gangs;
@@ -193,6 +218,7 @@ export function updateGangs(world) {
   for (const x of world.gangs || []) {
     const z = gangZone(world, x);
     if (world.day === x.announce) emit(world, { type: 'gang', big: true, zone: x.zone, gang: x.id, text: `${announceText(world, x, z, sc)}${travelersText(world, x)}`, card: gangCard(world, x, z, sc) });
+    if (world.day === x.start - 5 && x.start - 5 > x.announce) { const who = soonText(world, x); if (who.length) emit(world, { type: 'gangSoon', big: true, bad: true, zone: x.zone, gang: x.id, text: `5日後（${x.start}日目）から${z.name}に強盗団が居座る。このままだと捕まる: ${who.join('、')}。定期便は、この知らせの窓で「区域を通る便は手前で待つ」を選べる` }); }
     if (world.day === x.start) emit(world, { type: 'gangStart', zone: x.zone, text: `${z.name}に強盗団が現れた（${x.end - 1}日目まで）` });
     if (world.day === x.end) emit(world, { type: 'gangEnd', zone: x.zone, text: `${z.name}の強盗団が去った` });
   }
