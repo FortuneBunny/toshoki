@@ -1228,3 +1228,42 @@ test('町を育てる次の一手: 届ける品と量・成長の見込み・買
   G.advance(w6, 20, { stopOn: new Set() });
   assert.ok(G.goalHints(w6).some((x) => x.city === 'byakudan' && x.plan && /まだ香辛料を買い取らない/.test(x.text)));
 });
+
+test('出航の目安の日・人口の節目・備蓄の日数・格上げで圏に入る集落（33回目の相談）', () => {
+  // s6: 最初の市の前に、胡椒港を出ると市の間に着く日を知らせる
+  const w6 = G.createWorld('s6', { seed: 7 });
+  if (G.setupStage(w6) === 'family') G.chooseFamily(w6, G.familyList(w6)[0].id);
+  const st6 = G.foundSites(w6, 1)[0];
+  G.foundPost(w6, st6.x, st6.y);
+  const first = () => w6.markets[0];
+  let sail = null;
+  while (!sail && w6.day < first().end) sail = G.advance(w6, 1, { stopOn: new Set() }).events.find((e) => e.type === 'portMarketSail');
+  assert.ok(sail && w6.day < first().start, '市の前に出航の目安が出る');
+  const at = Number(/(\d+)日目ごろ/.exec(sail.text)[1]);
+  assert.ok(at >= first().start && at < first().end);
+  // 予告にはカードがつく
+  const w6b = G.createWorld('s6', { seed: 7 });
+  if (G.setupStage(w6b) === 'family') G.chooseFamily(w6b, G.familyList(w6b)[0].id);
+  G.foundPost(w6b, G.foundSites(w6b, 1)[0].x, G.foundSites(w6b, 1)[0].y);
+  let ann = null;
+  while (!ann && w6b.day < 200) ann = G.advance(w6b, 1, { stopOn: new Set() }).events.find((e) => e.type === 'portMarket');
+  assert.ok(ann?.card?.when && ann.card.where && ann.card.what && ann.card.you);
+  // 人口の節目と、この30日の増え
+  const w = G.createWorld('s4', { seed: 31401 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  const st = G.foundSites(w, 1)[0];
+  G.foundPost(w, st.x, st.y);
+  const post = Object.values(w.cities).find((c) => c.founded);
+  G.advance(w, 40, { stopOn: new Set() });
+  assert.ok(G.popGain(post, 30) != null);
+  post.pop = 520;
+  const ev = G.advance(w, 1, { stopOn: new Set() }).events.find((e) => e.type === 'popMilestone');
+  assert.ok(ev && /500人を超えた/.test(ev.text));
+  assert.ok(!G.advance(w, 1, { stopOn: new Set() }).events.some((e) => e.type === 'popMilestone'), '同じ節目は一度だけ');
+  // 届けた食べ物の備蓄の日数
+  post.stock.wheat = 40;
+  assert.ok(/麦 \d+→\d+日分/.test(G.supplyNote(w, post, [{ good: 'wheat', qty: -20 }])));
+  // 格上げで、ぶどうの泉が圏に入るなら、目標の案内に出る
+  const note = G.upgradeNote(w, post);
+  if (note) assert.ok(/格上げ/.test(note) && /圏に入る/.test(note));
+});

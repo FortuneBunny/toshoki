@@ -107,8 +107,10 @@ function cityPanel(app, id) {
       gaugeBlock(c.glucose, c.glucoseTarget),
       h('dl', { class: 'kv' },
         h('dt', {}, '糖度'), h('dd', {}, `${Math.round(c.glucose)}（向かう先 ${Math.round(c.glucoseTarget)}）${c.rush ? ` 🍬ラッシュ あと${c.rush}日` : ''}${c.crash ? ` 💥クラッシュ あと${c.crash}日` : ''}`),
-        h('dt', {}, '人口'), h('dd', {}, `${fmt(c.pop)}${next ? ` / 次の段階 ${fmt(next)}` : ''}`),
-        h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`, G.growthBlocker(world, c) ? h('div', { class: 'dim', style: { fontSize: '11px' } }, `止めているもの: ${G.growthBlocker(world, c)}`) : null, (() => { const t = G.goalTargetPop(world, c.id); const p = t ? G.growthPlanText(world, c, t) : ''; return p ? h('div', { class: 'amber', style: { fontSize: '11px' } }, `💡 ${p}`) : null; })()),
+        h('dt', {}, '人口'), h('dd', {}, `${fmt(c.pop)}${next ? ` / 次の段階 ${fmt(next)}` : ''}`, (() => { const g = G.popGain(c, 30); return g != null ? h('span', { class: g > 0 ? 'good' : g < 0 ? 'bad' : 'dim', style: { fontSize: '11px' } }, `（この30日で${g >= 0 ? '+' : ''}${g}人）`) : null; })()),
+        // 食卓の品の備蓄が何日もつか（33回目の相談: 補給が次の便までもつかが見えなかった）
+        (() => { const xs = world.scenario.goods.map((g) => [g, G.stockDays(world, c, g)]).filter(([, d]) => d != null); return xs.length && (c.founded || G.goalTargetPop(world, c.id)) ? [h('dt', { title: '今の在庫を、町が毎日食べる量で割った日数' }, '食卓の備蓄'), h('dd', {}, xs.map(([g, d], i) => h('span', { class: d < 5 ? 'bad' : d < 12 ? 'amber' : '' }, `${i ? '・' : ''}${GOODS[g].name} ${Math.floor(d)}日`)))] : []; })(),
+        h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`, G.growthBlocker(world, c) ? h('div', { class: 'dim', style: { fontSize: '11px' } }, `止めているもの: ${G.growthBlocker(world, c)}`) : null, (() => { const t = G.goalTargetPop(world, c.id); const p = t ? G.goalPlanText(world, c, t) : ''; return p ? h('div', { class: 'amber', style: { fontSize: '11px' } }, `💡 ${p}`) : null; })()),
         c.founded && G.settlersAllowed(world) ? h('dt', {}, '開拓団') : null,
         c.founded && G.settlersAllowed(world) ? h('dd', {}, `${c.settlerGroups || 0}/${G.BALANCE.settlerMax}団 住みついた${world.player.merchants.some((m) => m.settlers?.to === id) ? `（運んでいる途中 ${world.player.merchants.filter((m) => m.settlers?.to === id).length}団）` : ''}`, h('div', { class: 'dim', style: { fontSize: '11px' } }, G.settleCheck(world, id) ? `受け入れ ✖ ${G.settleCheck(world, id)}` : '受け入れ ○ 今なら住みつける')) : null,
         h('dt', {}, '住居'), h('dd', {}, `家 ${G.houseCount(c)}軒・住める人数 ${fmt(G.housingCap(c, tier))}${c.pop >= G.housingCap(c, tier) * 0.98 ? '（頭打ち）' : ''}`),
@@ -346,13 +348,14 @@ export function departDialog(app, mid, to) {
   const need = G.foodNeeded(world, m, desertDays);
   const k = world.player.knowledge[to];
   const body = h('div', {});
+  let dlg;
   const draw = () => {
     clear(body);
     add(body, 
       h('div', {}, `${route.path.map((id) => world.cities[id].name).join(' → ')}`),
       h('div', { class: 'total-big' }, `約 ${route.days} 日`),
       // 予告された強盗団の区域を通る日（31回目の Opus）
-      ...(() => { const hs = G.gangCrossings(world, m, route.tiles, route.steps); if (!hs.length) return []; const caught = hs.some((x) => x.caught); const safe = caught ? G.safeDepartDay(world, m, route) : null; return [h('div', { class: caught ? 'bad' : 'amber' }, `🗡 今出ると、${G.gangCrossText(world, hs)}`), caught ? h('div', { class: 'amber' }, `→ ${safe}日目（あと${safe - world.day}日）に出れば捕まらない。待つなら「やめる」で閉じて、その日まで時間を進める`) : null]; })(),
+      ...(() => { const hs = G.gangCrossings(world, m, route.tiles, route.steps); if (!hs.length) return []; const caught = hs.some((x) => x.caught); const safe = caught ? G.safeDepartDay(world, m, route) : null; return [h('div', { class: caught ? 'bad' : 'amber' }, `🗡 今出ると、${G.gangCrossText(world, hs)}`), caught ? h('div', { class: 'amber' }, `→ ${safe}日目（あと${safe - world.day}日）に出れば捕まらない `, h('button', { class: 'btn small', title: 'その日まで時間を進めて、この画面をもう一度開く（途中で大きな知らせがあれば、そこで止まる）', onclick: () => { dlg?.close(); setTimeout(() => app.waitUntil(safe, mid, to), 0); } }, `${safe}日目まで進める`)) : null]; })(),
       route.edges.some((e) => e.monsoon) ? h('div', { class: 'dim' }, `季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（追い風なら速く、向かい風なら遅い）`) : null,
       desertDays ? h('div', { class: food >= need ? 'good' : 'bad' }, `砂漠 約${desertDays}日。隊商の食料 ${food} / 必要 ${need}${food < need ? '（足りない！なつめやし・干しぶどう・キビ・麦・米を積もう）' : ''}`, food && need ? h('div', { class: 'dim', style: { fontSize: '12px' } }, `道中で積荷の${G.PROVISIONS.filter((g) => m.cargo[g]).map((g) => GOODS[g].name).join('・')}を約${Math.min(food, need)}個食べる（売るつもりの分も減る）`) : null) : null,
       route.edges.some((e) => e.danger) && world.scenario.bandits ? h('div', {},
@@ -370,7 +373,7 @@ export function departDialog(app, mid, to) {
       })) : null);
   };
   draw();
-  modal(app, `${m.name} → ${dest.name}`, body, (close) => [
+  dlg = modal(app, `${m.name} → ${dest.name}`, body, (close) => [
     h('button', { class: 'btn ghost', onclick: close }, 'やめる'),
     h('span', { style: { flex: 1 } }),
     // 砂漠の食料が足りないまま出るときは確かめる（食料を積み忘れて飢えたのが、いちばん冷めた。画面だけのテスト4回目の Opus）

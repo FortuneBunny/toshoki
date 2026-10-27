@@ -144,6 +144,17 @@ function travelersText(world, x) {
   return out.length ? `。⚠今の旅のままだと捕まる: ${out.join('、')}` : '';
 }
 
+// 予告の要点のカード（33回目の相談: 予告の文が長く、要点を探した。4行以内）
+function gangCard(world, x, z, sc) {
+  const t = travelersText(world, x);
+  return {
+    when: `${x.start}〜${x.end - 1}日目（${x.start - world.day}日後から${x.end - x.start}日間）`,
+    where: z.name,
+    what: sc.holdDays ? `区域に入った隊商は${sc.holdDays}日足止め（護衛では防げない。積荷は無事）` : `区域を通る隊商は積荷の約${Math.round(sc.loss * 10)}割を奪われうる`,
+    you: t ? t.replace(/^。/, '') : '今の旅で区域に入る商人はいない。出る前に、出発の画面で通る日を確かめる',
+  };
+}
+
 // 予告・始まり・終わりの知らせ（毎日）
 export function updateGangs(world) {
   const sc = world.scenario.gangs;
@@ -151,7 +162,7 @@ export function updateGangs(world) {
   if (!world.gangs) planGangs(world);
   for (const x of world.gangs || []) {
     const z = gangZone(world, x);
-    if (world.day === x.announce) emit(world, { type: 'gang', big: true, zone: x.zone, gang: x.id, text: `${announceText(world, x, z, sc)}${travelersText(world, x)}` });
+    if (world.day === x.announce) emit(world, { type: 'gang', big: true, zone: x.zone, gang: x.id, text: `${announceText(world, x, z, sc)}${travelersText(world, x)}`, card: gangCard(world, x, z, sc) });
     if (world.day === x.start) emit(world, { type: 'gangStart', zone: x.zone, text: `${z.name}に強盗団が現れた（${x.end - 1}日目まで）` });
     if (world.day === x.end) emit(world, { type: 'gangEnd', zone: x.zone, text: `${z.name}の強盗団が去った` });
   }

@@ -11,6 +11,11 @@ import { goalsStatus } from './scoring.js';
 import { knowledgeAge } from './knowledge.js';
 import { foundSites, postCost } from './posts.js';
 import { cargoCap, cargoUsed, foodNeeded } from './caravan.js';
+import { emit } from './events.js';
+import { coveredBy } from './pioneer.js';
+import { cityRadius } from './district.js';
+import { expandCost } from './actions.js';
+import { gradeName } from './posts.js';
 
 export function suggestTrades(world, mid, limit = 3) {
   const m = world.player.merchants.find((x) => x.id === Number(mid));
@@ -208,6 +213,62 @@ export function goalTargetPop(world, cityId) {
   return null;
 }
 
+// 人口の記録（10日ごと）と、目標の町の人口の節目の知らせ（画面だけのテスト4回目: 届けた成果が人口に見えず、町を育てる手応えがなかった。33回目の Opus: 節目を祝う）
+export function popTrack(world) {
+  if (world.day % 10 === 0) for (const c of Object.values(world.cities)) { (c.popLog ??= []).push([world.day, Math.round(c.pop)]); if (c.popLog.length > 7) c.popLog.shift(); }
+  for (const id of Object.keys(world.cities)) {
+    const T = goalTargetPop(world, id);
+    if (!T) continue;
+    const c = world.cities[id];
+    c.popMarks ??= [0.5, 0.75, 0.9].map((k) => Math.round((T * k) / 50) * 50).filter((v) => v > c.pop && v < T);
+    const hit = c.popMarks.filter((v) => c.pop >= v);
+    if (!hit.length) continue;
+    c.popMarks = c.popMarks.filter((v) => c.pop < v);
+    const gain = popGain(c, 30);
+    emit(world, { type: 'popMilestone', big: true, city: id, text: `🏘 ${c.name}の人口が${Math.max(...hit)}人を超えた！（目標の${T}人まで、あと${Math.max(0, Math.ceil(T - c.pop))}人${gain != null ? `。この30日で+${gain}人` : ''}）` });
+  }
+}
+// この◯日で増えた人数（記録が足りなければ null）
+export function popGain(c, days) {
+  const log = c.popLog || [];
+  const day = log.at(-1)?.[0];
+  const old = log.find((x) => x[0] >= day - days);
+  if (!old || old[0] === day) return null;
+  return Math.round(c.pop - old[1]);
+}
+
+// 町の備蓄が何日もつか（食卓の品だけ）。33回目の Sol: 届けた直後に糖度を実績のように出さず、「この補給で何日もつか」で返す
+export function stockDays(world, city, good) {
+  const g = GOODS[good];
+  if (!['food', 'sweet'].includes(g?.kind) || !g.glu) return null;
+  const dd = dailyDemand(city, good, true, { wild: false });
+  return dd > 0.05 ? (city.stock[good] || 0) / dd : null;
+}
+// 売った直後の一言: 届けた食べ物で、町の備蓄が何日分になったか（自分の交易所と、育てる目標の町だけ）
+export function supplyNote(world, city, rows) {
+  if (!city || (!city.founded && !goalTargetPop(world, city.id))) return '';
+  const out = [];
+  for (const r of rows || []) {
+    if (!(r.qty < 0)) continue;
+    const after = stockDays(world, city, r.good);
+    if (after == null) continue;
+    const dd = after > 0 ? (city.stock[r.good] || 0) / after : 1;
+    const before = Math.max(0, ((city.stock[r.good] || 0) + r.qty) / dd);
+    out.push(`${GOODS[r.good].name} ${Math.floor(before)}→${Math.floor(after)}日分`);
+  }
+  return out.length ? `🏘 ${city.name}の食卓の備蓄: ${out.join('・')}（なくなる前に次を届けると、町は育ち続ける）` : '';
+}
+// 格上げで圏に入る集落（33回目の Opus: いちばん大きな一手の「市場への格上げでぶどうの泉を取り込む」が、目標の案内に出なかった）
+export function upgradeNote(world, city) {
+  if (!city.founded || city.grade === undefined || city.grade >= 2 || city.rivalPost || !world.hamlets) return '';
+  const [cx, cy] = world.grid?.cityTiles?.[city.id] || [];
+  if (cx === undefined) return '';
+  const gain = coveredBy(world, cx, cy, cityRadius({ ...city, grade: city.grade + 1 }, 0)).hamlets;
+  if (!gain.length) return '';
+  return `「${gradeName(city.grade + 1)}」に格上げ（${expandCost(world, city.id)}銀）すると、${gain.map((hm) => `${hm.name}（+${hm.pop}人${Object.keys(hm.foods || {}).length ? `・${Object.keys(hm.foods).map((g) => GOODS[g].name).join('・')}` : ''}）`).join('、')}が圏に入る`;
+}
+export const goalPlanText = (world, city, target) => [upgradeNote(world, city), growthPlanText(world, city, target)].filter(Boolean).join('。');
+
 // 目標の町の案内: 目標のバーの下に出す一言。人口・成長の速さ・止めているもの・このままだと何日かを、
 // 自分が知っている範囲（最後に商人がいたときの様子）で示す。正解は決めつけず、何が足りないかを見せる
 // （s2 で「麦の里を町に育てる」の手の打ち方が分からず、2人の画面だけのテストが迷った）
@@ -267,7 +328,7 @@ export function goalHints(world) {
     if (g.type === 'rushes') parts.push(`糖度 ${Math.round(k.glucose)}（ラッシュは ${B.rushLine} 以上）`);
     const block = k.blocker ? `止めているもの: ${k.blocker}` : late ? `このままでは期限（残り${left}日）に間に合わない。食べ物の種類と量を増やす${settlersAllowed(world) && c.founded ? '・開拓団を送る' : ''}` : '順調。届け続ける';
     // 次の一手（何を何個届ければ、何日で届くか）。今の様子が分かる町だけ（画面だけのテスト4回目）
-    const plan = target && (age === 0 || c.founded) ? growthPlanText(world, c, target) : '';
+    const plan = target && (age === 0 || c.founded) ? goalPlanText(world, c, target) : '';
     out.push({ city: id, text: `${c.name}（${when}）: ${parts.join('・')}。${block}`, ...(plan ? { plan } : {}) });
   });
   return out;

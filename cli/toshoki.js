@@ -897,7 +897,7 @@ function run(world, cmd, pos, opts) {
       out.push(`${m.name}が${world.cities[pos[0]].name}へ出発（約${r.days}日）`);
       if ('nowait' in opts) { out.push('（時間は進めていない。ほかの商人にも指示してから wait で進める）'); break; }
       // 予告でも止める（16日の航海中に港の市の予告を通り過ぎた。31回目の Opus）
-      const adv = G.advance(world, r.days + 30, { stopOn: new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'shift', 'blight', 'grandFest', 'gang', 'gangHeld', 'portMarket']) });
+      const adv = G.advance(world, r.days + 30, { stopOn: new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'shift', 'blight', 'grandFest', 'gang', 'gangHeld', 'portMarket', 'portMarketSail']) });
       out.push(...compactEvents(adv.events));
       if (!m.travel && m.city === pos[0]) out.push('', marketText(world, m));
       break;

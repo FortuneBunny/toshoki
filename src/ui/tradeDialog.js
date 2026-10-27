@@ -1,6 +1,7 @@
 // RimWorld 風の交易画面
 // 左が商人の積荷、右が町の在庫。矢印は「品物が動く方向」。< で買う（町→積荷）、> で売る（積荷→町）。
 // 動かせない方向のボタンは隠し、数量が0でなければ外側のボタンが「0」（リセット）になる。
+import * as fx from './juice.js';
 import { h, add, clear, goodIcon, icon, fmt } from './dom.js';
 import { sparkline } from './sparkline.js';
 import * as G from '../core/index.js';
@@ -297,6 +298,8 @@ export function openTrade(app, merchantId) {
     const [tx, ty] = app.map?.screenPos ? app.map.screenPos(c.x, c.y) : [btn.left + btn.width / 2, btn.top];
     const mapBox = app.map?.canvas?.getBoundingClientRect();
     const inMap = mapBox && tx > mapBox.left && tx < mapBox.right && ty > mapBox.top && ty < mapBox.bottom;
+    const note = G.supplyNote(world, c, r.rows);
+    if (note) setTimeout(() => fx.toast(note, { icon: 'ui/star' }), 500);
     app.afterTrade(r, inMap ? tx : mapBox ? mapBox.left + mapBox.width / 2 : btn.left + btn.width / 2, inMap ? ty - 30 : mapBox ? mapBox.top + mapBox.height / 2 : btn.top, before);
     close();
     if (thenDepart) app.pickDestination(m.id, { toggle: false });

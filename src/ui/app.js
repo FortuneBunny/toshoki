@@ -15,6 +15,7 @@ const KEY_SAVE = 'toshoki.save.v1';
 const KEY_CAMP = 'toshoki.campaign.v1';
 const KEY_SET = 'toshoki.settings.v1';
 const SPEEDS = [0, 1.5, 3, 6]; // 1秒あたりの日数
+const SKIP_RATE = 15; // 次の知らせまで進めるとき
 
 function readJSON(key, fallback) {
   try { return JSON.parse(store?.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -230,10 +231,46 @@ app.depart = (mid, to, guards) => {
 };
 
 function setSpeed(s) {
-  if (s > 0) app.lastSpeed = s;
+  if (s === 0) app.state.skip = null;
+  if (s > 0 && !app.state.skip) app.lastSpeed = s;
   app.state.speed = s;
   renderTop();
 }
+
+// 次の知らせまで進める（画面だけのテスト4回目: 止めたい日に止められず、待ちすぎた・期限まで飛んだ。33回目の相談）
+// 止まるのは、行動を変える必要があるときだけ。定期便の到着では止まらない。30日で必ず止めて、その間をまとめる
+const SKIP_DAYS = 30;
+const SKIP_STOP = new Set(['gang', 'portMarket', 'portMarketSail', 'portMarketStart', 'grandFest', 'grandFestStart', 'blight', 'shift', 'gangHeld', 'tierUp', 'tierDown', 'contract', 'debt', 'orderStuck', 'settled', 'settlersLost', 'popMilestone', 'victory', 'defeat']);
+// 止めた理由の短い名前（知らせの本文は別に出るので、同じ文を二度出さない）
+const SKIP_WHY = { gang: '強盗団の予告', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
+function skipStop(w, evs) {
+  return evs.find((e) => SKIP_STOP.has(e.type) || (['arrive', 'robbed', 'starve'].includes(e.type) && !(G.getMerchant(w, e.merchant)?.order && !G.getMerchant(w, e.merchant).order.paused)));
+}
+app.skip = () => {
+  const w = app.world;
+  if (!w || w.setup || app.state.modals) return;
+  app.state.skip = null;
+  const keep = app.lastSpeed;
+  setSpeed(3);
+  app.lastSpeed = keep;
+  app.state.skip = { from: w.day, until: w.day + SKIP_DAYS, silver: w.player.silver };
+  renderTop();
+};
+function endSkip(why) {
+  const s = app.state.skip;
+  const w = app.world;
+  setSpeed(0);
+  if (!s) return;
+  const d = Math.round(w.player.silver - s.silver);
+  const idle = w.player.merchants.filter((m) => !m.travel && (!m.order || m.order.paused));
+  fx.toast(why ? `⏭ ${w.day}日目で止めた（${w.day - s.from}日進めた）: ${why}` : `⏭ ${w.day - s.from}日進めた（${s.from + 1}〜${w.day}日目、銀 ${d >= 0 ? '+' : ''}${fmt(d)}）。行動を変えるような知らせはなかった${idle.length ? `。町で待っている商人: ${idle.map((m) => m.name).join('、')}` : ''}`, { icon: 'ui/star' });
+}
+// 出発の画面の「その日まで進める」: その日になったら止めて、出発の画面をもう一度開く
+app.waitUntil = (day, mid, to) => {
+  app.state.wake = { day, mid, to };
+  app.skip();
+  if (app.state.skip) app.state.skip.until = Math.max(app.state.skip.until, day);
+};
 
 // ---------- 出来事 → 演出 ----------
 function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
@@ -274,14 +311,15 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': case 'place': case 'civic': case 'expand': case 'branch': case 'settlers': case 'settled': fx.toast(e.text, { icon: 'ui/star' }); break;
       case 'orderStuck': case 'debt': fx.toast(e.text, { kind: 'bad' }); sfx.bad(); break;
       case 'milestone': fx.toast(e.text, { icon: 'ui/star' }); sfx.rare(); break;
+      case 'popMilestone': fx.banner('町が育った！', e.text.replace(/^🏘 /, ''), `cities/tier${G.cityTier(app.world.cities[e.city])}`); sfx.fanfare(); fx.burst(at[0], at[1], 24); break;
       // 売り場の交代の予告: 便を組み替える判断の時なので、時間を止めて画面を開く
       case 'shift': if (!app.state.modals) { setSpeed(0); app.state.modals++; shiftDialog(app, e.shift); } else fx.toast(e.text, { kind: 'rare', icon: 'ui/festival' }); sfx.rare(); break;
       // 強盗団・港の市・大祭・不作の予告と、捕まった知らせも、時間を止めて読ませる（売り場の交代だけ止めていたので、
       // 全部の便を定期便にして進めると、予告を読まずに期限まで進んだ。画面だけのテスト4回目の Sol）
-      case 'gang': case 'portMarket': case 'grandFest': case 'blight': case 'gangHeld': {
-        const title = { gang: '🗡 強盗団の予告', portMarket: '⚓ 港の市の予告', grandFest: '🎆 大祭の予告', blight: '🌾 不作の予告', gangHeld: '🗡 強盗団に捕まった' }[e.type];
+      case 'gang': case 'portMarket': case 'portMarketSail': case 'grandFest': case 'blight': case 'gangHeld': {
+        const title = { gang: '🗡 強盗団の予告', portMarket: '⚓ 港の市の予告', portMarketSail: '⚓ 出航の目安', grandFest: '🎆 大祭の予告', blight: '🌾 不作の予告', gangHeld: '🗡 強盗団に捕まった' }[e.type];
         if (e.type === 'gangHeld') sfx.bad(); else sfx.rare();
-        if (!app.state.modals) { setSpeed(0); app.state.modals++; modal(app, title, h('p', {}, e.text), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn primary', onclick: close }, '分かった')]); }
+        if (!app.state.modals) { setSpeed(0); app.state.modals++; modal(app, title, noticeBody(e), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn primary', onclick: close }, '分かった')]); }
         else fx.toast(e.text, { kind: e.type === 'gangHeld' ? 'bad' : 'rare', icon: 'ui/festival' });
         break;
       }
@@ -293,6 +331,13 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
     }
   }
   return evs;
+}
+
+// 予告の要点のカード（いつ・どこ・何が起きる・あなたの便）。長い文は「詳しく」の中へ（33回目の相談）
+function noticeBody(e) {
+  if (!e.card) return h('p', {}, e.text);
+  const rows = [['いつ', e.card.when], ['どこ', e.card.where], ['何が起きる', e.card.what], ['あなたの便', e.card.you]].filter(([, v]) => v);
+  return h('div', {}, h('dl', { class: 'kv notice-card' }, rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', { class: /⚠/.test(v) ? 'bad' : '' }, v)])), h('details', { style: { marginTop: '8px' } }, h('summary', { class: 'dim' }, '詳しく'), h('p', { style: { fontSize: '13px' } }, e.text)));
 }
 
 function cityScreen(id) {
@@ -518,7 +563,8 @@ function renderTop(force = false) {
   app.els.streak.classList.toggle('hot', pl.streak >= 3);
   app.els.date.textContent = G.dateString(w.day);
   clear(app.els.speed);
-  ['⏸', '▶', '▶▶', '▶▶▶'].forEach((label, i) => add(app.els.speed, h('button', { class: `btn small ${app.state.speed === i ? 'on' : ''}`, title: i ? `${i}倍速（${i}キー）` : '一時停止（スペース）', onclick: () => { sfx.click(); setSpeed(i); } }, label)));
+  ['⏸', '▶', '▶▶', '▶▶▶'].forEach((label, i) => add(app.els.speed, h('button', { class: `btn small ${app.state.speed === i && !app.state.skip ? 'on' : ''}`, title: i ? `${i}倍速（${i}キー）` : '一時停止（スペース）', onclick: () => { sfx.click(); app.state.skip = null; setSpeed(i); } }, label)));
+  add(app.els.speed, h('button', { class: `btn small ${app.state.skip ? 'on' : ''}`, title: `次の知らせまで進める（Nキー）。予告・手で動かす商人の到着・町の育ち・注文などで止まる。定期便の到着では止まらない。${SKIP_DAYS}日で必ず止まる`, onclick: () => { sfx.click(); if (app.state.skip) setSpeed(0); else app.skip(); } }, '⏭'));
 }
 
 function renderGoals() {
@@ -656,7 +702,7 @@ function loop() {
   last = now;
   const w = app.world;
   if (w && app.state.speed > 0 && app.state.modals === 0 && !(w.finished && !w.continueAfterEnd)) {
-    acc += dt * SPEEDS[app.state.speed];
+    acc += dt * (app.state.skip ? SKIP_RATE : SPEEDS[app.state.speed]);
     let ticked = false;
     while (acc >= 1) {
       acc -= 1;
@@ -667,6 +713,20 @@ function loop() {
       if (evs.some((e) => e.type === 'victory' || e.type === 'defeat')) { finish(); break; }
       // 予告などで止めたら、この描画のうちに残りの日を進めない（速いと数日進みすぎた）
       if (!app.state.speed) break;
+      // 出発の画面で「その日まで進める」を押した日
+      const wake = app.state.wake;
+      if (wake && w.day >= wake.day) {
+        app.state.wake = null;
+        const m = G.getMerchant(w, wake.mid);
+        endSkip(`${m?.name || ''}の出発の日（${wake.day}日目）`);
+        if (m && !m.travel) setTimeout(() => openDepart(wake.mid, wake.to), 50);
+        break;
+      }
+      if (app.state.skip) {
+        const e = skipStop(w, evs);
+        if (e) { endSkip(SKIP_WHY[e.type] ? `${SKIP_WHY[e.type]}${e.merchant ? `（${G.getMerchant(w, e.merchant)?.name || ''}）` : e.city ? `（${w.cities[e.city]?.name || ''}）` : ''}` : e.text.slice(0, 40)); break; }
+        if (w.day >= app.state.skip.until) { endSkip(''); break; }
+      }
       // 町で待っているだけの商人がいたら知らせる（行き先を選び損ねたまま35日が過ぎた。画面だけのテストの指摘）
       for (const m of w.player.merchants) {
         if (m.travel || (m.order && !m.order.paused) || w.player.buildings.some((b) => b.city === m.city)) { m.idleSince = null; continue; } // 工房の町で待つのは、手引きどおりのことがある
@@ -710,7 +770,8 @@ app.afterTrade = (...a) => { origAfterTrade(...a); app.checkFinish(); };
 document.addEventListener('keydown', (e) => {
   if (!app.world || e.target.closest?.('input, select, textarea')) return;
   if (e.key === ' ' && app.state.modals === 0) { e.preventDefault(); setSpeed(app.state.speed ? 0 : app.lastSpeed || 1); }
-  if (['1', '2', '3'].includes(e.key) && app.state.modals === 0) setSpeed(Number(e.key));
+  if (['1', '2', '3'].includes(e.key) && app.state.modals === 0) { app.state.skip = null; setSpeed(Number(e.key)); }
+  if (['n', 'N'].includes(e.key) && app.state.modals === 0) { if (app.state.skip) setSpeed(0); else app.skip(); }
   if (e.key === 'Escape' && app.state.pick) { app.state.pick = null; app.state.hoverRoute = null; app.render(); }
   if (e.key === 'Escape' && app.state.build) { app.state.build = null; app.render(); }
   if (e.key === 'Escape' && app.state.found && !app.world?.setup) { app.state.found = null; app.render(); }

@@ -31,6 +31,7 @@ import { BUILDINGS } from '../data/buildings.js';
 import { initPioneer, placeHamletTiles, absorbDaily, assignRivalFamilies } from './pioneer.js';
 import { addMerchantRef } from './posts.js';
 import { rivalFound } from './rival.js';
+import { popTrack } from './advice.js';
 
 export const SAVE_VERSION = 2;
 // 地図の1ピクセルが表す距離（ロバは1日に10進む）
@@ -322,6 +323,7 @@ export function tick(world) {
     world.stats.history.push([world.day, Math.round(world.player.silver)]);
     if (world.stats.history.length > 400) world.stats.history.shift();
   }
+  popTrack(world);
   checkGoals(world);
 }
 

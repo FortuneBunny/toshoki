@@ -296,8 +296,8 @@ export function growthPlanText(world, city, target) {
   const parts = [];
   if (p.picks.length) {
     const what = p.picks.map((a, i) => `${GOODS[a.good].name} 1日約${Math.max(1, Math.round(a.perDay * 10) / 10)}個（${i ? '同じく' : '20日ごとの便なら'}約${Math.ceil(a.perDay * 20)}個）`).join('・');
-    const where = p.where.filter((w) => w.cities.length).map((w) => `${GOODS[w.good].name}は${w.cities.join('・')}`).join('、');
-    parts.push(`次の一手: ${what}を届け続けると（人口が増えたら量も増やす）、糖度は約${p.glucoseAfter}まで上がり、成長は1日${(p.rateAfter * 100).toFixed(2)}%${Number.isFinite(p.daysAfter) ? `（${target}人まで約${p.daysAfter}日。今のままなら${Number.isFinite(p.daysNow) && p.daysNow < 3000 ? `約${p.daysNow}日` : 'ほとんど育たない'}）` : ''}${where ? `。${where}で買える` : ''}`);
+    const where = p.picks.map((a) => { const t = sourceText(world, a.good, city.id); return t ? `${GOODS[a.good].name}は${t}` : null; }).filter(Boolean).join('。');
+    parts.push(`次の一手: ${what}を届け続けると（人口が増えたら量も増やす）、糖度は約${p.glucoseAfter}まで上がり、成長は1日${(p.rateAfter * 100).toFixed(2)}%${Number.isFinite(p.daysAfter) ? `（${target}人まで約${p.daysAfter}日。今のままなら${Number.isFinite(p.daysNow) && p.daysNow < 3000 ? `約${p.daysNow}日` : 'ほとんど育たない'}）` : ''}${where ? `。${where}` : ''}`);
   }
   // 家は空き地があれば建っていく。今の家がほぼ埋まっているときだけ言う（家の数は増えていくので、上限のように書かない）
   if (city.pop >= p.cap * 0.9) parts.push(`ただし、今の家はほぼ埋まっている（約${Math.floor(p.cap)}人分）。住居の求める品をそろえると家が速く建ち、空き地がなければ市場への格上げで圏を広げる`);
@@ -357,6 +357,17 @@ export function growthPerDay(city) {
 // その品を作っている町（多い順）。住居の求める品などの「どこで手に入るか」の案内に使う
 export function producersOf(world, good, exclude = null) {
   return Object.values(world.cities).filter((c) => c.id !== exclude && (c.produces?.[good] || 0) > 0).sort((a, b) => b.produces[good] - a.produces[good]);
+}
+// どこで仕入れられるか（画面だけのテスト4回目の Opus: 緑門は「ぶどうが採れる」と出るのに、地元で食べてしまい買えなかった。圏の外の集落でしか採れないことも書く）
+export function sourceText(world, good, exclude = null) {
+  const ps = producersOf(world, good, exclude);
+  const spare = ps.filter((c) => c.produces[good] > dailyDemand(c, good, false) * 1.1 || (c.stock[good] || 0) >= 10);
+  const parts = [];
+  if (spare.length) parts.push(`${spare.slice(0, 2).map((c) => c.name).join('・')}で買える`);
+  else if (ps.length) parts.push(`${ps.slice(0, 2).map((c) => c.name).join('・')}でも採れるが、地元で食べてしまい余りは少ない`);
+  const hs = (world.hamlets || []).filter((hm) => !hm.absorbedBy && hm.foods?.[good] > 0);
+  if (hs.length) parts.push(`${hs.map((hm) => hm.name).join('・')}（集落）で採れる。交易所の圏に入れると、その交易所で採れる`);
+  return parts.join('。');
 }
 const whereText = (world, goods, exclude) => goods.map((g) => { const p = producersOf(world, g, exclude).slice(0, 2); return p.length ? `${GOODS[g].name}は${p.map((c) => c.name).join('・')}で採れる` : null; }).filter(Boolean).join('、');
 

@@ -2,7 +2,7 @@
 import { GOODS, GOOD_IDS } from '../data/goods.js';
 import { BALANCE as B } from '../data/balance.js';
 import { chance, pick, randInt, nextRandom, inStream } from './rng.js';
-import { cityTier, dailyDemand } from './city.js';
+import { cityTier, dailyDemand, sourceText } from './city.js';
 import { midPrice } from './market.js';
 import { TRANSPORTS } from '../data/transports.js';
 import { isVisited } from './knowledge.js';
@@ -219,7 +219,7 @@ function rollContract(world) {
   const reward = Math.round(qty * GOODS[id].base * 0.8 + 40);
   const c = { id: world.nextId++, city: city.id, good: id, qty, delivered: 0, deadline: world.day + days, reward };
   world.contracts.push(c);
-  emit(world, { type: 'contract', city: city.id, contract: c.id, rare: true, text: `大口注文: ${city.name}が${GOODS[id].name}を${qty}個求めている（${days}日以内、報酬 ${reward} 銀）。${city.name}でこの品を売れば数に入る。${where.length ? `仕入れられそうな町: ${where.join('、')}` : '余って売られている町は少ない（工房でつくるか、産地の在庫を待つ）'}` });
+  emit(world, { type: 'contract', city: city.id, contract: c.id, rare: true, text: `大口注文: ${city.name}が${GOODS[id].name}を${qty}個求めている（${days}日以内、報酬 ${reward} 銀）。${city.name}でこの品を売れば数に入る。${where.length ? `仕入れられそうな町: ${where.join('、')}` : `余って売られている町は少ない${sourceText(world, id, city.id) ? `（${sourceText(world, id, city.id)}）` : '（工房でつくるか、産地の在庫を待つ）'}`}` });
 }
 
 function expireContracts(world) {

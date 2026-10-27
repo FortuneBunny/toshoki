@@ -117,6 +117,20 @@ function supplyText(world) {
 // まだ買い取らない町への一言（31回目の Opus: 町のうちに予告が出て、売れないのに気づかなかった）
 const notYetText = (world, sc) => (cityWants(world.cities[sc.city], sc.good) ? '' : `今の${world.cities[sc.city].name}は、まだ${GOODS[sc.good].name}を買い取らない（都市に育ててから）。`);
 
+// 予告の要点のカード（33回目の相談）。参加できる条件と、今足りない準備は隠さない（33回目の Sol）
+function marketCard(world, x, sc) {
+  const nm = (id) => world.cities[id]?.name || id;
+  const g = GOODS[sc.good].name;
+  const days = sc.from ? findPath(world, sc.from, sc.city, 'dhow')?.days : null;
+  const ready = cityWants(world.cities[sc.city], sc.good);
+  return {
+    when: `${x.start}〜${x.end - 1}日目（${x.start - world.day}日後から${sc.days}日間）`,
+    where: nm(sc.city),
+    what: `${sc.from ? `${nm(sc.from)}から直に来た船の` : 'よそから運んだ'}${g}を、上限なしで約${Math.round(sc.price * 10) / 10}倍で買う`,
+    you: `${ready ? '' : `⚠ 今の${nm(sc.city)}は、まだ${g}を買い取らない（都市に育ててから）。`}${days != null ? `今の風ならダウ船で${nm(sc.from)}から約${days}日 → ${x.start - days}日目ごろに出る（出航の目安の日に知らせる）` : ''}`,
+  };
+}
+
 // 予告・始まり・終わりの知らせと、空きの戻り（毎日）
 export function updateMarkets(world) {
   const sc = world.scenario.portMarket;
@@ -127,10 +141,24 @@ export function updateMarkets(world) {
   for (const x of world.markets || []) {
     const c = world.cities[x.city]?.name || x.city;
     const g = GOODS[x.good].name;
-    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う（ただし、たくさん売るほど値は下がる。2隻目は1隻目よりずっと安い）。市に合わせて、${g}を積んだ船を着かせよ。${notYetText(world, sc)}${supplyText(world)}${sailText(world)}` });
+    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う（ただし、たくさん売るほど値は下がる。2隻目は1隻目よりずっと安い）。市に合わせて、${g}を積んだ船を着かせよ。${notYetText(world, sc)}${supplyText(world)}${sailText(world)}`, card: marketCard(world, x, sc) });
+    sailNote(world, x, sc);
     if (world.day === x.start) emit(world, { type: 'portMarketStart', city: x.city, text: `${c}に${g}の大口の商人が来た（${x.end - 1}日目まで）。${who}${g}は上限なしで売れる` });
     if (world.day === x.end) emit(world, { type: 'portMarketEnd', city: x.city, text: `${c}の${g}の市が終わった（あなたが上限なしで売ったのは${Math.floor(x.sold || 0)}個）` });
   }
+}
+
+// 出航の目安の日: 今日仕入れ先を出ると、ダウ船で市の間に着く最初の日に知らせる（画面だけのテスト4回目の Sol: 市の始まりで止まっても、出航には遅い）
+function sailNote(world, x, sc) {
+  if (!sc.from || x.sailNoted || world.day <= x.announce || world.day >= x.end) return;
+  const days = findPath(world, sc.from, sc.city, 'dhow')?.days;
+  if (days == null) return;
+  const at = world.day + days;
+  if (at < x.start) return;
+  x.sailNoted = true;
+  if (at >= x.end) return;
+  const nm = (id) => world.cities[id]?.name || id;
+  emit(world, { type: 'portMarketSail', big: true, city: sc.from, market: x.id, text: `⚓ 出航の目安: 今日${nm(sc.from)}を出たダウ船は、${at}日目ごろ${nm(sc.city)}に着く（市は${x.start}〜${x.end - 1}日目）。${GOODS[sc.good].name}を積んだ船は、${x.end - 1 - at > 0 ? `あと${x.end - 1 - at}日のうちに出せば間に合う` : '今日出さないと間に合わない'}` });
 }
 
 // 町の「これから」に出す行
