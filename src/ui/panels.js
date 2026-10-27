@@ -109,7 +109,7 @@ function cityPanel(app, id) {
         h('dt', {}, '糖度'), h('dd', {}, `${Math.round(c.glucose)}（向かう先 ${Math.round(c.glucoseTarget)}）${c.rush ? ` 🍬ラッシュ あと${c.rush}日` : ''}${c.crash ? ` 💥クラッシュ あと${c.crash}日` : ''}`),
         h('dt', {}, '人口'), h('dd', {}, `${fmt(c.pop)}${next ? ` / 次の段階 ${fmt(next)}` : ''}`, (() => { const g = G.popGain(c, 30); return g != null ? h('span', { class: g > 0 ? 'good' : g < 0 ? 'bad' : 'dim', style: { fontSize: '11px' } }, `（この30日で${g >= 0 ? '+' : ''}${g}人）`) : null; })()),
         // 食卓の品の備蓄が何日もつか（33回目の相談: 補給が次の便までもつかが見えなかった）
-        (() => { const xs = world.scenario.goods.map((g) => [g, G.stockDays(world, c, g)]).filter(([, d]) => d != null); return xs.length && (c.founded || G.goalTargetPop(world, c.id)) ? [h('dt', { title: '今の在庫を、町が毎日食べる量で割った日数' }, '食卓の備蓄'), h('dd', {}, xs.map(([g, d], i) => h('span', { class: d < 5 ? 'bad' : d < 12 ? 'amber' : '' }, `${i ? '・' : ''}${GOODS[g].name} ${Math.floor(d)}日`)))] : []; })(),
+        (() => { const xs = world.scenario.goods.map((g) => [g, G.stockDays(world, c, g)]).filter(([, d]) => d != null); return xs.length && (c.founded || G.goalTargetPop(world, c.id)) ? [h('dt', { title: '今の在庫を、町が毎日食べる量で割った日数' }, '食卓の備蓄'), h('dd', {}, xs.map(([g, d], i) => h('div', { class: d < 5 ? 'bad' : d < 12 ? 'amber' : '' }, `${GOODS[g].name} ${Math.floor(d)}日分`, h('span', { class: 'dim', style: { fontSize: '11px' } }, `（この30日に届いた 1日約${fmt(G.supplyPerDay(world, c, g), 1)}個 / 町が食べる 1日約${fmt(G.eatPerDay(c, g), 1)}個）`))))] : []; })(),
         h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`, G.growthBlocker(world, c) ? h('div', { class: 'dim', style: { fontSize: '11px' } }, `止めているもの: ${G.growthBlocker(world, c)}`) : null, (() => { const t = G.goalTargetPop(world, c.id); const p = t ? G.goalPlanText(world, c, t) : ''; return p ? h('div', { class: 'amber', style: { fontSize: '11px' } }, `💡 ${p}`) : null; })()),
         c.founded && G.settlersAllowed(world) ? h('dt', {}, '開拓団') : null,
         c.founded && G.settlersAllowed(world) ? h('dd', {}, `${c.settlerGroups || 0}/${G.BALANCE.settlerMax}団 住みついた${world.player.merchants.some((m) => m.settlers?.to === id) ? `（運んでいる途中 ${world.player.merchants.filter((m) => m.settlers?.to === id).length}団）` : ''}`, h('div', { class: 'dim', style: { fontSize: '11px' } }, G.settleCheck(world, id) ? `受け入れ ✖ ${G.settleCheck(world, id)}` : '受け入れ ○ 今なら住みつける')) : null,
@@ -354,6 +354,7 @@ export function departDialog(app, mid, to) {
     add(body, 
       h('div', {}, `${route.path.map((id) => world.cities[id].name).join(' → ')}`),
       h('div', { class: 'total-big' }, `約 ${route.days} 日`),
+      ...(() => { const md = G.marketDepart(world, m, to, route.days); if (!md) return []; return [h('div', { class: md.open && !md.early ? 'good' : 'amber' }, md.text, md.early && md.open ? h('button', { class: 'btn small', style: { marginLeft: '6px' }, title: 'その日まで時間を進めて、この画面をもう一度開く（途中で大きな知らせがあれば、そこで止まる）', onclick: () => { dlg?.close(); setTimeout(() => app.waitUntil(md.day, mid, to), 0); } }, `${md.day}日目まで進める`) : null)]; })(),
       // 予告された強盗団の区域を通る日（31回目の Opus）
       ...(() => { const hs = G.gangCrossings(world, m, route.tiles, route.steps); if (!hs.length) return []; const caught = hs.some((x) => x.caught); const safe = caught ? G.safeDepartDay(world, m, route) : null; return [h('div', { class: caught ? 'bad' : 'amber' }, `🗡 今出ると、${G.gangCrossText(world, hs)}`), caught ? h('div', { class: 'amber' }, `→ ${safe}日目（あと${safe - world.day}日）に出れば捕まらない${(() => { const g = G.gambleDepartDay(world, m, route); return g ? `。賭けるなら${g.day}日目（あと${g.day - world.day}日）に出ると、捕まる見込み約${Math.round(g.risk * 100)}%` : ''; })()} `, h('button', { class: 'btn small', title: 'その日まで時間を進めて、この画面をもう一度開く（途中で大きな知らせがあれば、そこで止まる）', onclick: () => { dlg?.close(); setTimeout(() => app.waitUntil(safe, mid, to), 0); } }, `${safe}日目まで進める`)) : null]; })(),
       route.edges.some((e) => e.monsoon) ? h('div', { class: 'dim' }, `季節: ${G.SEASON_NAMES[G.seasonOf(world)]}（追い風なら速く、向かい風なら遅い）`) : null,
@@ -369,7 +370,10 @@ export function departDialog(app, mid, to) {
       Object.keys(m.cargo).length && k ? h('div', { class: 'chips' }, Object.entries(m.cargo).map(([g, q]) => {
         const p = k.prices?.[g];
         const want = k.wants?.[g] !== false;
-        return h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name}×${q} ${p !== undefined && want ? `≈${fmt(p, 1)}` : '買取なし?'}`);
+        // 港の市の品は、着く日の市の扱いで言う（試しの市で売れるのに「買取なし?」と出た）
+        const md = G.marketDepart(world, m, to, route.days);
+        const mk = md && world.scenario.portMarket.good === g ? (md.open && !md.early ? '市で売れる見込み' : md.open ? '市の前に着く' : '着いても売れない') : null;
+        return h('span', { class: 'chip' }, goodIcon(g, 'icon-sm'), `${GOODS[g].name}×${q} ${mk || (p !== undefined && want ? `≈${fmt(p, 1)}` : '買取なし?')}`);
       })) : null);
   };
   draw();

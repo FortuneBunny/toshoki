@@ -60,6 +60,44 @@ export function trialLeft(world) {
   return Math.max(0, sc.trial - Math.floor(x.sold || 0));
 }
 
+// その市で売れる見込みがあるか（都市になっているか、最初の試しの市か）
+const marketOpenFor = (world, x, sc) => baseWants(world.cities[sc.city], sc.good) || (sc.trial && x.id === 1);
+
+// 売れない理由（取引の画面に出す。画面だけのテスト5回目の Sol: 市の1日前に着いた船で、理由のないまま0銀と出た）
+export function portWhy(world, m, city, good) {
+  const sc = world.scenario.portMarket;
+  if (!limited(world, city, good) || !(m.cargo[good] > 0)) return '';
+  const g = GOODS[good].name;
+  const x = (world.markets || []).find((y) => marketActive(world, y));
+  const nm = (id) => world.cities[id]?.name || id;
+  if (!x) {
+    if (!baseWants(city, good)) return `${city.name}は、まだ${g}を買い取らない（都市に育ててから）`;
+    return portRoomLeft(world) < 1 ? `${city.name}のふだんの買い取りの空きがない（1日に約${sc.rate}個戻る。市の間は上限なし）` : '';
+  }
+  if (!baseWants(city, good) && !(sc.trial && x.id === 1)) return `${city.name}は、まだ${g}を買い取らない（都市に育ててから。市でも同じ）`;
+  if (sc.from && m.lastFrom !== sc.from) return `市の扱いになるのは、${nm(sc.from)}から直に来た船だけ（この船は${nm(m.lastFrom) || 'ほかの町'}から来た）`;
+  if (sc.from && (m.arriveDay ?? -1) < x.start) return `市の扱いになるのは、市の間（${x.start}〜${x.end - 1}日目）に着いた船だけ（この船は${m.arriveDay}日目、市の前に着いた）`;
+  if (city.trialWants?.[good] && trialLeft(world) === 0) return `試しの市の${sc.trial}袋は、もう売り切った`;
+  return '';
+}
+
+// 出発の画面: 仕入れ先から市の港へ行く便の、着く日と市の扱い（5回目の Sol: 1日早く着いて市の扱いにならず、日付まで進める入口もなかった）
+export function marketDepart(world, m, to, days) {
+  const sc = world.scenario.portMarket;
+  if (!sc?.from || m.city !== sc.from || to !== sc.city) return null;
+  const x = knownMarkets(world).find((y) => world.day + days < y.end);
+  if (!x) return null;
+  const at = world.day + days;
+  const open = marketOpenFor(world, x, sc);
+  const early = at < x.start;
+  const day = early ? x.start - days : null;
+  const g = GOODS[sc.good].name;
+  const text = !open ? `⚠ ${at}日目ごろ着く。市（${x.start}〜${x.end - 1}日目）は開くが、今の${world.cities[sc.city].name}はまだ${g}を買い取らないので、着いても売れない（都市に育ててから）`
+    : early ? `⚠ ${at}日目ごろ着く → 市（${x.start}〜${x.end - 1}日目）の前。市の扱いになるのは市の間に着いた船だけ。${day}日目（あと${day - world.day}日）に出ると初日ごろに着く`
+    : `⚓ ${at}日目ごろ着く → 市（${x.start}〜${x.end - 1}日目）の間。${g}は${sc.trial && x.id === 1 && !baseWants(world.cities[sc.city], sc.good) ? `試しの市で合わせて${sc.trial}袋まで` : '上限なしで'}約${Math.round(sc.price * 10) / 10}倍で売れる（風で1〜2日ずれることがある）`;
+  return { x, at, open, early, day, text };
+}
+
 // ふだんの空き（最初は上限まで空いている）
 export const portRoomLeft = (world) => Math.floor(world.portRoom ?? world.scenario.portMarket?.max ?? 0);
 
@@ -161,7 +199,8 @@ export function updateMarkets(world) {
   for (const x of world.markets || []) {
     const c = world.cities[x.city]?.name || x.city;
     const g = GOODS[x.good].name;
-    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う（ただし、たくさん売るほど値は下がる。2隻目は1隻目よりずっと安い）。市に合わせて、${g}を積んだ船を着かせよ。${notYetText(world, sc, x)}${supplyText(world)}${sailText(world)}`, card: marketCard(world, x, sc) });
+    // 売れない市（まだ都市でない港の2回目から）は、時間を止めずに知らせるだけ（5回目の Sol: 見送るしかない市の予告を閉じる作業が続いた）
+    if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, minor: !marketOpenFor(world, x, sc), text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う（ただし、たくさん売るほど値は下がる。2隻目は1隻目よりずっと安い）。市に合わせて、${g}を積んだ船を着かせよ。${notYetText(world, sc, x)}${supplyText(world)}${sailText(world)}`, card: marketCard(world, x, sc) });
     sailNote(world, x, sc);
     if (world.day === x.start) emit(world, { type: 'portMarketStart', city: x.city, text: `${c}に${g}の大口の商人が来た（${x.end - 1}日目まで）。${who}${g}は上限なしで売れる` });
     if (world.day === x.end) emit(world, { type: 'portMarketEnd', city: x.city, text: `${c}の${g}の市が終わった（あなたが${x.id === 1 && sc.trial && !baseWants(world.cities[x.city], x.good) ? '試しの市で' : '上限なしで'}売ったのは${Math.floor(x.sold || 0)}個）${endText(world, sc)}` });
@@ -179,7 +218,7 @@ function endText(world, sc) {
 
 // 出航の目安の日: 今日仕入れ先を出ると、ダウ船で市の間に着く最初の日に知らせる（画面だけのテスト4回目の Sol: 市の始まりで止まっても、出航には遅い）
 function sailNote(world, x, sc) {
-  if (!sc.from || x.sailNoted || world.day <= x.announce || world.day >= x.end) return;
+  if (!sc.from || x.sailNoted || world.day <= x.announce || world.day >= x.end || !marketOpenFor(world, x, sc)) return;
   const days = findPath(world, sc.from, sc.city, 'dhow')?.days;
   if (days == null) return;
   const at = world.day + days;

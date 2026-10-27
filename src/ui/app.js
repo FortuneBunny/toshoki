@@ -244,7 +244,7 @@ const SKIP_STOP = new Set(['gang', 'gangSoon', 'portMarket', 'portMarketSail', '
 // 止めた理由の短い名前（知らせの本文は別に出るので、同じ文を二度出さない）
 const SKIP_WHY = { gang: '強盗団の予告', gangSoon: '強盗団が5日後から', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
 function skipStop(w, evs) {
-  return evs.find((e) => SKIP_STOP.has(e.type) || (['arrive', 'robbed', 'starve'].includes(e.type) && !(G.getMerchant(w, e.merchant)?.order && !G.getMerchant(w, e.merchant).order.paused)));
+  return evs.find((e) => (SKIP_STOP.has(e.type) && !e.minor) || (['arrive', 'robbed', 'starve'].includes(e.type) && !(G.getMerchant(w, e.merchant)?.order && !G.getMerchant(w, e.merchant).order.paused)));
 }
 app.skip = () => {
   const w = app.world;
@@ -318,9 +318,10 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       // 全部の便を定期便にして進めると、予告を読まずに期限まで進んだ。画面だけのテスト4回目の Sol）
       case 'gang': case 'gangSoon': case 'portMarket': case 'portMarketSail': case 'grandFest': case 'blight': case 'gangHeld': {
         const title = { gang: '🗡 強盗団の予告', portMarket: '⚓ 港の市の予告', portMarketSail: '⚓ 出航の目安', gangSoon: '🗡 強盗団が5日後から', grandFest: '🎆 大祭の予告', blight: '🌾 不作の予告', gangHeld: '🗡 強盗団に捕まった' }[e.type];
+        if (e.minor) { fx.toast(e.text.length > 90 ? `${e.text.slice(0, 90)}…` : e.text, { icon: 'ui/festival' }); break; }
         if (e.type === 'gangHeld') sfx.bad(); else sfx.rare();
         // 「分かった」で、止める前の速さに戻す（5回目の Opus: 押したあと止まったままで、押し直していた）
-        if (!app.state.modals) { const was = app.state.speed; setSpeed(0); app.state.modals++; modal(app, title, noticeBody(e), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, '止めたまま'), h('button', { class: 'btn primary', onclick: () => { close(); if (was) setTimeout(() => { if (!app.state.modals) setSpeed(was); }, 0); } }, '分かった')]); }
+        if (!app.state.modals) { const was = app.state.speed; setSpeed(0); app.state.modals++; modal(app, title, noticeBody(e), (close) => [h('span', { style: { flex: 1 } }), h('button', { class: 'btn ghost', onclick: close }, '止めたまま'), h('button', { class: 'btn primary', onclick: () => { close(); if (was) setTimeout(() => { if (!app.state.modals && !app.state.hold) setSpeed(was); }, 0); } }, '分かった')]); }
         else fx.toast(e.text, { kind: e.type === 'gangHeld' ? 'bad' : 'rare', icon: 'ui/festival' });
         break;
       }
@@ -732,17 +733,19 @@ function loop() {
       const evs = flushEvents({ events: adv.events });
       if (w.day % 10 === 0) app.save();
       if (evs.some((e) => e.type === 'victory' || e.type === 'defeat')) { finish(); break; }
-      // 予告などで止めたら、この描画のうちに残りの日を進めない（速いと数日進みすぎた）
-      if (!app.state.speed) break;
-      // 出発の画面で「その日まで進める」を押した日
+      // 出発の画面で「その日まで進める」を押した日。同じ日に知らせの窓が開いていても、閉じてから出発の画面を開く（1日遅れた）
       const wake = app.state.wake;
       if (wake && w.day >= wake.day) {
         app.state.wake = null;
         const m = G.getMerchant(w, wake.mid);
         endSkip(`${m?.name || ''}の出発の日（${wake.day}日目）`);
-        if (m && !m.travel) setTimeout(() => openDepart(wake.mid, wake.to), 50);
+        app.state.hold = true;
+        const open = () => { if (app.state.modals) return setTimeout(open, 200); app.state.hold = false; setSpeed(0); if (m && !m.travel) openDepart(wake.mid, wake.to); };
+        setTimeout(open, 50);
         break;
       }
+      // 予告などで止めたら、この描画のうちに残りの日を進めない（速いと数日進みすぎた）
+      if (!app.state.speed) break;
       if (app.state.skip) {
         const e = skipStop(w, evs);
         if (e) { endSkip(SKIP_WHY[e.type] ? `${SKIP_WHY[e.type]}${e.merchant ? `（${G.getMerchant(w, e.merchant)?.name || ''}）` : e.city ? `（${w.cities[e.city]?.name || ''}）` : ''}` : e.text.slice(0, 40)); break; }

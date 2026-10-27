@@ -244,6 +244,13 @@ export function stockDays(world, city, good) {
   const dd = dailyDemand(city, good, true, { wild: false });
   return dd > 0.05 ? (city.stock[good] || 0) / dd : null;
 }
+// この30日に届いた量（1日あたり。自分と定期便が売った分）
+export function supplyPerDay(world, city, good) {
+  const log = (city.supplyLog || []).filter((x) => x[0] >= world.day - 30 && x[1] === good);
+  return log.reduce((s, x) => s + x[2], 0) / 30;
+}
+// 町が1日に食べる量（その品の、町の人の分）
+export const eatPerDay = (city, good) => dailyDemand(city, good, true, { wild: false });
 // 売った直後の一言: 届けた食べ物で、町の備蓄が何日分になったか（自分の交易所と、育てる目標の町だけ）
 export function supplyNote(world, city, rows) {
   if (!city || (!city.founded && !goalTargetPop(world, city.id))) return '';

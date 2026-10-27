@@ -133,6 +133,8 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       profit += p;
       sold += n;
       notePortSale(world, m, city, good, n);
+      // 町に届いた量の記録（町の画面で「届いた量と食べる量」を並べる。5回目の Sol）
+      if (['food', 'sweet'].includes(g.kind)) { (city.supplyLog ??= []).push([world.day, good, n]); while (city.supplyLog.length && city.supplyLog[0][0] < world.day - 30) city.supplyLog.shift(); }
       m.cargo[good] -= n;
       if (!m.cargo[good]) { delete m.cargo[good]; delete m.cost[good]; }
       city.stock[good] = (city.stock[good] || 0) + n;

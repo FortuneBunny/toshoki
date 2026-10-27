@@ -1334,3 +1334,38 @@ test('定期便の「区域を通る旅は手前で待つ」と、強盗団が�
   assert.ok(!(m2.gangHeldIds || []).includes(x2.id), '待つ便は捕まらない');
   assert.ok(waited, '手前で待った');
 });
+
+test('港の市の売れない理由・出発の画面の着く日・売れない市は止めない・届いた量（画面だけのテスト5回目の Sol）', () => {
+  const w = G.createWorld('s6', { seed: 7 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  G.foundPost(w, G.foundSites(w, 1)[0].x, G.foundSites(w, 1)[0].y);
+  const x = w.markets[0];
+  const evs = [];
+  while (w.day < x.start) evs.push(...G.advance(w, 1, { stopOn: new Set() }).events);
+  const m = w.player.merchants[0];
+  // 市の前に着いた船は、理由が出る
+  Object.assign(m, { city: 'byakudan', lastFrom: 'koshou', arriveDay: x.start - 1, cargo: { spice: 10 }, cost: { spice: 10 } });
+  assert.match(G.portWhy(w, m, w.cities.byakudan, 'spice'), /市の前に着いた/);
+  // 胡椒港からの出発の画面: 早すぎると、間に合う日が出る
+  const w2 = G.createWorld('s6', { seed: 7 });
+  if (G.setupStage(w2) === 'family') G.chooseFamily(w2, G.familyList(w2)[0].id);
+  G.foundPost(w2, G.foundSites(w2, 1)[0].x, G.foundSites(w2, 1)[0].y);
+  const x2 = w2.markets[0];
+  while (w2.day < x2.announce + 1) G.advance(w2, 1, { stopOn: new Set() });
+  const m2 = w2.player.merchants[0];
+  m2.city = 'koshou';
+  const md = G.marketDepart(w2, m2, 'byakudan', 16);
+  assert.ok(md && md.early && md.day === x2.start - 16 && /日目まで|あと/.test(md.text));
+  // 2回目からの市は、白檀港がまだ都市でなければ、止めない（minor）・出航の目安も出さない
+  const later = [];
+  while (w2.day < (w2.markets[1]?.end ?? 0)) later.push(...G.advance(w2, 1, { stopOn: new Set() }).events);
+  if (!G.cityWants(w2.cities.byakudan, 'spice')) {
+    assert.ok(later.some((e) => e.type === 'portMarket' && e.minor));
+    assert.ok(!later.some((e) => e.type === 'portMarketSail' && e.market === 2));
+  }
+  // 届いた量の記録
+  const c = Object.values(w.cities).find((y) => y.founded);
+  m.city = c.id; m.cargo = { wheat: 30 }; m.cost = { wheat: 1 };
+  assert.ok(G.trade(w, m.id, [{ good: 'wheat', qty: -30 }]).ok);
+  assert.ok(Math.abs(G.supplyPerDay(w, c, 'wheat') - 1) < 1e-9);
+});

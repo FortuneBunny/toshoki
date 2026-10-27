@@ -138,6 +138,9 @@ export function openTrade(app, merchantId) {
       h('label', { style: { marginLeft: '8px' } }, h('input', { type: 'checkbox', checked: onlyTradeable || undefined, onchange: (e) => { onlyTradeable = e.target.checked; render(); } }), ' 取引できる品だけ'),
       h('span', { style: { marginLeft: 'auto' }, class: 'dim kbd-hint' }, '価格にカーソルを合わせると内訳'));
 
+    // 積荷のうち、ここで売れない理由（港の市の条件など）
+    const why = Object.keys(m.cargo).map((id) => [id, G.portWhy(world, m, city, id)]).filter(([, t]) => t);
+    const whyBox = why.length ? h('div', { class: 'amber', style: { fontSize: '12px', margin: '4px 0' } }, why.map(([id, t]) => h('div', {}, `⚠ ${GOODS[id].name}: ${t}`))) : null;
     const table = h('div', {});
     add(table, h('div', { class: 'trow head' },
       h('span'), h('span', {}, '品物'), h('span', { class: 'r' }, '積荷'), h('span', { class: 'r' }, '売値'), h('span', { class: 'r' }, ''),
@@ -177,7 +180,6 @@ export function openTrade(app, merchantId) {
         'aria-label': `${g.name}の数量`,
         // 押したら中身を選ぶ（打った数字が今の数に付け足された。画面だけのテスト4回目の Opus）
         // クリックで入ったときは、離した瞬間に選択が外れて付け足しになった（5回目の Opus: 「15」が「1015」に）。最初の mouseup を止める
-        onfocus: (e) => { e.target.select(); e.target.dataset.sel = '1'; },
         onmouseup: (e) => { if (e.target.dataset.sel) { e.preventDefault(); delete e.target.dataset.sel; } },
         onchange: (e) => setQty(id, parseInt(e.target.value, 10) || 0),
         // 打ったそばから集計に反映する（Tab や Enter を押すまで変わらず、入力が効いていないように見えたため）
@@ -188,7 +190,7 @@ export function openTrade(app, merchantId) {
           refocus = id;
           setQty(id, n);
         },
-        onfocus: (e) => { if (refocus !== id) e.target.select(); },
+        onfocus: (e) => { if (refocus !== id) { e.target.select(); e.target.dataset.sel = '1'; } },
       });
       const sp = hist.length > 1 ? sparkline(hist.map((x) => x[1]), 56, 18) : h('span');
       // 基準価格に対する今の値段（真ん中が基準）と、最近の上げ下げ
@@ -269,7 +271,7 @@ export function openTrade(app, merchantId) {
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, true) }, '確定して出発…'),
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, false) }, '取引を確定'));
 
-    add(modal, header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, table, whBox), summary)), brief, footer);
+    add(modal, header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, whyBox, table, whBox), summary)), brief, footer);
     if (refocus) {
       const el = modal.querySelector(`input[aria-label="${GOODS[refocus].name}の数量"]`);
       if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
