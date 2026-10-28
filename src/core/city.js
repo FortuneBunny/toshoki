@@ -309,10 +309,12 @@ export function growthPlanText(world, city, target) {
 export function cityOutlook(world, city) {
   const out = [];
   const line = rushLineOf(world);
-  if (city.rush > 0) out.push({ kind: 'rush', text: `🍬ラッシュ中（あと${city.rush}日）。甘味がよく売れる。終わるとクラッシュ` });
-  else if (city.crash > 0) out.push({ kind: 'crash', text: `💥クラッシュ中（あと${city.crash}日）。甘味が売れにくく、町も育たない` });
+  // 自分の交易所では、ラッシュの育ちの得と、反動の損を並べる（34回目の相談: s4 のオアシスで、甘味を重ねるか絞るかを選べるように）
+  const cost = city.founded ? `。ラッシュの${B.rushDays}日は育ちが1日+${(B.rushGrowthBonus * 100).toFixed(1)}%、続くクラッシュの${B.crashDays}日は人口が1日${(B.crashGrowth * 100).toFixed(1)}%減る` : '';
+  if (city.rush > 0) out.push({ kind: 'rush', text: `🍬ラッシュ中（あと${city.rush}日）。甘味がよく売れる。終わるとクラッシュ${city.founded ? `（${B.crashDays}日、人口が1日${(B.crashGrowth * 100).toFixed(1)}%減る）` : ''}` });
+  else if (city.crash > 0) out.push({ kind: 'crash', text: `💥クラッシュ中（あと${city.crash}日）。甘味が売れにくく、町も育たない${city.founded ? '（人口が少しずつ減る）' : ''}` });
   else if (city.glucose >= line - 15 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet')) {
-    out.push({ kind: 'rushSoon', text: `🍬ラッシュ間近（糖度${Math.round(city.glucose)}・${line}で始まる）。甘味を2種類まとめて届けると始まり、甘味が高く売れる` });
+    out.push({ kind: 'rushSoon', text: `🍬ラッシュ間近（糖度${Math.round(city.glucose)}・${line}で始まる）。甘味を2種類まとめて届けると始まり、甘味が高く売れる${cost}。避けるなら甘味を1種類に絞る` });
   } else if (city.glucose >= line - 45 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet' && dailyDemand(city, g, false) > 0)) {
     // 食べ物だけでは「間近」の糖度に届かない。この印を待っていると、ラッシュが一度も起きなかった（18回目の Opus）
     out.push({ kind: 'rushSoon', text: `🍬甘味でラッシュに届く（糖度${Math.round(city.glucose)}・${line}で始まる。食べ物だけでは届かない。甘味を2種類まとめて届けると糖度が上がる）` });
