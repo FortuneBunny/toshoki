@@ -69,7 +69,7 @@ export function updateFestivals(world) {
   if (!world.festivals) planFestivals(world);
   for (const x of world.festivals || []) {
     const c = nm(world, x.city);
-    if (world.day === x.announce) emit(world, { type: 'grandFest', big: true, city: x.city, festival: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}で大祭が開かれる。${countText(world, x.city)}。ラッシュのあとには、甘味を受けつけないクラッシュ（約18日）が来るので、大祭の前にラッシュを起こすと大祭を逃す。甘味の便を止めて、大祭に合わせて2種類まとめて届けよ` });
+    if (world.day === x.announce) emit(world, { type: 'grandFest', big: true, city: x.city, festival: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}で大祭が開かれる。${countText(world, x.city)}。ラッシュのあとには、甘味を受けつけないクラッシュ（約${B.crashDays}日）が来るので、大祭の前にラッシュを起こすと大祭を逃す。甘味の便を止めて、大祭に合わせて2種類まとめて届けよ` });
     const city = world.cities[x.city];
     if (world.day === x.start) x.countAtStart = city?.festRushCount || 0;
     // 大祭の間に届いた最高の糖度と甘味の摂取（逃したわけに、実際の値を出す。34回目の Opus）

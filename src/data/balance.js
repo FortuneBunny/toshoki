@@ -36,11 +36,13 @@ export const BALANCE = {
   rushSweetLine: 0.7,        // ラッシュには、その日の甘味の摂取が必要量の70%以上（甘味2種類以上が目安）
   rushDays: 8,
   rushSweetDemand: 1.8,
-  rushGrowthBonus: 0.004,
-  crashDays: 18,               // ラッシュ（8日）より長く効く。わざと起こし続けると損になるように
+  // 34回目の相談: 反動を軽くした（育ちの上乗せ 0.004→0.008、クラッシュ 18→12日、人口は減らずに止まる、
+  // クラッシュ中の甘味の糖の効き 0.25→0.5）。ゆっくり育つ町では得、速く育つ町では損になり、町ごとに選ぶ理由が出る
+  rushGrowthBonus: 0.008,
+  crashDays: 12,               // ラッシュ（8日）より長く効く。わざと起こし続けると損になるように
   crashSweetDemand: 0.3,
-  crashSweetGlu: 0.25,
-  crashGrowth: -0.002,
+  crashSweetGlu: 0.5,
+  crashGrowth: 0,
   // 火入れ（34回目の相談の試作。false なら今までどおり、線を越えた日に勝手に起きる）:
   // 糖度が線の rushRipeGap 手前・甘味の摂取 rushRipeSweet 以上で「熟した🔥」。熟した町に甘味を
   // その品の rushIgniteDays 日分まとめて売り、甘味が2種類以上そろうと、翌日ラッシュが始まる

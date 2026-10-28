@@ -356,9 +356,10 @@ export function cityOutlook(world, city) {
   const out = [];
   const line = rushLineOf(world);
   // 自分の交易所では、ラッシュの育ちの得と、反動の損を並べる（34回目の相談: s4 のオアシスで、甘味を重ねるか絞るかを選べるように）
-  const cost = city.founded ? `。ラッシュの${B.rushDays}日は育ちが1日+${(B.rushGrowthBonus * 100).toFixed(1)}%、続くクラッシュの${B.crashDays}日は人口が1日${(B.crashGrowth * 100).toFixed(1)}%減る` : '';
-  if (city.rush > 0) out.push({ kind: 'rush', text: `🍬ラッシュ中（あと${city.rush}日）。甘味がよく売れる。終わるとクラッシュ${city.founded ? `（${B.crashDays}日、人口が1日${(B.crashGrowth * 100).toFixed(1)}%減る）` : ''}` });
-  else if (city.crash > 0) out.push({ kind: 'crash', text: `💥クラッシュ中（あと${city.crash}日）。甘味が売れにくく、町も育たない${city.founded ? '（人口が少しずつ減る）' : ''}` });
+  const crashCost = B.crashGrowth < 0 ? `人口が1日${(B.crashGrowth * 100).toFixed(1)}%減る` : '町が育たない';
+  const cost = city.founded ? `。ラッシュの${B.rushDays}日は育ちが1日+${(B.rushGrowthBonus * 100).toFixed(1)}%、続くクラッシュの${B.crashDays}日は${crashCost}` : '';
+  if (city.rush > 0) out.push({ kind: 'rush', text: `🍬ラッシュ中（あと${city.rush}日）。甘味がよく売れる。終わるとクラッシュ${city.founded ? `（${B.crashDays}日、${crashCost}）` : ''}` });
+  else if (city.crash > 0) out.push({ kind: 'crash', text: `💥クラッシュ中（あと${city.crash}日）。甘味が売れにくく、町も育たない${city.founded && B.crashGrowth < 0 ? '（人口が少しずつ減る）' : ''}` });
   else if (B.rushIgnite && rushRipe(world, city)) {
     const sweets = world.scenario.goods.filter((g) => GOODS[g].kind === 'sweet');
     out.push({ kind: 'rushSoon', text: `🔥熟した（糖度${Math.round(city.glucose)}・甘味の摂取${Math.round((city.sweetLevel || 0) * 100)}%）。甘味を1日にまとめて売ると（${sweets.slice(0, 3).map((g) => `${GOODS[g].name}なら${igniteNeed(city, g)}個`).join('・')}）、甘味が2種類そろっていれば翌日ラッシュが始まる。売らなければ起きない${cost}` });

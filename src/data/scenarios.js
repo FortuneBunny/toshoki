@@ -228,7 +228,7 @@ const s5 = {
   // 救いは2段: 280日を過ぎたら大祭のラッシュは1回でよい、365日（A の線のあと）を過ぎたら大祭の外のラッシュも数える
   festivals: { city: 'saito', first: [50, 70], gap: [40, 60], lead: 30, days: 10 },
   goals: [{ type: 'rushes', city: 'saito', count: 2, during: 'festival', relaxAfter: 280, anyAfter: 365 }, { type: 'cityTier', city: 'saito', tier: 3 }, { type: 'network', cities: ['saito', 'ine', 'satou'], posts: 1, mode: 'road' }],
-  deadline: 480, rankS: 0.528, // 253日（0.45 → 0.528。大祭を入れたとき、選抜で一度だけ決めた）
+  deadline: 480, rankS: 249 / 480, // 249日（34回目。反動を軽くした値で、選抜で一度だけ決めた。前は253日）
   transports: ['donkey', 'cart'],
   techs: { refinery: { from: 30 }, wheel: { from: 0 } },
   buildings: ['malthouse', 'winery', 'confectionery', 'road'],
