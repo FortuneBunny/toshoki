@@ -92,6 +92,11 @@ export function deserialize(json) {
     planFestivals(data);
     data.festivals = (data.festivals || []).map((x) => saved.find((y) => y.id === x.id) || x);
   }
+  if (data.gangs && !data.scenario.gangs) {
+    // 強盗団を外したシナリオの古いセーブ（34回目の相談で s4 から外した）: 予定と定期便の待つ設定を消す。足止め中の便は、その日まで待って終わる
+    delete data.gangs;
+    for (const m of data.player.merchants) if (m.order) { delete m.order.gangWait; delete m.order.gangAvoid; delete m.order.gangHolding; }
+  }
   if (data.gangs) {
     const saved = data.gangs;
     planGangs(data);

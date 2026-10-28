@@ -1,8 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../src/core/index.js';
+import { GANGS_S4 } from '../src/data/scenarios.js';
 
 const silent = { stopOn: new Set() };
+
+// 強盗団は34回目の相談で s4 から外した。仕組みのテストでは、s4 に前の値を差し込んで確かめる
+function withGangs(fn, gangs = GANGS_S4) {
+  return async () => {
+    const keep = G.SCENARIOS.s4.gangs;
+    G.SCENARIOS.s4.gangs = gangs;
+    try { return await fn(); } finally { G.SCENARIOS.s4.gangs = keep; }
+  };
+}
 
 // s1（版4: 町のない土地）で、交易所を2つ開いた状態にする
 function s1Posts(seed = 1) {
@@ -1067,7 +1077,7 @@ test('強盗団の予告（奪う形）: 期間中に区域を通ると護衛が
   }
 });
 
-test('強盗団の予告（s4 の足止め）: 区域で捕まると、積荷は無事のまま30日動けず、同じ一団には二度捕まらない', () => {
+test('強盗団の予告（s4 の足止め）: 区域で捕まると、積荷は無事のまま30日動けず、同じ一団には二度捕まらない', withGangs(() => {
   const w = G.createWorld('s4', { seed: 7 });
   if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
   const st = G.foundSites(w, 1)[0];
@@ -1097,7 +1107,7 @@ test('強盗団の予告（s4 の足止め）: 区域で捕まると、積荷は
   assert.equal(m2.travel, null);
   assert.equal(m2.cargo.silk, 20);
   assert.equal(w2.stats.gangHeldCount, 1);
-});
+}));
 
 test('港の市の予告（試作）: ふだんは空きの分だけ売れ、市の間は運んできた分を上限なしで売れる。倉庫から積んだ分はふだんの空きに数える', async () => {
   const { PORT_MARKET_S6 } = await import('../src/data/scenarios.js');
@@ -1192,7 +1202,7 @@ test('s8 の売り場の交代: 絹と白糖を袋から一巡ずつ引き、予
   assert.deepEqual(w2.shifts.map((x) => [x.good, x.fair, x.start]), xs.map((x) => [x.good, x.fair, x.start]));
 });
 
-test('強盗団の区域を通る日の見積もり: 食料を積んだラクダの旅で、捕まる日が見積もりどおり', () => {
+test('強盗団の区域を通る日の見積もり: 食料を積んだラクダの旅で、捕まる日が見積もりどおり', withGangs(() => {
   const w = G.createWorld('s4', { seed: 3 });
   if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
   const st = G.foundSites(w, 1)[0];
@@ -1209,7 +1219,7 @@ test('強盗団の区域を通る日の見積もり: 食料を積んだラクダ
   assert.ok(h?.caught);
   for (let i = 0; i < 60 && m.travel && !m.travel.gangHeldUntil; i++) G.advance(w, 1, { stopOn: new Set() });
   assert.equal(m.travel.gangHeldUntil - 30, Math.max(h.from, x.start));
-});
+}));
 
 test('町を育てる次の一手: 届ける品と量・成長の見込み・買える町を出す（s4 の交易所・s6 のまだ買い取らない白檀港）', () => {
   const w = G.createWorld('s4', { seed: 31401 });
@@ -1270,7 +1280,7 @@ test('出航の目安の日・人口の節目・備蓄の日数・格上げで�
 
 test('強盗団の端の日と値上がり（s4 では採らなかった決まり。値を重ねて確かめる）・s6 の試しの市（33回目の相談）', () => {
   const keep = G.SCENARIOS.s4.gangs;
-  G.SCENARIOS.s4.gangs = { ...keep, edgeDays: 2, edgeChance: 0.5, boost: { city: 'ryokumon', good: 'silk', mult: 1.3, after: 10 } };
+  G.SCENARIOS.s4.gangs = { ...GANGS_S4, edgeDays: 2, edgeChance: 0.5, boost: { city: 'ryokumon', good: 'silk', mult: 1.3, after: 10 } };
   try {
   const w = G.createWorld('s4', { seed: 31401 });
   if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
@@ -1309,7 +1319,7 @@ test('強盗団の端の日と値上がり（s4 では採らなかった決ま�
   assert.equal(G.portRoom(w7, m7, w7.cities.byakudan, 'spice'), 0);
 });
 
-test('定期便の「区域を通る旅は手前で待つ」と、強盗団が始まる5日前の知らせ（画面だけのテスト5回目）', () => {
+test('定期便の「区域を通る旅は手前で待つ」と、強盗団が始まる5日前の知らせ（画面だけのテスト5回目）', withGangs(() => {
   const mk = () => {
     const w = G.createWorld('s4', { seed: 31401 });
     if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
@@ -1341,7 +1351,7 @@ test('定期便の「区域を通る旅は手前で待つ」と、強盗団が�
   while (w3.day < x3.end + 1) { const ev = G.advance(w3, 1, { stopOn: new Set() }).events; dodged ??= ev.find((e) => e.type === 'gangDodged'); }
   assert.ok(!(m3.gangHeldIds || []).includes(x3.id), 'いつも待つ便は捕まらない');
   assert.ok(dodged && dodged.text.includes(m3.name), '去った日に、避けたことを返す');
-});
+}));
 
 test('港の市の売れない理由・出発の画面の着く日・売れない市は止めない・届いた量（画面だけのテスト5回目の Sol）', () => {
   const w = G.createWorld('s6', { seed: 7 });
@@ -1391,4 +1401,30 @@ test('港の市の間に、手で動かす商人が売れる積荷を持って�
   const ready = evs.filter((e) => e.type === 'portMarketReady');
   assert.equal(ready.length, 2, '市の間に1回と、最後の日にもう1回');
   assert.match(ready[0].text, /15袋を市で売れる/);
+});
+
+test('s4 に強盗団は来ない（34回目の相談で外した）。強盗団の入った前の版のセーブも、予定と定期便の待つ設定を消して続く', async () => {
+  const w = G.createWorld('s4', { seed: 7 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  const ev = [];
+  for (let i = 0; i < 120; i++) ev.push(...G.advance(w, 1, silent).events);
+  assert.ok(!w.gangs?.length);
+  assert.ok(!ev.some((e) => String(e.type).startsWith('gang')));
+  let old;
+  await withGangs(() => {
+    const v = G.createWorld('s4', { seed: 7 });
+    if (G.setupStage(v) === 'family') G.chooseFamily(v, G.familyList(v)[0].id);
+    const st = G.foundSites(v, 1)[0];
+    G.foundPost(v, st.x, st.y);
+    G.advance(v, 70, silent);
+    v.player.merchants[0].order = { stops: [], gangWait: [v.gangs[0].id], gangAvoid: true, gangHolding: true };
+    old = G.serialize(v);
+  })();
+  assert.ok(JSON.parse(old).gangs.length);
+  const w2 = G.deserialize(old);
+  assert.ok(!w2.gangs);
+  assert.ok(!('gangAvoid' in w2.player.merchants[0].order) && !('gangWait' in w2.player.merchants[0].order));
+  w2.player.merchants[0].order = null;
+  G.advance(w2, 30, silent);
+  assert.equal(w2.day, 100);
 });

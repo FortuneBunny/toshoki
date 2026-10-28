@@ -241,7 +241,8 @@ export function popGain(c, days) {
 export function stockDays(world, city, good) {
   const g = GOODS[good];
   if (!['food', 'sweet'].includes(g?.kind) || !g.glu) return null;
-  const dd = dailyDemand(city, good, true, { wild: false });
+  // 圏の隊商宿などは、町の人より先に買って使う（s4 のオアシスで、麦の日数が多く見えていた。34回目の Opus）
+  const dd = dailyDemand(city, good, true);
   return dd > 0.05 ? (city.stock[good] || 0) / dd : null;
 }
 // この30日に届いた量（1日あたり。自分と定期便が売った分）
