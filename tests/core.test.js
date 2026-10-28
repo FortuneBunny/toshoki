@@ -1428,3 +1428,24 @@ test('s4 に強盗団は来ない（34回目の相談で外した）。強盗団
   G.advance(w2, 30, silent);
   assert.equal(w2.day, 100);
 });
+
+test('ラッシュの決算・反動の終わりの人口・線を越えるまでの日数・大祭を逃したわけの最高値（34回目の相談）', () => {
+  const w = G.createWorld('s5', { seed: 3 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  const st = G.foundSites(w, 1)[0];
+  G.foundPost(w, st.x, st.y);
+  const c = w.cities.saito;
+  c.rush = 1; c.rushPop0 = c.pop - 50; c.rushTake = { qty: 12, silver: 340 };
+  const ev = G.advance(w, 1, silent).events;
+  const crash = ev.find((e) => e.type === 'crash' && e.city === 'saito');
+  assert.ok(crash.mine, '目標の町');
+  assert.match(crash.text, /甘味 12個を 340銀で売り/);
+  assert.match(crash.text, /\+\d+人/);
+  c.crash = 1;
+  const end = G.advance(w, 1, silent).events.find((e) => e.type === 'crashEnd' && e.city === 'saito');
+  assert.match(end.text, /クラッシュの間に人口/);
+  c.glucose = 120; c.glucoseTarget = 160;
+  assert.equal(G.rushEta(w, c), Math.ceil(Math.log(30 / 40) / Math.log(0.8)));
+  c.glucoseTarget = 125;
+  assert.equal(G.rushEta(w, c), null);
+});

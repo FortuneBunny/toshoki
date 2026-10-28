@@ -242,8 +242,11 @@ function setSpeed(s) {
 const SKIP_DAYS = 30;
 const SKIP_STOP = new Set(['gang', 'gangSoon', 'portMarket', 'portMarketSail', 'portMarketStart', 'grandFest', 'grandFestStart', 'blight', 'shift', 'gangHeld', 'tierUp', 'tierDown', 'contract', 'debt', 'orderStuck', 'settled', 'settlersLost', 'popMilestone', 'gangDodged', 'portMarketReady', 'victory', 'defeat']);
 // 止めた理由の短い名前（知らせの本文は別に出るので、同じ文を二度出さない）
-const SKIP_WHY = { gang: '強盗団の予告', gangSoon: '強盗団が5日後から', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', gangDodged: '強盗団を避けた', portMarketReady: '市で売れる船がいる', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
+const SKIP_WHY = { gang: '強盗団の予告', gangSoon: '強盗団が5日後から', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', gangDodged: '強盗団を避けた', portMarketReady: '市で売れる船がいる', rush: 'シュガーラッシュ', crash: 'ラッシュの決算', crashEnd: '反動の終わり', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
 function skipStop(w, evs) {
+  // 自分の交易所・目標の町のラッシュと、その決算でも止める（34回目の相談）
+  const sugar = evs.find((e) => ['rush', 'crash', 'crashEnd'].includes(e.type) && e.mine);
+  if (sugar) return sugar;
   // 定期便でも、大きな損（200銀以上）は止める（画面だけのテスト6回目の Opus: 648銀を奪われても⏭が止まらなかった）
   return evs.find((e) => (SKIP_STOP.has(e.type) && !e.minor) || (e.type === 'robbed' && (e.value || 0) >= 200) || (['arrive', 'robbed', 'starve'].includes(e.type) && !(G.getMerchant(w, e.merchant)?.order && !G.getMerchant(w, e.merchant).order.paused)));
 }
@@ -285,8 +288,10 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
     switch (e.type) {
       case 'tierUp': fx.banner(`${app.world.cities[e.city].name}が「${G.tierName(e.tier)}」に！`, '新しい需要が生まれた', `cities/tier${e.tier}`); sfx.fanfare(); fx.burst(at[0], at[1], 30); break;
       case 'tierDown': fx.toast(e.text, { kind: 'bad', icon: 'ui/famine' }); sfx.bad(); break;
-      case 'rush': fx.toast(e.text, { kind: 'rare', icon: 'ui/rush' }); sfx.rush(); fx.burst(at[0], at[1], 22, { size: 16 }); break;
+      // 自分の交易所・目標の町のラッシュは大きく出す（34回目の Opus: 町の成長の知らせに埋もれた）
+      case 'rush': if (e.mine) fx.banner('シュガーラッシュ！', e.text.replace(/^.*?シュガーラッシュ！/, ''), 'ui/rush'); else fx.toast(e.text, { kind: 'rare', icon: 'ui/rush' }); sfx.rush(); fx.burst(at[0], at[1], e.mine ? 34 : 22, { size: 16 }); break;
       case 'crash': fx.toast(e.text, { kind: 'bad', icon: 'ui/crash' }); sfx.crash(); break;
+      case 'crashEnd': if (e.mine) fx.toast(e.text, { icon: 'ui/crash' }); break;
       case 'repUp': fx.banner(`評判 レベル${e.level}`, '手数料が下がった！', 'ui/trophy'); sfx.levelUp(); break;
       case 'contract': fx.toast(e.text, { kind: 'rare', icon: 'ui/contract' }); sfx.rare(); break;
       case 'contractDone': if (!skipTrade) { fx.banner('大口注文 達成！', e.text, 'ui/contract'); sfx.levelUp(); } break;

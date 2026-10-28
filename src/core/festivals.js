@@ -72,6 +72,8 @@ export function updateFestivals(world) {
     if (world.day === x.announce) emit(world, { type: 'grandFest', big: true, city: x.city, festival: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}で大祭が開かれる。${countText(world, x.city)}。ラッシュのあとには、甘味を受けつけないクラッシュ（約18日）が来るので、大祭の前にラッシュを起こすと大祭を逃す。甘味の便を止めて、大祭に合わせて2種類まとめて届けよ` });
     const city = world.cities[x.city];
     if (world.day === x.start) x.countAtStart = city?.festRushCount || 0;
+    // 大祭の間に届いた最高の糖度と甘味の摂取（逃したわけに、実際の値を出す。34回目の Opus）
+    if (city && world.day >= x.start && world.day < x.end) { x.peakGlu = Math.max(x.peakGlu || 0, city.glucose); x.peakSweet = Math.max(x.peakSweet || 0, city.sweetLevel || 0); }
     if (world.day === x.end && city && (city.festRushCount || 0) === (x.countAtStart ?? 0)) emit(world, { type: 'grandFestMissed', city: x.city, text: `${c}の大祭で、ラッシュが起きなかった。${missReason(world, city, x)}` });
     if (world.day === x.start) emit(world, { type: 'grandFestStart', city: x.city, text: `${c}の大祭が始まった（${x.end - 1}日目まで）。今ラッシュが始まれば、${world.scenario.goals?.some((g) => g.type === 'rushes' && g.festivalWeight) ? '目標に多く数える' : '目標に数える'}` });
     if (world.day === x.end) emit(world, { type: 'grandFestEnd', city: x.city, text: `${c}の大祭が終わった` });
@@ -82,7 +84,10 @@ export function updateFestivals(world) {
 function missReason(world, city, x) {
   const d = city.lastRushDay;
   if (d != null && d < x.start && d + B.rushDays + B.crashDays > x.start) return `${d}日目のラッシュの反動（クラッシュ）が大祭に重なった。次は、大祭の前に甘味の便を止めて待て`;
-  return '糖度か甘味（2種類以上）が足りなかった。大祭に合わせて、甘味をまとめて届けよ';
+  if (city.crash > 0 || (city.rush > 0 && d < x.start)) return 'ラッシュかその反動の最中で、大祭の間に新しいラッシュが起きなかった';
+  const line = world.scenario.rushLine ?? B.rushLine;
+  const peak = x.peakGlu != null ? `大祭の間の最高は、糖度 ${Math.round(x.peakGlu)}/${line}・甘味の摂取 ${Math.round((x.peakSweet || 0) * 100)}%/${Math.round(B.rushSweetLine * 100)}%。` : '';
+  return `${peak}${x.peakGlu != null && x.peakGlu < line ? '糖度が足りなかった（食べ物の種類と量）' : '甘味（2種類以上）が足りなかった'}。大祭に合わせて、甘味をまとめて届けよ`;
 }
 
 // 町の「これから」に出す行

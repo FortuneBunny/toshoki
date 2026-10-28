@@ -173,29 +173,52 @@ function growthRate(city) {
   return r * (city.growthMod ?? 1);
 }
 
+// 自分の交易所か、ラッシュが目標の町（知らせで時間を止め、決算を出す町）
+const isMine = (world, city) => !!(city.founded && !city.rivalPost) || !!world.scenario.goals?.some((g) => g.type === 'rushes' && (!g.city || g.city === city.id));
+
+// 今の届け方が続いたら、糖度が線を越えるまで何日か（糖度は目標値へ1日 glucoseFollow ずつ近づく）
+export function rushEta(world, city) {
+  const line = rushLineOf(world);
+  const g = city.glucose, to = city.glucoseTarget ?? g;
+  if (g >= line) return 0;
+  if (to <= line) return null;
+  return Math.max(1, Math.ceil(Math.log((to - line) / (to - g)) / Math.log(1 - B.glucoseFollow)));
+}
+
 function rushCycle(world, city) {
   if (city.rush > 0) {
     city.rush--;
     if (city.rush === 0) {
       city.crash = B.crashDays;
-      emit(world, { type: 'crash', city: city.id, text: `${city.name}でシュガークラッシュ！甘味の需要が落ち込んだ` });
+      // ラッシュの決算: 8日で売った甘味と、人口の増え（34回目の相談: 何が返ったか数えられなかった）
+      const t = city.rushTake || { qty: 0, silver: 0 };
+      const p0 = city.rushPop0 ?? city.pop;
+      city.crashPop0 = city.pop;
+      emit(world, { type: 'crash', city: city.id, mine: isMine(world, city), text: `${city.name}のシュガーラッシュが終わった。${B.rushDays}日で、甘味 ${t.qty}個を ${Math.round(t.silver)}銀で売り${t.qty ? '' : '（ラッシュの値で売る荷がなかった）'}、人口 ${Math.floor(p0)}→${Math.floor(city.pop)}（${city.pop >= p0 ? '+' : ''}${Math.floor(city.pop) - Math.floor(p0)}人）。これからシュガークラッシュ（${B.crashDays}日）: 甘味の需要が落ち込み、町は育たない` });
     }
     return;
   }
   if (city.crash > 0) {
     city.crash--;
-    if (city.crash === 0) emit(world, { type: 'crashEnd', city: city.id, text: `${city.name}の糖の反動が収まった` });
+    if (city.crash === 0) {
+      const p0 = city.rushPop0 ?? city.crashPop0 ?? city.pop;
+      const p1 = city.crashPop0 ?? city.pop;
+      emit(world, { type: 'crashEnd', city: city.id, mine: isMine(world, city), text: `${city.name}の糖の反動が収まった。クラッシュの間に人口 ${Math.floor(p1)}→${Math.floor(city.pop)}（${Math.floor(city.pop) - Math.floor(p1)}人）、ラッシュの前からは ${Math.floor(city.pop) >= Math.floor(p0) ? '+' : ''}${Math.floor(city.pop) - Math.floor(p0)}人` });
+      delete city.rushTake; delete city.rushPop0; delete city.crashPop0;
+    }
     return;
   }
   if (city.glucose >= rushLineOf(world) && (city.sweetLevel || 0) >= B.rushSweetLine) {
     city.rush = B.rushDays;
     city.rushCount = (city.rushCount || 0) + 1;
     city.lastRushDay = world.day;
+    city.rushPop0 = city.pop;
+    city.rushTake = { qty: 0, silver: 0 };
     world.stats.rushes = (world.stats.rushes || 0) + 1;
     // 大祭の期間に始まったラッシュ（目標の during: 'festival' で数える）
     const fest = festivalOn(world, city.id);
     if (fest) city.festRushCount = (city.festRushCount || 0) + 1;
-    emit(world, { type: 'rush', city: city.id, big: true, text: `${city.name}でシュガーラッシュ！甘味が飛ぶように売れる${festRushSuffix(world, city.id, fest)}` });
+    emit(world, { type: 'rush', city: city.id, big: true, mine: isMine(world, city), text: `${city.name}でシュガーラッシュ！甘味が飛ぶように売れる${festRushSuffix(world, city.id, fest)}` });
   }
 }
 
@@ -314,7 +337,10 @@ export function cityOutlook(world, city) {
   if (city.rush > 0) out.push({ kind: 'rush', text: `🍬ラッシュ中（あと${city.rush}日）。甘味がよく売れる。終わるとクラッシュ${city.founded ? `（${B.crashDays}日、人口が1日${(B.crashGrowth * 100).toFixed(1)}%減る）` : ''}` });
   else if (city.crash > 0) out.push({ kind: 'crash', text: `💥クラッシュ中（あと${city.crash}日）。甘味が売れにくく、町も育たない${city.founded ? '（人口が少しずつ減る）' : ''}` });
   else if (city.glucose >= line - 15 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet')) {
-    out.push({ kind: 'rushSoon', text: `🍬ラッシュ間近（糖度${Math.round(city.glucose)}・${line}で始まる）。甘味を2種類まとめて届けると始まり、甘味が高く売れる${cost}。避けるなら甘味を1種類に絞る` });
+    // このままなら何日で線を越えるか（34回目の Opus: 大祭の2日前に起きて、反動が大祭に重なった）
+    const eta = rushEta(world, city);
+    const when = eta ? `。今の届け方なら約${eta}日で糖度が線を越える（甘味の摂取 今${Math.round((city.sweetLevel || 0) * 100)}%・${Math.round(B.rushSweetLine * 100)}%以上も要る）` : `。今の届け方では線に届かない（糖度は約${Math.round(city.glucoseTarget ?? city.glucose)}へ向かう）`;
+    out.push({ kind: 'rushSoon', text: `🍬ラッシュ間近（糖度${Math.round(city.glucose)}・${line}で始まる${when}）。甘味を2種類まとめて届けると始まり、甘味が高く売れる${cost}。避けるなら甘味を1種類に絞る` });
   } else if (city.glucose >= line - 45 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet' && dailyDemand(city, g, false) > 0)) {
     // 食べ物だけでは「間近」の糖度に届かない。この印を待っていると、ラッシュが一度も起きなかった（18回目の Opus）
     out.push({ kind: 'rushSoon', text: `🍬甘味でラッシュに届く（糖度${Math.round(city.glucose)}・${line}で始まる。食べ物だけでは届かない。甘味を2種類まとめて届けると糖度が上がる）` });
