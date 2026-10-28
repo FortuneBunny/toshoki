@@ -80,8 +80,11 @@ function dwellingLine(world, c) {
 
 // ラッシュまでの目安: 糖度140以上と、その日の甘味の摂取（必要量に対する割合）70%以上の両方
 // まとめて届ける量の目安も出す（白糖7個が数日で切れ、摂取69%で止まった。31回目の Gemini）
-function rushGap(glucose, sweet, plan = null, line = 140) {
+function rushGap(glucose, sweet, plan = null, line = 140, city = null) {
   if (glucose === undefined) return 'ラッシュの目安は町を見ないと分からない';
+  // ラッシュ中・クラッシュ中は、条件がそろっていても起きない（34回目の Sol: 「明日にもラッシュ」と出た）
+  if (city?.rush > 0) return `ラッシュ中（あと${city.rush}日）`;
+  if (city?.crash > 0) return `クラッシュ中（あと${city.crash}日）。終わるまで次のラッシュは起きない`;
   const g = Math.round(glucose);
   const s = Math.round(sweet * 100);
   const need = [];
@@ -204,7 +207,7 @@ function statusText(world) {
       const k = world.player.knowledge[c.id];
       const here = world.player.merchants.some((m) => m.city === c.id) || G.isVisited(world, c.id) || c.founded;
       const adv = here ? G.dietAdvice(world, c).slice(0, 3) : [];
-      out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、${rushGap(here ? c.glucose : k?.glucose, (here ? c.sweetLevel : k?.sweetLevel) || 0, G.rushSweetPlan(world, c), G.rushLineOf(world))}` : ''}${here ? (() => { const why = G.growthBlocker(world, c); return why ? `。⚠ ${why}` : ''; })() : k?.blocker ? `。⚠ ${world.day - k.day}日前に見たとき: ${k.blocker}` : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}（20日ごとの便なら1回に約${Math.ceil(a.perDay * 20)}個）`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
+      out.push(`      ${c.name}: 糖度 ${here ? Math.round(c.glucose) : k?.glucose !== undefined ? `${Math.round(k.glucose)}（${world.day - k.day}日前）` : '?'}${def.type === 'rushes' ? `、${rushGap(here ? c.glucose : k?.glucose, (here ? c.sweetLevel : k?.sweetLevel) || 0, G.rushSweetPlan(world, c), G.rushLineOf(world), here ? c : null)}` : ''}${here ? (() => { const why = G.growthBlocker(world, c); return why ? `。⚠ ${why}` : ''; })() : k?.blocker ? `。⚠ ${world.day - k.day}日前に見たとき: ${k.blocker}` : ''}${adv.length ? `。続けて届けると伸びる: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}（20日ごとの便なら1回に約${Math.ceil(a.perDay * 20)}個）`).join('、')}` : here ? '' : '（詳しくは商人を送って city で）'}`);
     }
   });
   // 町を育てる次の一手（画面と同じ。画面だけのテスト4回目）
@@ -347,7 +350,7 @@ function cityText(world, id) {
     if (refuse.length) out.push(`この町が買い取らない品: ${refuse.map((g) => GOODS[g].name).join('・')}（町が育つと買い取るものもある${G.knownShifts(world).some((x) => x.fair === id && !G.fairClosed(world, x)) ? '。隊商市の期間は、市が白糖を買う' : ''}）`);
     if (diet.length) out.push(`食卓（糖度への寄与）: ${diet.map(([g, v]) => `${GOODS[g].name} +${Math.round(v * 100)}`).join(' / ')}`);
     const missingFood = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && G.dailyDemand(c, g, false) > 0 && !(c.diet?.[g] > 0.02));
-    out.push(`シュガーラッシュまで: ${rushGap(c.glucose, c.sweetLevel || 0, G.rushSweetPlan(world, c), G.rushLineOf(world))}`);
+    out.push(`シュガーラッシュまで: ${rushGap(c.glucose, c.sweetLevel || 0, G.rushSweetPlan(world, c), G.rushLineOf(world), c)}`);
     out.push(`※ 1種類の食べ物で上げられる糖度は50まで、甘味は1種類45まで。種類を増やすほど糖度が上がる。${missingFood.length ? `今足りない食べ物: ${missingFood.map((g) => GOODS[g].name).join('、')}` : ''}`);
     const adv = G.dietAdvice(world, c).slice(0, 6);
     if (adv.length) out.push(`伸びしろ（1日あたりの目安量で、糖度がどれだけ上がるか）: ${adv.map((a) => `${GOODS[a.good].name} 約${fmt(a.perDay, 1)}個/日で+${a.gain}`).join(' / ')}`);
