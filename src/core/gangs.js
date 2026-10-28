@@ -199,9 +199,9 @@ export function setOrderGangWait(world, mid, gangId, on) {
 function soonText(world, x) {
   const out = [];
   for (const m of world.player.merchants) {
-    if (m.travel) { const h = travelGangCrossings(world, m).find((y) => y.gang.id === x.id && y.caught); if (h) out.push(`${m.name}（今の旅で${h.from}日目に区域に入る）`); continue; }
+    if (m.travel) { const h = travelGangCrossings(world, m).find((y) => y.gang.id === x.id && y.caught); if (h) out.push(`${m.name}（今の旅で${h.from}日目に区域に入る${m.order ? '。もう出発しているので、待つは次の旅から' : ''}）`); continue; }
     const o = m.order;
-    if (!o || o.paused || o.gangWait?.includes(x.id)) continue;
+    if (!o || o.paused || o.gangAvoid || o.gangWait?.includes(x.id)) continue;
     const to = o.stops[o.next]?.city;
     const r = to && to !== m.city ? findPath(world, m.city, to, m.transport) : null;
     const h = r && gangCrossings(world, m, r.tiles, r.steps).find((y) => y.gang.id === x.id && y.caught);
@@ -221,6 +221,13 @@ export function updateGangs(world) {
     if (world.day === x.start - 5 && x.start - 5 > x.announce) { const who = soonText(world, x); if (who.length) emit(world, { type: 'gangSoon', big: true, bad: true, zone: x.zone, gang: x.id, text: `5日後（${x.start}日目）から${z.name}に強盗団が居座る。このままだと捕まる: ${who.join('、')}。定期便は、この知らせの窓で「区域を通る便は手前で待つ」を選べる` }); }
     if (world.day === x.start) emit(world, { type: 'gangStart', zone: x.zone, text: `${z.name}に強盗団が現れた（${x.end - 1}日目まで）` });
     if (world.day === x.end) emit(world, { type: 'gangEnd', zone: x.zone, text: `${z.name}の強盗団が去った` });
+    // 読みが当たったことを返す（画面だけのテスト6回目の Opus: 避けても得が見えず、「待つ」が売上を捨てる操作に見えた）
+    if (world.day === x.end && x.dodged?.length) {
+      const ms = x.dodged.map((id) => world.player.merchants.find((m) => m.id === id)).filter(Boolean);
+      const held = ms.length * (sc.holdDays || 0);
+      if (ms.length) world.stats.forecastHits = (world.stats.forecastHits || 0) + 1;
+      if (ms.length) emit(world, { type: 'gangDodged', big: true, good: true, zone: x.zone, text: `読みが当たった: ${ms.map((m) => m.name).join('・')}が手前で待ち、${z.name}の強盗団を避けた${held ? `（足止め のべ${held}日を避けた）` : ''}` });
+    }
   }
 }
 

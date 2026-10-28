@@ -124,7 +124,7 @@ export function portRoom(world, m, city, good) {
 // 売る直前（積荷を減らす前）: 市の分を先に使い、残りでふだんの空きを減らす
 export function notePortSale(world, m, city, good, n) {
   if (!limited(world, city, good)) return;
-  if (city.trialWants?.[good] && trialLeft(world) != null) { const x = world.markets[0]; x.sold = (x.sold || 0) + n; return; }
+  if (city.trialWants?.[good] && trialLeft(world) != null) { const x = world.markets[0]; x.sold = (x.sold || 0) + n; forecastHit(world, x, m); return; }
   let rest = n;
   if (marketShip(world, m, city, good)) {
     const here = m.whLoaded?.city === city.id ? m.whLoaded[good] || 0 : 0;
@@ -133,8 +133,17 @@ export function notePortSale(world, m, city, good, n) {
     if (m.whLoaded?.city === city.id && m.whLoaded[good]) m.whLoaded[good] = Math.max(0, here - rest);
     const x = world.markets.find((y) => y.city === city.id && y.good === good && marketActive(world, y));
     if (x) x.sold = (x.sold || 0) + Math.min(n, free);
+    if (x && Math.min(n, free) > 0) forecastHit(world, x, m);
   }
   world.portRoom = Math.max(0, (world.portRoom ?? world.scenario.portMarket.max) - rest);
+}
+
+// 予告を読んで当てた回数（結果の画面。画面だけのテスト6回目の Sol: 市に合わせて売っても「読み的中0回」で、何を数えるのか分からなかった）
+function forecastHit(world, x, m) {
+  x.hitBy ??= [];
+  if (x.hitBy.includes(m.id)) return;
+  x.hitBy.push(m.id);
+  world.stats.forecastHits = (world.stats.forecastHits || 0) + 1;
 }
 
 // 市の値の倍率
@@ -203,7 +212,26 @@ export function updateMarkets(world) {
     if (world.day === x.announce) emit(world, { type: 'portMarket', big: true, city: x.city, market: x.id, minor: !marketOpenFor(world, x, sc), text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}に${g}の大口の商人が来る。ふだんの${c}は${g}を少しずつしか買わない（倉の空きは1日に約${sc.rate}個戻る）が、市の間は、${who}${g}を上限なしで約${Math.round(sc.price * 10) / 10}倍の値で買う（ただし、たくさん売るほど値は下がる。2隻目は1隻目よりずっと安い）。市に合わせて、${g}を積んだ船を着かせよ。${notYetText(world, sc, x)}${supplyText(world)}${sailText(world)}`, card: marketCard(world, x, sc) });
     sailNote(world, x, sc);
     if (world.day === x.start) emit(world, { type: 'portMarketStart', city: x.city, text: `${c}に${g}の大口の商人が来た（${x.end - 1}日目まで）。${who}${g}は上限なしで売れる` });
+    readyNote(world, x, sc);
     if (world.day === x.end) emit(world, { type: 'portMarketEnd', city: x.city, text: `${c}の${g}の市が終わった（あなたが${x.id === 1 && sc.trial && !baseWants(world.cities[x.city], x.good) ? '試しの市で' : '上限なしで'}売ったのは${Math.floor(x.sold || 0)}個）${endText(world, sc)}` });
+  }
+}
+
+// 市の間に、手で動かす商人が市で売れる積荷を持って港にいる: 知らせて止める。終わる前の日にもう一度
+// （画面だけのテスト6回目の Sol: 止めた定期便の船で市の初日に着いたが、自動では売らず、⏭で市を越えて90袋を持ち帰った）
+function readyNote(world, x, sc) {
+  if (!marketActive(world, x)) return;
+  const city = world.cities[x.city];
+  const last = world.day === x.end - 1;
+  x.ready ??= {};
+  for (const m of world.player.merchants) {
+    if (m.travel || m.city !== x.city || (m.order && !m.order.paused) || !(m.cargo[x.good] > 0)) continue;
+    const n = Math.min(m.cargo[x.good], portRoom(world, m, city, x.good));
+    if (n < 1 || !marketShip(world, m, city, x.good)) continue;
+    const stage = last ? 2 : 1;
+    if ((x.ready[m.id] || 0) >= stage) continue;
+    x.ready[m.id] = stage;
+    emit(world, { type: 'portMarketReady', big: true, city: x.city, merchant: m.id, text: `⚓ ${m.name}は${city.name}にいて、${GOODS[x.good].name}${Math.floor(n)}袋を市で売れる（${last ? '市は今日まで' : `${x.end - 1}日目まで`}）。手で動かす商人は自動では売らない。交易の画面で売る` });
   }
 }
 

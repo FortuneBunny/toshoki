@@ -109,7 +109,7 @@ function cityPanel(app, id) {
         h('dt', {}, '糖度'), h('dd', {}, `${Math.round(c.glucose)}（向かう先 ${Math.round(c.glucoseTarget)}）${c.rush ? ` 🍬ラッシュ あと${c.rush}日` : ''}${c.crash ? ` 💥クラッシュ あと${c.crash}日` : ''}`),
         h('dt', {}, '人口'), h('dd', {}, `${fmt(c.pop)}${next ? ` / 次の段階 ${fmt(next)}` : ''}`, (() => { const g = G.popGain(c, 30); return g != null ? h('span', { class: g > 0 ? 'good' : g < 0 ? 'bad' : 'dim', style: { fontSize: '11px' } }, `（この30日で${g >= 0 ? '+' : ''}${g}人）`) : null; })()),
         // 食卓の品の備蓄が何日もつか（33回目の相談: 補給が次の便までもつかが見えなかった）
-        (() => { const xs = world.scenario.goods.map((g) => [g, G.stockDays(world, c, g)]).filter(([, d]) => d != null); return xs.length && (c.founded || G.goalTargetPop(world, c.id)) ? [h('dt', { title: '今の在庫を、町が毎日食べる量で割った日数' }, '食卓の備蓄'), h('dd', {}, xs.map(([g, d], i) => h('div', { class: d < 5 ? 'bad' : d < 12 ? 'amber' : '' }, `${GOODS[g].name} ${Math.floor(d)}日分`, h('span', { class: 'dim', style: { fontSize: '11px' } }, `（この30日に届いた 1日約${fmt(G.supplyPerDay(world, c, g), 1)}個 / 町が食べる 1日約${fmt(G.eatPerDay(c, g), 1)}個）`))))] : []; })(),
+        (() => { const xs = world.scenario.goods.map((g) => [g, G.stockDays(world, c, g)]).filter(([, d]) => d != null); return xs.length && (c.founded || G.goalTargetPop(world, c.id)) ? [h('dt', { title: '今の在庫を、町が毎日食べる量で割った日数' }, '食卓の備蓄'), h('dd', {}, xs.map(([g, d], i) => h('div', { class: d < 5 ? 'bad' : d < 12 ? 'amber' : '' }, `${GOODS[g].name} ${Math.floor(d)}日分`, h('span', { class: 'dim', style: { fontSize: '11px' } }, `（この30日に届いた 1日約${fmt(G.supplyPerDay(world, c, g), 1)}個 / 町が食べる 1日約${fmt(G.eatPerDay(c, g), 1)}個）`), d < 5 ? carriersEl(world, c, g) : null)))] : []; })(),
         h('dt', {}, '成長'), h('dd', { class: G.growthPerDay(c) >= 0 ? 'good' : 'bad' }, `${(G.growthPerDay(c) * 100).toFixed(2)}% / 日`, G.growthBlocker(world, c) ? h('div', { class: 'dim', style: { fontSize: '11px' } }, `止めているもの: ${G.growthBlocker(world, c)}`) : null, (() => { const t = G.goalTargetPop(world, c.id); const p = t ? G.goalPlanText(world, c, t) : ''; return p ? h('div', { class: 'amber', style: { fontSize: '11px' } }, `💡 ${p}`) : null; })()),
         c.founded && G.settlersAllowed(world) ? h('dt', {}, '開拓団') : null,
         c.founded && G.settlersAllowed(world) ? h('dd', {}, `${c.settlerGroups || 0}/${G.BALANCE.settlerMax}団 住みついた${world.player.merchants.some((m) => m.settlers?.to === id) ? `（運んでいる途中 ${world.player.merchants.filter((m) => m.settlers?.to === id).length}団）` : ''}`, h('div', { class: 'dim', style: { fontSize: '11px' } }, G.settleCheck(world, id) ? `受け入れ ✖ ${G.settleCheck(world, id)}` : '受け入れ ○ 今なら住みつける')) : null,
@@ -335,6 +335,12 @@ function overview(app) {
   return box;
 }
 
+// 備蓄が細る品を、どの定期便が届けているか（画面だけのテスト6回目の Opus: 定期便に任せた後、備蓄0日分のまま気づけなかった）
+function carriersEl(world, c, g) {
+  const ms = world.player.merchants.filter((m) => m.order && G.baseStops(m.order).some((st) => st.city === c.id && (st.sell || []).some((x) => x.good === g)));
+  return h('div', { class: 'faint', style: { fontSize: '11px' } }, ms.length ? `届けている定期便: ${ms.map((m) => `${m.name}${m.order.paused ? '（止まっている）' : ''}`).join('・')}。足りなければ買う数を増やす` : '届けている定期便: なし。定期便の「＋売る品」に足すと届く');
+}
+
 // ---------- 出発 ----------
 export function departDialog(app, mid, to) {
   const world = app.world;
@@ -401,6 +407,10 @@ export function orderDialog(app, mid, { alt: startAlt = false, shift = null } = 
   const cheapest = (g) => Math.min(...Object.values(world.cities).filter((c) => G.isVisited(world, c.id) && (c.stock[g] || 0) >= 1).map((c) => avgBuy(c.id, g)), Infinity);
   const minFor = (g, from) => Math.floor((from ? avgBuy(from, g) : m.cost[g] || (Number.isFinite(cheapest(g)) ? cheapest(g) : GOODS[g].base * 0.8)) * 1.03 * 10) / 10;
   let stops;
+  // 定期便の護衛と、強盗団の「待つ」（画面だけのテスト6回目の Opus: 定期便の画面に護衛の欄がなく、護衛0人で走って648銀を奪われた）
+  let guards = 0;
+  let gangAvoid = !!m.order?.gangAvoid;
+  let gangWait = [...(m.order?.gangWait || [])];
   // その品を便の中で買う、ほかの停泊地（最低売値の基準）
   const buyerOf = (g, i) => stops.find((st, j) => j !== i && st.buy?.some((x) => x.good === g))?.city;
   // その品を売る停泊地。なければ、次の停泊地（上限買値の基準）
@@ -426,6 +436,7 @@ export function orderDialog(app, mid, { alt: startAlt = false, shift = null } = 
   }
   // 臨時の便（期間予約）: 予告された売り場の交代のあいだだけ回る、別の停泊地（19回目の相談）
   const baseStops = stops;
+  guards = m.order ? m.order.guards || 0 : world.scenario.bandits ? legDanger() * 2 + 1 : 0;
   let altStops = null;
   let altFrom;
   let altUntil;
@@ -472,6 +483,7 @@ export function orderDialog(app, mid, { alt: startAlt = false, shift = null } = 
         h('button', { class: 'btn primary small', onclick: () => { const r = G.setOrderAlt(world, mid, { stops: altStops, from: altFrom, until: altUntil }); if (!r.ok) return app.error(r.error); app.toast(`臨時の便を予約した（${altFrom}〜${altUntil}日目）`); flushOut(); } }, '臨時の便を予約する'),
         null));
     }
+    if (tab === 'base') add(body, guardRow(), gangRow());
     if (tab === 'base') add(body, h('div', { class: 'dim', style: { marginBottom: '8px', fontSize: '12px' } }, '停泊地を順番に回り続ける。最低売値より安ければ売らずに持ち越し、上限買値より高ければ買わない（赤字を防ぐ）。直近の取引から下書きを作っています。値は今の相場から: 上限買値は今の買値の15%増しか、売る町の売値の9割の高いほう。最低売値は、買う町の今の買値。定期便は、積荷の仕入れ値を割っては売らない（60日売れなければ最低売値で売る）。'));
     stops.forEach((st, i) => {
       const box = h('div', { class: 'order-stop' });
@@ -496,6 +508,21 @@ export function orderDialog(app, mid, { alt: startAlt = false, shift = null } = 
     add(body, h('div', { class: 'row chips' }, h('span', { class: 'dim' }, '＋停泊地:'), known.length ? known.map((c) => h('button', { class: 'btn tiny', onclick: () => { stops.push({ city: c.id, buy: [], sell: [] }); draw(); } }, c.name)) : h('span', { class: 'dim' }, 'ほかに知っている町がない')));
   };
   draw();
+  function legDanger() { let d = 0; baseStops.forEach((st, i) => { const r = G.findPath(world, st.city, baseStops[(i + 1) % baseStops.length].city, m.transport); if (r) d = Math.max(d, ...r.edges.map((e) => e.danger || 0)); }); return d; }
+  function guardRow() {
+    if (!world.scenario.bandits) return null;
+    const d = legDanger();
+    return h('div', { class: 'row', style: { marginBottom: '6px', alignItems: 'center' } }, h('span', { style: { marginRight: '6px' } }, '護衛'), h('button', { class: 'btn tiny', onclick: () => { guards = Math.max(0, guards - 1); draw(); } }, '−'), h('b', { class: 'num', style: { margin: '0 6px' } }, guards), h('button', { class: 'btn tiny', onclick: () => { guards = Math.min(12, guards + 1); draw(); } }, '＋'),
+      h('span', { class: 'dim', style: { fontSize: '12px', marginLeft: '8px' } }, `1日 約${guards * G.BALANCE.guardWage}銀。${d ? `道の盗賊の強さ ${d}（目安 ${d * 2 + 1}人）` : 'この便の道に盗賊はほとんど出ない'}`));
+  }
+  // 強盗団（予告ずみ）の区域を通る便を、手前で待たせる（画面だけのテスト6回目の Opus: 予告の後に組んだ便には選ぶ場がなかった）
+  function gangRow() {
+    if (!world.scenario.gangs) return null;
+    const known = G.knownGangs(world).filter((x) => world.day < x.end);
+    return h('div', { style: { marginBottom: '8px' } },
+      h('label', { class: 'row' }, h('input', { type: 'checkbox', checked: gangAvoid || undefined, onchange: (e) => { gangAvoid = e.target.checked; draw(); } }), '予告された強盗団の区域は、いつも手前の町で待つ'),
+      known.length && !gangAvoid ? h('div', { class: 'row chips' }, h('span', { class: 'dim' }, '今の予告:'), known.map((x) => { const on = gangWait.includes(x.id); return h('button', { class: `btn tiny ${on ? 'primary' : ''}`, onclick: () => { gangWait = on ? gangWait.filter((y) => y !== x.id) : [...gangWait, x.id]; draw(); } }, `${G.gangZone(world, x).name} ${x.start}〜${x.end - 1}日目: ${on ? '待つ' : '待たない'}`); })) : null);
+  }
   const md = modal(app, `${m.name}の定期便`, body, (close) => [
     m.order ? h('button', { class: 'btn danger', onclick: () => { G.clearOrder(world, mid); close(); app.render(); } }, '定期便を解除') : null,
     m.order && !m.order.paused ? h('button', { class: 'btn ghost', onclick: () => { const r = G.pauseOrderAtNext(world, mid); app.toast(r.now ? '定期便を止めた' : '次の町で止まる'); close(); app.render(); } }, '次の町で止める') : null,
@@ -504,7 +531,7 @@ export function orderDialog(app, mid, { alt: startAlt = false, shift = null } = 
     m.order && world.player.merchants.length > 1 ? h('button', { class: 'btn ghost', onclick: () => { close(); copyOrderDialog(app, mid); } }, 'ほかの商人に写す') : null,
     h('span', { style: { flex: 1 } }),
     h('button', { class: 'btn ghost', onclick: close }, 'キャンセル'),
-    h('button', { class: 'btn primary', onclick: () => { const r = G.setOrder(world, mid, { stops: baseStops, guards: m.order?.guards, reserve: m.order?.reserve, keepAlt: true }); if (!r.ok) return app.error(r.error); close(); app.afterOrder(mid); } }, tab === 'alt' ? 'いつもの便を開始' : '定期便を開始'),
+    h('button', { class: 'btn primary', onclick: () => { const r = G.setOrder(world, mid, { stops: baseStops, guards, gangAvoid, gangWait, reserve: m.order?.reserve, keepAlt: true }); if (!r.ok) return app.error(r.error); close(); app.afterOrder(mid); } }, tab === 'alt' ? 'いつもの便を開始' : '定期便を開始'),
   ], { wide: true });
   function flushOut() { md.close(); app.render(); }
 }
@@ -626,7 +653,7 @@ export function resultDialog(app) {
       h('h2', { style: { fontFamily: 'var(--font-title)', fontSize: '30px', margin: '6px 0' } }, `ランク ${f.rank}`),
       h('div', { class: 'dim' }, `${f.day}日目に達成（期限 ${sc.deadline}日、S基準 ${Math.floor(sc.deadline * (sc.rankS ?? 0.55))}日）`),
       h('div', { class: 'total-big', style: { margin: '6px 0' } }, `資産 ${fmt(f.score)} 銀`),
-      h('div', { class: 'dim' }, `読み的中 ${world.stats.hits}回・最長連続黒字 ${world.player.maxStreak}・大口注文 ${world.stats.contracts}件・ラッシュ ${world.stats.rushes}回`));
+      h('div', { class: 'dim' }, `${world.scenario.gangs || world.scenario.portMarket ? `予告を読んで当てた ${world.stats.forecastHits || 0}回（${world.scenario.gangs ? '強盗団を手前で待って避けた' : '港の市の間に着いて売った'}）・` : ''}相場の読み的中 ${world.stats.hits}回・最長連続黒字 ${world.player.maxStreak}・大口注文 ${world.stats.contracts}件・ラッシュ ${world.stats.rushes}回`));
     const un = world.unlockedHeirloom;
     if (un) {
       const x = HEIRLOOMS[un.key];

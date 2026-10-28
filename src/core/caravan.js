@@ -223,7 +223,7 @@ function banditCheck(world, m, danger) {
   }
   world.stats.banditLoss = (world.stats.banditLoss || 0) + lostValue;
   // 何も奪われなかったときは、時間を止めるほどの出来事ではない
-  emit(world, { type: lost ? 'robbed' : 'robbedNothing', merchant: m.id, bad: true, text: `${m.name}が盗賊（強さ${power}、護衛${m.guards}人）に襲われ、積荷${lost}個（約${Math.round(lostValue)}銀分）を奪われた` });
+  emit(world, { type: lost ? 'robbed' : 'robbedNothing', merchant: m.id, bad: true, value: Math.round(lostValue), text: `${m.name}が盗賊（強さ${power}、護衛${m.guards}人）に襲われ、積荷${lost}個（約${Math.round(lostValue)}銀分）を奪われた${m.order && m.guards < power / B.guardPower ? `。定期便の護衛は、定期便の画面で決める（今は${m.guards}人）` : ''}` });
 }
 
 export function stepTravel(world, m) {

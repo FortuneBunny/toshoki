@@ -1333,6 +1333,14 @@ test('定期便の「区域を通る旅は手前で待つ」と、強盗団が�
   while (w2.day < x2.end + 5) { G.advance(w2, 1, { stopOn: new Set() }); waited ||= !!m2.order.gangHolding; }
   assert.ok(!(m2.gangHeldIds || []).includes(x2.id), '待つ便は捕まらない');
   assert.ok(waited, '手前で待った');
+  // いつも待つ（gangAvoid）: 予告の前に設定すれば、予告ごとに押さなくても待つ。去った日に「読みが当たった」が出る。組み直しても設定は残る
+  const [w3, m3, x3] = mk();
+  assert.ok(G.setOrder(w3, m3.id, { stops: G.baseStops(m3.order), gangAvoid: true }).ok);
+  assert.ok(G.setOrder(w3, m3.id, { stops: G.baseStops(m3.order) }).ok && m3.order.gangAvoid, '組み直しても残る');
+  let dodged = null;
+  while (w3.day < x3.end + 1) { const ev = G.advance(w3, 1, { stopOn: new Set() }).events; dodged ??= ev.find((e) => e.type === 'gangDodged'); }
+  assert.ok(!(m3.gangHeldIds || []).includes(x3.id), 'いつも待つ便は捕まらない');
+  assert.ok(dodged && dodged.text.includes(m3.name), '去った日に、避けたことを返す');
 });
 
 test('港の市の売れない理由・出発の画面の着く日・売れない市は止めない・届いた量（画面だけのテスト5回目の Sol）', () => {
@@ -1368,4 +1376,19 @@ test('港の市の売れない理由・出発の画面の着く日・売れな�
   m.city = c.id; m.cargo = { wheat: 30 }; m.cost = { wheat: 1 };
   assert.ok(G.trade(w, m.id, [{ good: 'wheat', qty: -30 }]).ok);
   assert.ok(Math.abs(G.supplyPerDay(w, c, 'wheat') - 1) < 1e-9);
+});
+
+test('港の市の間に、手で動かす商人が売れる積荷を持って港にいれば知らせる（画面だけのテスト6回目の Sol）', () => {
+  const w = G.createWorld('s6', { seed: 7 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  G.foundPost(w, G.foundSites(w, 1)[0].x, G.foundSites(w, 1)[0].y);
+  const x = w.markets[0];
+  while (w.day < x.start) G.advance(w, 1, { stopOn: new Set() });
+  const m = w.player.merchants[0];
+  Object.assign(m, { travel: null, city: 'byakudan', lastFrom: 'koshou', arriveDay: w.day, cargo: { spice: 20 }, cost: { spice: 10 } });
+  const evs = [];
+  while (w.day < x.end) evs.push(...G.advance(w, 1, { stopOn: new Set() }).events);
+  const ready = evs.filter((e) => e.type === 'portMarketReady');
+  assert.equal(ready.length, 2, '市の間に1回と、最後の日にもう1回');
+  assert.match(ready[0].text, /15袋を市で売れる/);
 });

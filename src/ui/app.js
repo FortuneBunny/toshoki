@@ -240,11 +240,12 @@ function setSpeed(s) {
 // 次の知らせまで進める（画面だけのテスト4回目: 止めたい日に止められず、待ちすぎた・期限まで飛んだ。33回目の相談）
 // 止まるのは、行動を変える必要があるときだけ。定期便の到着では止まらない。30日で必ず止めて、その間をまとめる
 const SKIP_DAYS = 30;
-const SKIP_STOP = new Set(['gang', 'gangSoon', 'portMarket', 'portMarketSail', 'portMarketStart', 'grandFest', 'grandFestStart', 'blight', 'shift', 'gangHeld', 'tierUp', 'tierDown', 'contract', 'debt', 'orderStuck', 'settled', 'settlersLost', 'popMilestone', 'victory', 'defeat']);
+const SKIP_STOP = new Set(['gang', 'gangSoon', 'portMarket', 'portMarketSail', 'portMarketStart', 'grandFest', 'grandFestStart', 'blight', 'shift', 'gangHeld', 'tierUp', 'tierDown', 'contract', 'debt', 'orderStuck', 'settled', 'settlersLost', 'popMilestone', 'gangDodged', 'portMarketReady', 'victory', 'defeat']);
 // 止めた理由の短い名前（知らせの本文は別に出るので、同じ文を二度出さない）
-const SKIP_WHY = { gang: '強盗団の予告', gangSoon: '強盗団が5日後から', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
+const SKIP_WHY = { gang: '強盗団の予告', gangSoon: '強盗団が5日後から', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', gangDodged: '強盗団を避けた', portMarketReady: '市で売れる船がいる', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
 function skipStop(w, evs) {
-  return evs.find((e) => (SKIP_STOP.has(e.type) && !e.minor) || (['arrive', 'robbed', 'starve'].includes(e.type) && !(G.getMerchant(w, e.merchant)?.order && !G.getMerchant(w, e.merchant).order.paused)));
+  // 定期便でも、大きな損（200銀以上）は止める（画面だけのテスト6回目の Opus: 648銀を奪われても⏭が止まらなかった）
+  return evs.find((e) => (SKIP_STOP.has(e.type) && !e.minor) || (e.type === 'robbed' && (e.value || 0) >= 200) || (['arrive', 'robbed', 'starve'].includes(e.type) && !(G.getMerchant(w, e.merchant)?.order && !G.getMerchant(w, e.merchant).order.paused)));
 }
 app.skip = () => {
   const w = app.world;
@@ -311,6 +312,8 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'unlock': case 'transport': case 'hire': case 'build': case 'road': case 'aid': case 'donate': case 'place': case 'civic': case 'expand': case 'branch': case 'settlers': case 'settled': fx.toast(e.text, { icon: 'ui/star' }); break;
       case 'orderStuck': case 'debt': fx.toast(e.text, { kind: 'bad' }); sfx.bad(); break;
       case 'milestone': fx.toast(e.text, { icon: 'ui/star' }); sfx.rare(); break;
+      case 'portMarketReady': fx.toast(e.text, { kind: 'rare', icon: 'ui/star' }); sfx.rare(); break;
+      case 'gangDodged': fx.banner('読みが当たった！', e.text.replace(/^読みが当たった: /, ''), 'transport/guard'); sfx.fanfare(); fx.burst(at[0], at[1], 20); break;
       case 'popMilestone': fx.banner('町が育った！', e.text.replace(/^🏘 /, ''), `cities/tier${G.cityTier(app.world.cities[e.city])}`); sfx.fanfare(); fx.burst(at[0], at[1], 24); break;
       // 売り場の交代の予告: 便を組み替える判断の時なので、時間を止めて画面を開く
       case 'shift': if (!app.state.modals) { setSpeed(0); app.state.modals++; shiftDialog(app, e.shift); } else fx.toast(e.text, { kind: 'rare', icon: 'ui/festival' }); sfx.rare(); break;
@@ -592,7 +595,7 @@ function renderGoals() {
   const w = app.world;
   const el = clear(app.els.goals);
   for (const g of G.goalsStatus(w)) {
-    add(el, h('div', { class: `goal ${g.done ? 'done' : ''} ${g.p > 0.85 && !g.done ? 'near' : ''}` }, g.done ? '✔' : '◇', h('span', {}, g.text.split('（')[0]), h('div', { class: 'bar' }, h('i', { style: { width: `${Math.round(g.p * 100)}%` } })), h('span', { class: 'num dim' }, `${Math.round(g.p * 100)}%`)));
+    add(el, h('div', { class: `goal ${g.done ? 'done' : ''} ${g.p > 0.85 && !g.done ? 'near' : ''}` }, g.done ? '✔' : '◇', h('span', {}, g.text.split('（')[0]), h('div', { class: 'bar' }, h('i', { style: { width: `${Math.round(g.p * 100)}%` } })), h('span', { class: 'num dim' }, `${/（今 (\d+)/.test(g.text) ? `今 ${fmt(Number(g.text.match(/（今 (\d+)/)[1]))}・` : ''}${Math.round(g.p * 100)}%`)));
   }
   const left = w.scenario.deadline - w.day;
   const hints = w.finished ? [] : G.goalHints(w);

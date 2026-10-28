@@ -466,7 +466,9 @@ export function setOrder(world, mid, order) {
   order = { ...order, stops: prep.stops };
   // 臨時の便の予約は、いつもの便を組み直しても残す（keepAlt）
   const alts = order.keepAlt ? (m.order?.alts || []).filter((a) => a.until > world.day) : [];
-  m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0, guards: Math.max(0, Math.min(12, Math.floor(order.guards || 0))), reserve: Math.max(0, Math.floor(order.reserve ?? 50)), alts, altSeq: m.order?.altSeq || 0 };
+  m.order = { stops: order.stops, next: 0, paused: false, since: world.day, profit: 0, runs: 0, guards: Math.max(0, Math.min(12, Math.floor(order.guards || 0))), reserve: Math.max(0, Math.floor(order.reserve ?? 50)), alts, altSeq: m.order?.altSeq || 0,
+    // 強盗団の「待つ」は、便を組み直しても残す（画面だけのテスト6回目の Opus: 押し直しのたびに戻った）
+    gangWait: order.gangWait ?? m.order?.gangWait ?? [], gangAvoid: order.gangAvoid ?? m.order?.gangAvoid ?? false };
   emit(world, { type: 'order', merchant: m.id, big: true, text: `${m.name}の定期便を設定した。あとは自動で回る${mergedNote ? '（同じ町が続く停泊地は1つにまとめた。最後に出発地を書かなくても、最初の町へ戻って繰り返す）' : ''}` });
   // 始める停泊地: 今いる町（移動中なら行き先）が停泊地ならそこ。違えば、積荷を売る停泊地、なければ一番近い停泊地
   const here = m.travel ? m.travel.to : m.city;
@@ -557,7 +559,7 @@ export function upgradeRoad(world, edgeId) {
 
 // 日を進める。重要な出来事が起きたら途中で止まる（CLI と自動進行の停止用）
 // 銀が底をついたこと（debt）では止めない（status と記録で分かる。止まりすぎて操作が増えるため）
-const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'settled', 'settlersLost', 'shift', 'blight', 'grandFest', 'gang', 'gangSoon', 'gangHeld', 'portMarket', 'portMarketSail']); // shift・blight: 売り場の交代・産地の不作の予告（便を組み替える判断の時）
+const STOP_TYPES = new Set(['arrive', 'victory', 'defeat', 'robbed', 'starve', 'orderStuck', 'settled', 'settlersLost', 'shift', 'blight', 'grandFest', 'gang', 'gangSoon', 'gangHeld', 'portMarket', 'portMarketSail', 'portMarketReady', 'gangDodged']); // shift・blight: 売り場の交代・産地の不作の予告（便を組み替える判断の時）
 export function advance(world, days, { stopOn = STOP_TYPES } = {}) {
   const collected = [];
   for (let i = 0; i < days; i++) {

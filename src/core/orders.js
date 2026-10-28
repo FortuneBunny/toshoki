@@ -166,18 +166,21 @@ export function runOrder(world, m, { depart = true } = {}) {
   const target = o.stops[o.next].city;
   if (target === m.city) return;
   // 予告された強盗団の間は、区域を通る便を手前の町で待たせる（予告の窓で便ごとに選ぶ。画面だけのテスト5回目の Opus: 定期便の商人は出発の画面を通らず、予告を読んでも手が打てなかった）
-  if (o.gangWait?.length) {
+  // gangAvoid: 予告された強盗団は、いつも手前で待つ（画面だけのテスト6回目の Opus: 予告ごとに3人×「待つ」を押し直し、予告の後に組んだ便は選ぶ場もなく捕まった）
+  if (o.gangWait?.length || o.gangAvoid) {
     const route = findPath(world, m.city, target, m.transport);
-    const hs = route ? gangCrossings(world, m, route.tiles, route.steps).filter((x) => x.caught && o.gangWait.includes(x.gang.id)) : [];
+    const hs = route ? gangCrossings(world, m, route.tiles, route.steps).filter((x) => x.caught && (o.gangAvoid || o.gangWait?.includes(x.gang.id))) : [];
     if (hs.length) {
       const safe = safeDepartDay(world, m, route);
+      // 去った日に「待って避けた」を返すため、待った商人を強盗団の側に覚える
+      for (const x of hs) { x.gang.dodged ??= []; if (!x.gang.dodged.includes(m.id)) x.gang.dodged.push(m.id); }
       if (!o.gangHolding) emit(world, { type: 'orderNote', merchant: m.id, city: m.city, text: `${m.name}（定期便）: ${world.cities[target].name}への道が強盗団の区域を通るので、${safe}日目まで${world.cities[m.city].name}で待つ` });
       o.gangHolding = true;
       o.holding = true;
       return;
     }
     if (o.gangHolding) { o.gangHolding = false; o.holding = false; }
-    o.gangWait = o.gangWait.filter((id) => (world.gangs || []).some((x) => x.id === id && world.day < x.end));
+    o.gangWait = (o.gangWait || []).filter((id) => (world.gangs || []).some((x) => x.id === id && world.day < x.end));
   }
   autoProvision(world, m, target);
   m.guards = o.guards || 0;
