@@ -41,6 +41,13 @@ export const BALANCE = {
   crashSweetDemand: 0.3,
   crashSweetGlu: 0.25,
   crashGrowth: -0.002,
+  // 火入れ（34回目の相談の試作。false なら今までどおり、線を越えた日に勝手に起きる）:
+  // 糖度が線の rushRipeGap 手前・甘味の摂取 rushRipeSweet 以上で「熟した🔥」。熟した町に甘味を
+  // その品の rushIgniteDays 日分まとめて売り、甘味が2種類以上そろうと、翌日ラッシュが始まる
+  rushIgnite: false,
+  rushRipeGap: 10,
+  rushRipeSweet: 0.4,
+  rushIgniteDays: 3,
 
   // 生産
   productionNoise: 0.25,      // 毎日の生産量のぶれ

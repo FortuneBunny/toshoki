@@ -176,6 +176,22 @@ function growthRate(city) {
 // 自分の交易所か、ラッシュが目標の町（知らせで時間を止め、決算を出す町）
 const isMine = (world, city) => !!(city.founded && !city.rivalPost) || !!world.scenario.goals?.some((g) => g.type === 'rushes' && (!g.city || g.city === city.id));
 
+// 火入れ（B.rushIgnite）: 熟した町か
+export const rushRipe = (world, city) => !!B.rushIgnite && !(city.rush > 0) && !(city.crash > 0) && city.glucose >= rushLineOf(world) - B.rushRipeGap && (city.sweetLevel || 0) >= B.rushRipeSweet;
+// 火を入れるのに、その甘味をまとめて何個売るか
+export const igniteNeed = (city, good) => Math.max(5, Math.ceil(B.rushIgniteDays * dailyDemand(city, good, false, NOWILD)));
+// 甘味を売ったとき（trade.js）: 熟した町に、その日まとめて igniteNeed 個以上売り、甘味が2種類以上あれば火が入る
+export function igniteCheck(world, city, good, n) {
+  if (!rushRipe(world, city) || city.ignite != null) return;
+  if (city.igniteBuf?.day !== world.day) city.igniteBuf = { day: world.day, q: {} };
+  city.igniteBuf.q[good] = (city.igniteBuf.q[good] || 0) + n;
+  if (city.igniteBuf.q[good] < igniteNeed(city, good)) return;
+  const kinds = world.scenario.goods.filter((g) => GOODS[g].kind === 'sweet' && (city.stock[g] || 0) >= 1);
+  if (kinds.length < 2) return;
+  city.ignite = world.day;
+  emit(world, { type: 'ignite', city: city.id, mine: isMine(world, city), text: `🔥${city.name}に火が入った！明日、シュガーラッシュが始まる（${kinds.map((g) => GOODS[g].name).join('・')}）` });
+}
+
 // 今の届け方が続いたら、糖度が線を越えるまで何日か（糖度は目標値へ1日 glucoseFollow ずつ近づく）
 export function rushEta(world, city) {
   const line = rushLineOf(world);
@@ -208,7 +224,14 @@ function rushCycle(world, city) {
     }
     return;
   }
-  if (city.glucose >= rushLineOf(world) && (city.sweetLevel || 0) >= B.rushSweetLine) {
+  // 熟したら一度だけ知らせる（自分の交易所と目標の町）
+  if (B.rushIgnite) {
+    const ripe = rushRipe(world, city);
+    if (ripe && !city.ripeNoted && isMine(world, city)) emit(world, { type: 'rushRipe', city: city.id, mine: true, text: `🔥${city.name}が熟した（糖度${Math.round(city.glucose)}）。甘味をまとめて売ると、翌日シュガーラッシュが始まる。売らなければ起きない` });
+    city.ripeNoted = ripe;
+  }
+  if (B.rushIgnite ? city.ignite != null : city.glucose >= rushLineOf(world) && (city.sweetLevel || 0) >= B.rushSweetLine) {
+    delete city.ignite;
     city.rush = B.rushDays;
     city.rushCount = (city.rushCount || 0) + 1;
     city.lastRushDay = world.day;
@@ -336,7 +359,12 @@ export function cityOutlook(world, city) {
   const cost = city.founded ? `。ラッシュの${B.rushDays}日は育ちが1日+${(B.rushGrowthBonus * 100).toFixed(1)}%、続くクラッシュの${B.crashDays}日は人口が1日${(B.crashGrowth * 100).toFixed(1)}%減る` : '';
   if (city.rush > 0) out.push({ kind: 'rush', text: `🍬ラッシュ中（あと${city.rush}日）。甘味がよく売れる。終わるとクラッシュ${city.founded ? `（${B.crashDays}日、人口が1日${(B.crashGrowth * 100).toFixed(1)}%減る）` : ''}` });
   else if (city.crash > 0) out.push({ kind: 'crash', text: `💥クラッシュ中（あと${city.crash}日）。甘味が売れにくく、町も育たない${city.founded ? '（人口が少しずつ減る）' : ''}` });
-  else if (city.glucose >= line - 15 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet')) {
+  else if (B.rushIgnite && rushRipe(world, city)) {
+    const sweets = world.scenario.goods.filter((g) => GOODS[g].kind === 'sweet');
+    out.push({ kind: 'rushSoon', text: `🔥熟した（糖度${Math.round(city.glucose)}・甘味の摂取${Math.round((city.sweetLevel || 0) * 100)}%）。甘味を1日にまとめて売ると（${sweets.slice(0, 3).map((g) => `${GOODS[g].name}なら${igniteNeed(city, g)}個`).join('・')}）、甘味が2種類そろっていれば翌日ラッシュが始まる。売らなければ起きない${cost}` });
+  } else if (B.rushIgnite && city.glucose >= line - 45 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet')) {
+    out.push({ kind: 'rushSoon', text: `🍬もうすぐ熟す（糖度${Math.round(city.glucose)}/${line - B.rushRipeGap}・甘味の摂取${Math.round((city.sweetLevel || 0) * 100)}%/${Math.round(B.rushRipeSweet * 100)}%）。熟すと、甘味をまとめて売った翌日にラッシュを起こせる` });
+  } else if (city.glucose >= line - 15 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet')) {
     // このままなら何日で線を越えるか（34回目の Opus: 大祭の2日前に起きて、反動が大祭に重なった）
     const eta = rushEta(world, city);
     const when = eta ? `。今の届け方なら約${eta}日で糖度が線を越える（甘味の摂取 今${Math.round((city.sweetLevel || 0) * 100)}%・${Math.round(B.rushSweetLine * 100)}%以上も要る）` : `。今の届け方では線に届かない（糖度は約${Math.round(city.glucoseTarget ?? city.glucose)}へ向かう）`;

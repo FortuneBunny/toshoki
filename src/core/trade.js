@@ -4,6 +4,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { quote, cityWants, midPrice, spreadFor, sellBonus } from './market.js';
 import { cargoUsed, cargoCap } from './caravan.js';
 import { emit } from './events.js';
+import { igniteCheck } from './city.js';
 import { observe } from './knowledge.js';
 import { noteShiftSale, fairRoom } from './shifts.js';
 import { portRoom, notePortSale, marketPrice } from './markets.js';
@@ -135,6 +136,7 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       notePortSale(world, m, city, good, n);
       // 町に届いた量の記録（町の画面で「届いた量と食べる量」を並べる。5回目の Sol）
       if (['food', 'sweet'].includes(g.kind)) { (city.supplyLog ??= []).push([world.day, good, n]); while (city.supplyLog.length && city.supplyLog[0][0] < world.day - 30) city.supplyLog.shift(); }
+      if (g.kind === 'sweet') igniteCheck(world, city, good, n);
       // ラッシュの決算に数える（city.js の rushCycle）
       if (city.rush > 0 && city.rushTake && g.kind === 'sweet') { city.rushTake.qty += n; city.rushTake.silver += gain; }
       m.cargo[good] -= n;

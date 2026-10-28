@@ -1449,3 +1449,30 @@ test('ラッシュの決算・反動の終わりの人口・線を越えるま�
   c.glucoseTarget = 125;
   assert.equal(G.rushEta(w, c), null);
 });
+
+test('火入れ（34回目の相談の試作、B.rushIgnite）: 熟した町に甘味をまとめて売ると翌日ラッシュ。売らなければ線を越えても起きない', () => {
+  const B = G.BALANCE;
+  const keep = B.rushIgnite;
+  B.rushIgnite = true;
+  try {
+    const w = G.createWorld('s5', { seed: 3 });
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    const st = G.foundSites(w, 1)[0];
+    G.foundPost(w, st.x, st.y);
+    const c = w.cities.saito;
+    const ripen = () => { c.glucose = 200; c.glucoseTarget = 200; c.sweetLevel = 0.9; };
+    ripen();
+    assert.ok(G.rushRipe(w, c));
+    G.advance(w, 1, silent);
+    assert.ok(!(c.rush > 0), '売らなければ起きない');
+    ripen();
+    const sweets = w.scenario.goods.filter((g) => G.GOODS[g].kind === 'sweet');
+    c.stock[sweets[0]] = 50; c.stock[sweets[1]] = 50;
+    G.igniteCheck(w, c, sweets[0], 2);
+    assert.equal(c.ignite, undefined, '少しでは火が入らない');
+    G.igniteCheck(w, c, sweets[0], G.igniteNeed(c, sweets[0]));
+    assert.equal(c.ignite, w.day);
+    G.advance(w, 1, silent);
+    assert.ok(c.rush > 0);
+  } finally { B.rushIgnite = keep; }
+});
