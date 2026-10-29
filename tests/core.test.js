@@ -1503,6 +1503,11 @@ test('火入れは取引をまとめて見る（35回目の Sol）: 町にない
     m.cargo[a] += need; m.cargo[b] += 1;
     assert.ok(G.trade(w, m.id, [{ good: a, qty: -need }, { good: b, qty: -1 }]).ok);
     assert.equal(c.ignite, undefined, 'ふつうに売っても火は入らない（8回目の Sol のボット）');
+    // 見込み: 量が足りなければ、数でわけを出す（画面だけのテスト7回目の Sol）
+    assert.match(G.igniteWhy(w, c, { [a]: 1 }), /量が足りない/);
+    c.stock[a] = 0; c.stock[b] = 0;
+    assert.match(G.igniteWhy(w, c, { [a]: need }), /1種類/);
+    assert.equal(G.igniteWhy(w, c, { [a]: need, [b]: 1 }), null);
     c.stock[a] = 0; c.stock[b] = 0;
     const r = G.trade(w, m.id, [{ good: a, qty: -need }, { good: b, qty: -1 }], { ignite: true });
     assert.ok(r.ok, r.error);

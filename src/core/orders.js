@@ -69,7 +69,7 @@ function fireAtStop(world, m, city, stop, notes) {
   const names = goods.map((g) => GOODS[g].name).join('・');
   if (rushRipe(world, city)) {
     executeTrade(world, m, goods.map((g) => ({ good: g, qty: -Math.floor(m.cargo[g]) })), { auto: true, ignite: true });
-    notes.push(city.ignite != null ? `熟した${city.name}に${names}をまとめて売り、火を入れた` : `熟した${city.name}に${names}をまとめて売ったが、火は入らなかった（量か、町にある甘味の種類が足りない）`);
+    notes.push(city.ignite != null ? `熟した${city.name}に${names}をまとめて売り、火を入れた` : `熟した${city.name}に${names}をまとめて売ったが、火は入らなかった（${city.igniteFail?.why || '量か、町にある甘味の種類が足りない'}）`);
     return out;
   }
   for (const g of goods) out.keep[g] = igniteNeed(city, g);

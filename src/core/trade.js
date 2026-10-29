@@ -4,7 +4,7 @@ import { BALANCE as B } from '../data/balance.js';
 import { quote, cityWants, midPrice, spreadFor, sellBonus } from './market.js';
 import { cargoUsed, cargoCap } from './caravan.js';
 import { emit } from './events.js';
-import { igniteCheck } from './city.js';
+import { igniteCheck, igniteWhy } from './city.js';
 import { observe } from './knowledge.js';
 import { noteShiftSale, fairRoom } from './shifts.js';
 import { portRoom, notePortSale, marketPrice } from './markets.js';
@@ -166,7 +166,11 @@ export function executeTrade(world, m, lines, { auto = false, ignite = false } =
   }
   // 火入れは「火を入れて売る」ときだけ（35回目の相談の8回目の Sol のボット: ふつうの売りでも火が入り、大祭の前に起きて反動が重なった）。
   // 取引をまとめて見る（35回目の Sol: 1行ずつ見ていて、同じ取引で売った2種類目が数えられなかった）
-  if (ignite) for (const [good, n] of Object.entries(sweetSold)) igniteCheck(world, city, good, n);
+  if (ignite) {
+    for (const [good, n] of Object.entries(sweetSold)) igniteCheck(world, city, good, n);
+    // 入らなかった火入れを覚える（大祭を逃したわけに出す。画面だけのテスト7回目の Sol）
+    if (city.ignite !== world.day) city.igniteFail = { day: world.day, why: igniteWhy(world, city) || '甘味を売らなかった' };
+  }
   if (sold > 0) {
     world.stats.profit += profit;
     world.stats.sales += 1;

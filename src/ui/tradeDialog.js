@@ -263,6 +263,10 @@ export function openTrade(app, merchantId) {
 
     // スマホでは集計が下に隠れるので、ボタンの上に要点だけ出す（Sol の指摘）
     const brief = h('div', { class: 'trade-brief' }, `取引後の銀 ${fmt(world.player.silver + pv.silverDelta)}（${pv.silverDelta >= 0 ? '+' : ''}${fmt(pv.silverDelta)}）・積載 ${pv.cargoAfter}/${cap}`, pv.ok ? null : h('div', { class: 'bad' }, pv.errors.join(' / ')));
+    // 火入れの見込み: 入らないなら、わけを数で出して押せなくする（画面だけのテスト7回目の Sol: 押してから不発と売りが確定した）
+    const sold = Object.fromEntries(lines().filter((l) => l.qty < 0 && GOODS[l.good].kind === 'sweet').map((l) => [l.good, -l.qty]));
+    const fireWhy = G.BALANCE.rushIgnite && G.rushRipe(world, city) && city.ignite == null ? G.igniteWhy(world, city, sold) : null;
+    const fireNote = G.BALANCE.rushIgnite && G.rushRipe(world, city) && city.ignite == null ? h('div', { class: fireWhy ? 'dim' : 'good', style: { fontSize: '12px' } }, fireWhy ? `🔥火入れ: ${fireWhy}` : '🔥この売りで火が入る（翌日シュガーラッシュ）') : null;
     const footer = h('footer', {},
       h('button', { class: 'btn ghost', onclick: () => { for (const k of Object.keys(qty)) qty[k] = 0; render(); } }, 'リセット'),
       h('button', { class: 'btn ghost', onclick: close }, 'キャンセル'),
@@ -271,9 +275,9 @@ export function openTrade(app, merchantId) {
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, true) }, '確定して出発…'),
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, false) }, '取引を確定'),
       // 火入れ（35回目の相談）: 熟した町でだけ出す。ふつうの確定では火は入らない
-      G.BALANCE.rushIgnite && G.rushRipe(world, city) && city.ignite == null ? h('button', { class: 'btn primary', title: `甘味をまとめて売って火を入れる。翌日シュガーラッシュが始まる（${G.BALANCE.rushIgniteKinds ?? 2}種類の甘味が町にそろい、1品を${G.BALANCE.rushIgniteDays}日分以上）`, disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, false, true) }, '🔥火を入れて売る') : null);
+      G.BALANCE.rushIgnite && G.rushRipe(world, city) && city.ignite == null ? h('button', { class: 'btn primary', title: fireWhy || '甘味をまとめて売って火を入れる。翌日シュガーラッシュが始まる', disabled: !lines().length || !pv.ok || !!fireWhy || undefined, onclick: (e) => accept(e, false, true) }, '🔥火を入れて売る') : null);
 
-    add(modal, header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, whyBox, table, whBox), summary)), brief, footer);
+    add(modal, header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, whyBox, table, whBox), summary)), brief, fireNote, footer);
     if (refocus) {
       const el = modal.querySelector(`input[aria-label="${GOODS[refocus].name}の数量"]`);
       if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }

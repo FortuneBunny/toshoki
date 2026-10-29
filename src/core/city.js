@@ -187,13 +187,32 @@ export const ripeSweet = (city) => Math.max(city.sweetLevel || 0, ...(city.sweet
 // 火を入れるのに、その甘味をまとめて何個売るか
 export const igniteNeed = (city, good) => Math.max(5, Math.ceil(B.rushIgniteDays * dailyDemand(city, good, false, NOWILD)));
 // 「火を入れて売る」とき（trade.js の ignite）: 熟した町に、その日まとめて igniteNeed 個以上売り、甘味が rushIgniteKinds 種類以上あれば火が入る
+// 火入れが成り立つか。成り立たなければ、わけを数で返す（画面だけのテスト7回目の Sol: 「量か種類が足りない」では、どちらか分からなかった）。
+// sold: これから売る甘味 {品: 個数}（取引の画面の見込み）。売ったあとに呼ぶときは空
+export function igniteWhy(world, city, sold = {}) {
+  if (!B.rushIgnite) return '火入れのない決まり';
+  if (city.ignite != null) return '火はもう入っている（明日ラッシュ）';
+  if (city.rush > 0 || city.crash > 0) return 'ラッシュか反動の最中';
+  if (!rushRipe(world, city)) return `まだ熟していない（糖度${Math.round(city.glucose)}/${rushLineOf(world) - B.rushRipeGap}・甘味の摂取${Math.round(ripeSweet(city) * 100)}%/${Math.round(B.rushRipeSweet * 100)}%）`;
+  const buf = city.igniteBuf?.day === world.day ? city.igniteBuf.q : {};
+  const sweets = world.scenario.goods.filter((g) => GOODS[g].kind === 'sweet');
+  const q = (g) => (buf[g] || 0) + (sold[g] || 0);
+  if (!sweets.some((g) => q(g) >= igniteNeed(city, g))) {
+    const tried = sweets.filter((g) => q(g) > 0);
+    return `量が足りない（どれか1品を、その日まとめて: ${(tried.length ? tried : sweets).slice(0, 3).map((g) => `${GOODS[g].name} ${q(g)}/${igniteNeed(city, g)}個`).join('・')}）`;
+  }
+  const k = B.rushIgniteKinds ?? 2;
+  const kinds = sweets.filter((g) => (city.stock[g] || 0) + (sold[g] || 0) >= 1);
+  if (kinds.length < k) return `町の甘味が${kinds.length}種類（${kinds.map((g) => GOODS[g].name).join('・') || 'なし'}）。${k}種類要る。ほかの甘味も一緒に売る`;
+  return null;
+}
+
 export function igniteCheck(world, city, good, n) {
   if (!rushRipe(world, city) || city.ignite != null) return;
   if (city.igniteBuf?.day !== world.day) city.igniteBuf = { day: world.day, q: {} };
   city.igniteBuf.q[good] = (city.igniteBuf.q[good] || 0) + n;
-  if (city.igniteBuf.q[good] < igniteNeed(city, good)) return;
+  if (igniteWhy(world, city)) return;
   const kinds = world.scenario.goods.filter((g) => GOODS[g].kind === 'sweet' && (city.stock[g] || 0) >= 1);
-  if (kinds.length < (B.rushIgniteKinds ?? 2)) return;
   city.ignite = world.day;
   emit(world, { type: 'ignite', city: city.id, mine: isMine(world, city), text: `🔥${city.name}に火が入った！明日、シュガーラッシュが始まる（${kinds.map((g) => GOODS[g].name).join('・')}）` });
 }
@@ -241,6 +260,7 @@ function rushCycle(world, city) {
   // （35回目の Opus: 流すだけの手は B も取れなかった。11回目の Sol: 線を越えるまで待つ形では、火を入れない固定の手の完走が1〜2割だった）
   const rescue = B.rushIgnite && rushRipe(world, city) && (world.scenario.goals || []).some((g) => g.type === 'rushes' && g.city === city.id && g.anyAfter && world.day >= g.anyAfter);
   if (B.rushIgnite ? city.ignite != null || rescue : crossed) {
+    const byRescue = B.rushIgnite && city.ignite == null;
     delete city.ignite;
     // 熟したままの印も消す（反動のあとは、もう一度熟す条件から。11回目の Sol）
     delete city.ripeNoted;
@@ -253,7 +273,7 @@ function rushCycle(world, city) {
     // 大祭の期間に始まったラッシュ（目標の during: 'festival' で数える）
     const fest = festivalOn(world, city.id);
     if (fest) city.festRushCount = (city.festRushCount || 0) + 1;
-    emit(world, { type: 'rush', city: city.id, big: true, mine: isMine(world, city), text: `${city.name}でシュガーラッシュ！甘味が飛ぶように売れる${festRushSuffix(world, city.id, fest)}` });
+    emit(world, { type: 'rush', city: city.id, big: true, mine: isMine(world, city), text: `${city.name}でシュガーラッシュ！甘味が飛ぶように売れる${festRushSuffix(world, city.id, fest)}${byRescue ? '（救い: 火を入れなくても起きた）' : ''}` });
   }
 }
 

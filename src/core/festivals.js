@@ -97,6 +97,8 @@ function missReason(world, city, x) {
     // 火入れ: 熟したか、火を入れたかを分けて知らせる（35回目の Sol: 糖度168・摂取102%でも「甘味不足」と出た）
     const ripeLine = line - B.rushRipeGap;
     const peakR = x.peakGlu != null ? `大祭の間の最高は、糖度 ${Math.round(x.peakGlu)}/${ripeLine}・甘味の摂取 ${Math.round((x.peakSweet || 0) * 100)}%/${Math.round(B.rushRipeSweet * 100)}%。` : '';
+    const f = city.igniteFail;
+    if (f && f.day >= x.start - 1 && f.day < x.end) return `${peakR}${f.day}日目に火入れを試したが、入らなかった: ${f.why}`;
     if (x.peakGlu != null && x.peakGlu >= ripeLine && (x.peakSweet || 0) >= B.rushRipeSweet) return `${peakR}町は熟していたが、火が入らなかった。熟した日に「火を入れて売る」で甘味をまとめて（町の画面の個数）売り、甘味を${B.rushIgniteKinds ?? 2}種類そろえよ`;
     return `${peakR}${x.peakGlu != null && x.peakGlu < ripeLine ? '糖度が足りず熟さなかった（食べ物の種類と量）' : '甘味の摂取が足りず熟さなかった'}。大祭の前に熟させ、大祭の間に火を入れよ`;
   }
