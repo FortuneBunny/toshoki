@@ -1562,3 +1562,18 @@ test('火入れ（35回目の相談）: 売り戻しでは火が入らない・�
     }
   } finally { B.rushIgnite = keep; }
 });
+
+test('定期便: 残す銀を割って空荷になるなら、残す銀も使って買う（35回目の Opus）', () => {
+  const w = G.createWorld('s5', { seed: 3 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  const st = G.foundSites(w, 1)[0];
+  G.foundPost(w, st.x, st.y);
+  const m = w.player.merchants[0];
+  m.city = 'saito'; m.travel = null; m.cargo = {}; m.cost = {};
+  const good = w.scenario.goods.find((g) => (w.cities.saito.stock[g] || 0) > 20 && G.quote(w, w.cities.saito, g, 1) < 10);
+  w.player.silver = 40;
+  m.order = { stops: [{ city: 'saito', sell: [], buy: [{ good, qty: 5, max: Infinity }], unload: [], load: [] }, { city: 'satou', sell: [], buy: [], unload: [], load: [] }], next: 0, reserve: 50 };
+  G.runOrder(w, m, { depart: false });
+  assert.ok((m.cargo[good] || 0) >= 1, '空荷で出ない');
+  assert.ok(w.player.silver >= 0);
+});

@@ -626,7 +626,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
   order list                           定期便ごとの損益
   order edit <停泊地の番号> "<町 ...>"  停泊地を1つだけ書き直す（番号は、その商人の定期便の停泊地の順。-m で商人を選ぶ）
   order add ... --hold                  設定だけして、すぐには出発しない（order resume で動き出す）
-  order add ... --reserve <銀>          仕入れで手元に残す銀（最初は50。砂漠の食料だけは割っても買う）
+  order add ... --reserve <銀>          仕入れで手元に残す銀（最初は50。砂漠の食料と、何も買えず空荷で出ることになるときは割っても買う）
   order pause [町]                     次に町に着いたら（町を書けばその町で）定期便を止める
   order alt ["<町 ...>" "<町 ...>"] --shift <予告の番号> | --from <日> --until <日>
                                        （--shift で停泊地を省くと、いつもの便の最初の停泊地と隊商市の町を往復する便）

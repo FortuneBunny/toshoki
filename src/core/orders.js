@@ -146,25 +146,35 @@ export function runOrder(world, m, { depart = true } = {}) {
     // 次の区間で砂漠を渡るなら、食料の分の積載と銀を空けておく（品物で積荷が埋まって飢えないように）
     const nextCity = o.stops[(o.next + 1) % o.stops.length].city;
     const food = PROVISIONS.includes(stop.buy?.[0]?.good) ? 0 : foodNeed(world, m, nextCity);
-    // 買い: 上限価格を超えない範囲で、指定数まで
-    for (const b of stop.buy || []) {
-      const reserve = PROVISIONS.includes(b.good) ? 0 : food;
-      const room = Math.floor((cargoCap(m) - cargoUsed(m) - reserve) / GOODS[b.good].weight);
-      const want = Math.max(0, b.qty - (m.cargo[b.good] || 0));
-      // 食べ物は、その町が2日に食べる分を残して買う（定期便の買い占めで町が飢えないように）
-      const keepForTown = GOODS[b.good].kind === 'food' ? Math.ceil(dailyDemand(city, b.good, false) * 2) : 0;
-      let n = Math.min(room, want, Math.max(0, Math.floor((city.stock[b.good] || 0) - keepForTown)));
-      // 手元に残す銀（定期便ごと。最初は50）。砂漠の食料だけは残す銀を割っても買う
-      const budget = world.player.silver - (PROVISIONS.includes(b.good) ? 0 : (o.reserve ?? 0));
-      while (n > 0 && (quote(world, city, b.good, n) / n > (b.max || Infinity) || quote(world, city, b.good, n) > budget)) n = Math.floor(n * 0.7);
-      if (n <= 0) {
-        if (want > 0) {
-          const unit = quote(world, city, b.good, 1);
-          notes.push(!(city.stock[b.good] >= 1) ? `${GOODS[b.good].name}は${city.name}に在庫がない` : unit > (b.max || Infinity) ? `${GOODS[b.good].name}は買値 ${unit.toFixed(2)} が上限 ${b.max} を超えるので買わない` : room <= 0 ? `${GOODS[b.good].name}は積載がいっぱい` : keepForTown > 0 && (city.stock[b.good] || 0) - keepForTown < 1 ? `${GOODS[b.good].name}は${city.name}が食べる2日分しかないので買わない` : `${GOODS[b.good].name}は銀が足りず買えない`);
+    // 買い: 上限価格を超えない範囲で、指定数まで。
+    // 残す銀を割るので何も買えず、空荷で出ることになるなら、残す銀も使って買う（35回目の Opus: 序盤に銀が残す額を割ると、空荷の便で収入が止まり、借金が続いた）
+    const cargoGoods = () => Object.keys(m.cargo).some((g) => !PROVISIONS.includes(g) && m.cargo[g] >= 1);
+    let poor = false;
+    const mark0 = notes.length;
+    for (const pass of [0, 1]) {
+      if (pass === 1 && (!poor || cargoGoods())) break;
+      const noteMark = notes.length;
+      for (const b of stop.buy || []) {
+        const reserve = PROVISIONS.includes(b.good) ? 0 : food;
+        const room = Math.floor((cargoCap(m) - cargoUsed(m) - reserve) / GOODS[b.good].weight);
+        const want = Math.max(0, b.qty - (m.cargo[b.good] || 0));
+        // 食べ物は、その町が2日に食べる分を残して買う（定期便の買い占めで町が飢えないように）
+        const keepForTown = GOODS[b.good].kind === 'food' ? Math.ceil(dailyDemand(city, b.good, false) * 2) : 0;
+        let n = Math.min(room, want, Math.max(0, Math.floor((city.stock[b.good] || 0) - keepForTown)));
+        // 手元に残す銀（定期便ごと。最初は50）。砂漠の食料だけは残す銀を割っても買う
+        const budget = world.player.silver - (PROVISIONS.includes(b.good) || pass === 1 ? 0 : (o.reserve ?? 0));
+        while (n > 0 && (quote(world, city, b.good, n) / n > (b.max || Infinity) || quote(world, city, b.good, n) > budget)) n = Math.floor(n * 0.7);
+        if (n <= 0) {
+          if (want > 0) {
+            const unit = quote(world, city, b.good, 1);
+            notes.push(!(city.stock[b.good] >= 1) ? `${GOODS[b.good].name}は${city.name}に在庫がない` : unit > (b.max || Infinity) ? `${GOODS[b.good].name}は買値 ${unit.toFixed(2)} が上限 ${b.max} を超えるので買わない` : room <= 0 ? `${GOODS[b.good].name}は積載がいっぱい` : keepForTown > 0 && (city.stock[b.good] || 0) - keepForTown < 1 ? `${GOODS[b.good].name}は${city.name}が食べる2日分しかないので買わない` : `${GOODS[b.good].name}は銀が足りず買えない`);
+            if (pass === 0 && unit <= world.player.silver && unit <= (b.max || Infinity) && room > 0) poor = true;
+          }
+          continue;
         }
-        continue;
+        executeTrade(world, m, [{ good: b.good, qty: n }], { auto: true });
       }
-      executeTrade(world, m, [{ good: b.good, qty: n }], { auto: true });
+      if (pass === 1) { notes.splice(cargoGoods() ? mark0 : noteMark); if (cargoGoods()) notes.push(`空荷で出ないように、残す銀（${o.reserve ?? 0}）も使って買った`); }
     }
     // 待つ指定（wait:品*数）: 積荷がその数になるまで、この町で待つ（最大30日。毎日、積む・買うをやり直す）
     // ただし、この町の工房が銀不足で止まっているなら待たない（待つ便と止まった工房で、売り上げも銀も戻らず全部止まった。21回目の Opus）
