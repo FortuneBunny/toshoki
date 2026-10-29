@@ -64,6 +64,8 @@ function upgradeBlock(app, c) {
 // 買い取らない理由（「買取なし」だけでは、技術を買ったのになぜ売れないのか分からなかった。第15回テスト）
 function noBuyWhy(world, c, g) {
   if (G.goodLocked(world, g)) return `買取なし（技術「${G.TECHS[Object.keys(world.scenario.techs || {}).find((t) => G.TECHS[t]?.unlocks?.goods?.includes(g))]?.name}」で開く）`;
+  // 工房の材料（麦芽など）は、どの町も買わない（画面だけのテスト7回目の Opus:「『undefined』になると買う」と出た）
+  if (!G.tierName(GOODS[g].tier)) return '買取なし（工房の材料。町では買わない）';
   if (G.cityTier(c) < GOODS[g].tier) return `買取なし（「${G.tierName(GOODS[g].tier)}」になると買う）`;
   return '買取なし';
 }
@@ -422,7 +424,8 @@ export function orderDialog(app, mid, { alt: startAlt = false, shift = null } = 
     if (recent.length === 2 && recent[0].city !== recent[1].city) {
       stops = recent.map((r) => ({
         city: r.city,
-        buy: Object.entries(r.buy).map(([g, q]) => ({ good: g, qty: q, max: maxFor(r.city, g, q, recent.find((x) => x.city !== r.city)?.city) })),
+        // 目標の町（育てる・熟させる町）から食べ物を買う行は下書きに入れない（画面だけのテスト7回目の Opus: 祭都から麦を持ち出す便ができていた）
+        buy: Object.entries(r.buy).filter(([g]) => !(GOODS[g].kind === 'food' && (world.scenario.goals || []).some((x) => x.city === r.city))).map(([g, q]) => ({ good: g, qty: q, max: maxFor(r.city, g, q, recent.find((x) => x.city !== r.city)?.city) })),
         sell: [],
       }));
       // 片方で買った品は、もう片方で売る（最低売値は買う町の今の値から）。自分で売った品で、便の中で買わないものは平均の仕入れ値から

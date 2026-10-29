@@ -240,9 +240,9 @@ function setSpeed(s) {
 // 次の知らせまで進める（画面だけのテスト4回目: 止めたい日に止められず、待ちすぎた・期限まで飛んだ。33回目の相談）
 // 止まるのは、行動を変える必要があるときだけ。定期便の到着では止まらない。30日で必ず止めて、その間をまとめる
 const SKIP_DAYS = 30;
-const SKIP_STOP = new Set(['gang', 'gangSoon', 'portMarket', 'portMarketSail', 'portMarketStart', 'grandFest', 'grandFestStart', 'blight', 'shift', 'gangHeld', 'tierUp', 'tierDown', 'contract', 'debt', 'orderStuck', 'settled', 'settlersLost', 'popMilestone', 'gangDodged', 'portMarketReady', 'victory', 'defeat']);
+const SKIP_STOP = new Set(['gang', 'gangSoon', 'portMarket', 'portMarketSail', 'portMarketStart', 'grandFest', 'grandFestStart', 'grandFestMissed', 'goalRelax', 'blight', 'shift', 'gangHeld', 'tierUp', 'tierDown', 'contract', 'debt', 'orderStuck', 'settled', 'settlersLost', 'popMilestone', 'gangDodged', 'portMarketReady', 'victory', 'defeat']);
 // 止めた理由の短い名前（知らせの本文は別に出るので、同じ文を二度出さない）
-const SKIP_WHY = { gang: '強盗団の予告', gangSoon: '強盗団が5日後から', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', gangDodged: '強盗団を避けた', portMarketReady: '市で売れる船がいる', rushRipe: '町が熟した', ignite: '火が入った', rush: 'シュガーラッシュ', crash: 'ラッシュの決算', crashEnd: '反動の終わり', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
+const SKIP_WHY = { gang: '強盗団の予告', gangSoon: '強盗団が5日後から', portMarket: '港の市の予告', portMarketSail: '出航の目安の日', portMarketStart: '港の市の始まり', grandFest: '大祭の予告', grandFestStart: '大祭の始まり', grandFestMissed: '大祭を逃した', goalRelax: '目標が変わった', blight: '不作の予告', shift: '売り場の交代の予告', gangHeld: '強盗団に捕まった', tierUp: '町の段階が上がった', tierDown: '町の段階が下がった', contract: '新しい大口注文', debt: '銀が尽きた', orderStuck: '定期便が止まった', settled: '開拓団が住みついた', settlersLost: '開拓団を失った', popMilestone: '町の人口の節目', gangDodged: '強盗団を避けた', portMarketReady: '市で売れる船がいる', rushRipe: '町が熟した', ignite: '火が入った', rush: 'シュガーラッシュ', crash: 'ラッシュの決算', crashEnd: '反動の終わり', victory: '目標の達成', defeat: '期限', arrive: '商人が着いた', robbed: '盗賊に襲われた', starve: '食料が切れた' };
 function skipStop(w, evs) {
   // 自分の交易所・目標の町のラッシュと、その決算でも止める（34回目の相談）
   const sugar = evs.find((e) => ['rush', 'crash', 'crashEnd', 'rushRipe', 'ignite'].includes(e.type) && e.mine);
@@ -292,7 +292,9 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'rush': if (e.mine) fx.banner('シュガーラッシュ！', e.text.replace(/^.*?シュガーラッシュ！/, ''), 'ui/rush'); else fx.toast(e.text, { kind: 'rare', icon: 'ui/rush' }); sfx.rush(); fx.burst(at[0], at[1], e.mine ? 34 : 22, { size: 16 }); break;
       case 'crash': fx.toast(e.text, { kind: 'bad', icon: 'ui/crash' }); sfx.crash(); break;
       case 'crashEnd': if (e.mine) fx.toast(e.text, { icon: 'ui/crash' }); break;
-      case 'rushRipe': case 'ignite': fx.toast(e.text, { kind: 'rare', icon: 'ui/rush' }); if (e.type === 'ignite') sfx.fanfare(); break;
+      case 'rushRipe': fx.toast(e.text, { kind: 'rare', icon: 'ui/rush' }); break;
+      // 自分の町・目標の町の火入れは大きく出す（画面だけのテスト7回目の Opus: ⏭ の1回で火入れ・ラッシュ・達成が続けて過ぎた）
+      case 'ignite': if (e.mine) fx.banner('🔥火が入った！', e.text.replace(/^🔥/, ''), 'ui/rush'); else fx.toast(e.text, { kind: 'rare', icon: 'ui/rush' }); sfx.fanfare(); break;
       case 'repUp': fx.banner(`評判 レベル${e.level}`, '手数料が下がった！', 'ui/trophy'); sfx.levelUp(); break;
       case 'contract': fx.toast(e.text, { kind: 'rare', icon: 'ui/contract' }); sfx.rare(); break;
       case 'contractDone': if (!skipTrade) { fx.banner('大口注文 達成！', e.text, 'ui/contract'); sfx.levelUp(); } break;
@@ -325,8 +327,9 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'shift': if (!app.state.modals) { setSpeed(0); app.state.modals++; shiftDialog(app, e.shift); } else fx.toast(e.text, { kind: 'rare', icon: 'ui/festival' }); sfx.rare(); break;
       // 強盗団・港の市・大祭・不作の予告と、捕まった知らせも、時間を止めて読ませる（売り場の交代だけ止めていたので、
       // 全部の便を定期便にして進めると、予告を読まずに期限まで進んだ。画面だけのテスト4回目の Sol）
-      case 'gang': case 'gangSoon': case 'portMarket': case 'portMarketSail': case 'grandFest': case 'blight': case 'gangHeld': {
-        const title = { gang: '🗡 強盗団の予告', portMarket: '⚓ 港の市の予告', portMarketSail: '⚓ 出航の目安', gangSoon: '🗡 強盗団が5日後から', grandFest: '🎆 大祭の予告', blight: '🌾 不作の予告', gangHeld: '🗡 強盗団に捕まった' }[e.type];
+      // 大祭の始まり・逃した知らせ・救いの日も止める（画面だけのテスト7回目の Opus: ▶▶▶ で大祭を2回素通りし、逃したわけはログに流れた）
+      case 'gang': case 'gangSoon': case 'portMarket': case 'portMarketSail': case 'grandFest': case 'grandFestStart': case 'grandFestMissed': case 'goalRelax': case 'blight': case 'gangHeld': {
+        const title = { gang: '🗡 強盗団の予告', portMarket: '⚓ 港の市の予告', portMarketSail: '⚓ 出航の目安', gangSoon: '🗡 強盗団が5日後から', grandFest: '🎆 大祭の予告', grandFestStart: '🎆 大祭が始まった', grandFestMissed: '🎆 大祭を逃した', goalRelax: '🎯 目標が変わった', blight: '🌾 不作の予告', gangHeld: '🗡 強盗団に捕まった' }[e.type];
         if (e.minor) { fx.toast(e.text.length > 90 ? `${e.text.slice(0, 90)}…` : e.text, { icon: 'ui/festival' }); break; }
         if (e.type === 'gangHeld') sfx.bad(); else sfx.rare();
         // 「分かった」で、止める前の速さに戻す（5回目の Opus: 押したあと止まったままで、押し直していた）

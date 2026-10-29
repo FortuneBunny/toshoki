@@ -5,7 +5,7 @@ import { quote, cityWants } from './market.js';
 import { settlersAllowed, settlerCost, settleCheck, settlerSourceCheck } from './settlers.js';
 import { routeInfo, merchantCap, hireCost, branchesAllowed, branchCost, branchCheck, donateCost, hasPresence } from './actions.js';
 import { dailyCost } from './world.js';
-import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan, growthPlanText } from './city.js';
+import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan, growthPlanText, rushLineOf, rushRipe } from './city.js';
 import { dwellingStatus } from './dwelling.js';
 import { goalsStatus } from './scoring.js';
 import { knowledgeAge } from './knowledge.js';
@@ -333,7 +333,8 @@ export function goalHints(world) {
         if (days <= 2000 && days > left) late = true;
       } else parts.push('このままでは育たない');
     }
-    if (g.type === 'rushes') parts.push(`糖度 ${Math.round(k.glucose)}（ラッシュは ${B.rushLine} 以上）`);
+    // 線はシナリオの値（s5 は130）。火入れでは熟す目安を出す（画面だけのテスト7回目の Opus: 帯の「140以上」と町の画面の「熟す120」が並んで迷った）
+    if (g.type === 'rushes') parts.push(B.rushIgnite ? `糖度 ${Math.round(k.glucose)}（${age === 0 && rushRipe(world, c) ? '🔥熟した。大祭の間に火を入れる' : `${rushLineOf(world) - B.rushRipeGap}以上で熟す`}）` : `糖度 ${Math.round(k.glucose)}（ラッシュは ${rushLineOf(world)} 以上）`);
     const block = k.blocker ? `止めているもの: ${k.blocker}` : late ? `このままでは期限（残り${left}日）に間に合わない。食べ物の種類と量を増やす${settlersAllowed(world) && c.founded ? '・開拓団を送る' : ''}` : '順調。届け続ける';
     // 次の一手（何を何個届ければ、何日で届くか）。今の様子が分かる町だけ（画面だけのテスト4回目）
     const plan = target && (age === 0 || c.founded) ? goalPlanText(world, c, target) : '';

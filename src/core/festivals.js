@@ -68,6 +68,12 @@ export function updateFestivals(world) {
   const sc = world.scenario.festivals;
   if (!sc) return;
   if (!world.festivals) planFestivals(world);
+  // 救いの日を知らせる（画面だけのテスト7回目の Opus: 目標が「2回」から「1回」に、知らせなしで変わった）
+  for (const g of world.scenario.goals || []) {
+    if (g.type !== 'rushes') continue;
+    if (g.relaxAfter && world.day === g.relaxAfter) emit(world, { type: 'goalRelax', big: true, text: `${g.relaxAfter}日目を過ぎた。目標の大祭のラッシュは、1回でよくなった` });
+    if (g.anyAfter && world.day === g.anyAfter) emit(world, { type: 'goalRelax', big: true, text: `${g.anyAfter}日目を過ぎた。大祭の外のラッシュも目標に数える。${B.rushIgnite ? `${nm(world, g.city)}は、熟せば火を入れなくてもラッシュが起きる` : ''}` });
+  }
   for (const x of world.festivals || []) {
     const c = nm(world, x.city);
     if (world.day === x.announce) emit(world, { type: 'grandFest', big: true, city: x.city, festival: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}で大祭が開かれる。${countText(world, x.city)}。ラッシュのあとには、甘味を受けつけないクラッシュ（約${B.crashDays}日）が来るので、大祭の前にラッシュを起こすと大祭を逃す。${B.rushIgnite ? '甘味と食べ物を届け続けて町を熟させ、大祭に入ってから甘味をまとめて売って火を入れよ' : '甘味の便を止めて、大祭に合わせて2種類まとめて届けよ'}` });
@@ -76,7 +82,7 @@ export function updateFestivals(world) {
     // 大祭の間に届いた最高の糖度と甘味の摂取（逃したわけに、実際の値を出す。34回目の Opus）
     if (city && world.day >= x.start && world.day < x.end) { x.peakGlu = Math.max(x.peakGlu || 0, city.glucose); x.peakSweet = Math.max(x.peakSweet || 0, city.sweetLevel || 0); }
     if (world.day === x.end && city && (city.festRushCount || 0) === (x.countAtStart ?? 0)) emit(world, { type: 'grandFestMissed', city: x.city, text: `${c}の大祭で、ラッシュが起きなかった。${missReason(world, city, x)}` });
-    if (world.day === x.start) emit(world, { type: 'grandFestStart', city: x.city, text: `${c}の大祭が始まった（${x.end - 1}日目まで）。今ラッシュが始まれば、${world.scenario.goals?.some((g) => g.type === 'rushes' && g.festivalWeight) ? '目標に多く数える' : '目標に数える'}` });
+    if (world.day === x.start) emit(world, { type: 'grandFestStart', city: x.city, text: `${c}の大祭が始まった（${x.end - 1}日目まで）。今ラッシュが始まれば、${world.scenario.goals?.some((g) => g.type === 'rushes' && g.festivalWeight) ? '目標に多く数える' : '目標に数える'}${B.rushIgnite && world.cities[x.city] ? (rushRipe(world, world.cities[x.city]) ? `。${c}は🔥熟している。甘味を持った商人で「🔥火を入れて売る」と、翌日ラッシュ` : `。${c}はまだ熟していない（糖度${Math.round(world.cities[x.city].glucose)}/${(world.scenario.rushLine ?? B.rushLine) - B.rushRipeGap}）。食べ物と甘味を届けて熟させよ`) : ''}` });
     if (world.day === x.end) emit(world, { type: 'grandFestEnd', city: x.city, text: `${c}の大祭が終わった` });
   }
 }
