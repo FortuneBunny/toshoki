@@ -237,10 +237,13 @@ function rushCycle(world, city) {
     city.ripeNoted = ripe;
   }
   const crossed = city.glucose >= rushLineOf(world) && (city.sweetLevel || 0) >= B.rushSweetLine;
-  // 火入れの救い: ラッシュの目標の町では、どのラッシュも数える日（anyAfter）を過ぎたら、線を越えれば火を入れなくても起きる（35回目の Opus: 流すだけの手は B も取れなかった）
-  const rescue = crossed && (world.scenario.goals || []).some((g) => g.type === 'rushes' && g.city === city.id && g.anyAfter && world.day >= g.anyAfter);
+  // 火入れの救い: ラッシュの目標の町では、どのラッシュも数える日（anyAfter）を過ぎたら、熟せば火を入れなくても起きる
+  // （35回目の Opus: 流すだけの手は B も取れなかった。11回目の Sol: 線を越えるまで待つ形では、火を入れない固定の手の完走が1〜2割だった）
+  const rescue = B.rushIgnite && rushRipe(world, city) && (world.scenario.goals || []).some((g) => g.type === 'rushes' && g.city === city.id && g.anyAfter && world.day >= g.anyAfter);
   if (B.rushIgnite ? city.ignite != null || rescue : crossed) {
     delete city.ignite;
+    // 熟したままの印も消す（反動のあとは、もう一度熟す条件から。11回目の Sol）
+    delete city.ripeNoted;
     city.rush = B.rushDays;
     city.rushCount = (city.rushCount || 0) + 1;
     city.lastRushDay = world.day;
