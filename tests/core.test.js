@@ -1465,6 +1465,11 @@ test('火入れ（34回目の相談の試作、B.rushIgnite）: 熟した町に�
     assert.ok(G.rushRipe(w, c));
     G.advance(w, 1, silent);
     assert.ok(!(c.rush > 0), '売らなければ起きない');
+    // 熟したまま: 摂取が落ちても、糖度が目安−20 までは熟したまま
+    c.ripeNoted = true; c.sweetLevel = 0; c.sweetHist = [0]; c.glucose = G.rushLineOf(w) - B.rushRipeGap - 5;
+    assert.ok(G.rushRipe(w, c), '熟したまま');
+    c.glucose = G.rushLineOf(w) - B.rushRipeGap - B.rushRipeKeep - 1;
+    assert.ok(!G.rushRipe(w, c), '冷えたら熟していない');
     ripen();
     const sweets = w.scenario.goods.filter((g) => G.GOODS[g].kind === 'sweet');
     c.stock[sweets[0]] = 50; c.stock[sweets[1]] = 50;

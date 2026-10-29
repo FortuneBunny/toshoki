@@ -179,7 +179,10 @@ function growthRate(city) {
 const isMine = (world, city) => !!(city.founded && !city.rivalPost) || !!world.scenario.goals?.some((g) => g.type === 'rushes' && (!g.city || g.city === city.id));
 
 // 火入れ（B.rushIgnite）: 熟した町か
-export const rushRipe = (world, city) => !!B.rushIgnite && !(city.rush > 0) && !(city.crash > 0) && city.glucose >= rushLineOf(world) - B.rushRipeGap && ripeSweet(city) >= B.rushRipeSweet;
+// いったん熟したら、糖度が熟す目安から rushRipeKeep 下回るまで熟したまま（35回目の相談の10回目の Sol: 熟したのが便の着かない日ばかりで、火を入れられなかった）
+export const rushRipe = (world, city) => !!B.rushIgnite && !(city.rush > 0) && !(city.crash > 0) && (city.ripeNoted
+  ? city.glucose >= rushLineOf(world) - B.rushRipeGap - B.rushRipeKeep
+  : city.glucose >= rushLineOf(world) - B.rushRipeGap && ripeSweet(city) >= B.rushRipeSweet);
 export const ripeSweet = (city) => Math.max(city.sweetLevel || 0, ...(city.sweetHist || []));
 // 火を入れるのに、その甘味をまとめて何個売るか
 export const igniteNeed = (city, good) => Math.max(5, Math.ceil(B.rushIgniteDays * dailyDemand(city, good, false, NOWILD)));
