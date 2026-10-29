@@ -33,10 +33,10 @@ export function renderSide(app, el) {
   else add(el, overview(app));
 }
 
-function gaugeBlock(g, target) {
+function gaugeBlock(g, target, world) {
   return h('div', {},
     h('div', { class: 'gauge' }, h('div', { class: 'fill', style: { width: `${Math.min(100, (g / 200) * 100)}%` } }), target !== undefined ? h('div', { class: 'target', style: { left: `${Math.min(100, (target / 200) * 100)}%` } }) : null),
-    h('div', { class: 'gauge-legend' }, h('span', {}, '飢え'), h('span', {}, '40'), h('span', {}, '安定'), h('span', {}, '110 活況'), h('span', {}, '140 ラッシュ')));
+    h('div', { class: 'gauge-legend' }, h('span', {}, '飢え'), h('span', {}, '40'), h('span', {}, '安定'), h('span', {}, '110 活況'), h('span', {}, G.BALANCE.rushIgnite ? `${G.rushLineOf(world) - G.BALANCE.rushRipeGap} 熟す` : `${G.rushLineOf(world)} ラッシュ`)));
 }
 
 // 自分の交易所の格上げ（区画の画面の奥にしかなく、見つけにくかった。第15回テスト）。家が頭打ちのときは目立たせる
@@ -104,7 +104,7 @@ function cityPanel(app, id) {
     add(box, 
       look.length ? h('div', { class: 'outlook' }, look.map((o) => h('div', { class: `ol ${o.kind}` }, o.text))) : null,
       h('div', { class: 'section' }, '糖度（町の血糖値）'),
-      gaugeBlock(c.glucose, c.glucoseTarget),
+      gaugeBlock(c.glucose, c.glucoseTarget, world),
       h('dl', { class: 'kv' },
         h('dt', {}, '糖度'), h('dd', {}, `${Math.round(c.glucose)}（向かう先 ${Math.round(c.glucoseTarget)}）${c.rush ? ` 🍬ラッシュ あと${c.rush}日` : ''}${c.crash ? ` 💥クラッシュ あと${c.crash}日` : ''}`),
         h('dt', {}, '人口'), h('dd', {}, `${fmt(c.pop)}${next ? ` / 次の段階 ${fmt(next)}` : ''}`, (() => { const g = G.popGain(c, 30); return g != null ? h('span', { class: g > 0 ? 'good' : g < 0 ? 'bad' : 'dim', style: { fontSize: '11px' } }, `（この30日で${g >= 0 ? '+' : ''}${g}人）`) : null; })()),

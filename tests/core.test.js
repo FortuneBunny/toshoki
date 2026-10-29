@@ -1030,7 +1030,8 @@ test('大祭の予告（試作）: 大祭の期間に始まったラッシュだ
     assert.ok(G.festivalOn(w, 'saito'));
     c.rush = 0; c.crash = 0;
     for (const g of ['wheat', 'rice', 'dates', 'grapes', 'honey', 'rawsugar', 'whitesugar']) c.stock[g] = 1e6;
-    for (let i = 0; i < 5 && !c.festRushCount; i++) G.advance(w, 1, { stopOn: new Set() });
+    // 火入れ（35回目の相談で既定に）: 熟したら火を入れる
+    for (let i = 0; i < 8 && !c.festRushCount; i++) { if (G.rushRipe(w, c)) c.ignite = w.day; G.advance(w, 1, { stopOn: new Set() }); }
     assert.equal(c.festRushCount, 1);
     const w2 = G.deserialize(G.serialize(w));
     assert.deepEqual(w2.festivals.map((y) => y.start), w.festivals.map((y) => y.start));

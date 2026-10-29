@@ -129,7 +129,7 @@ export function openTrade(app, merchantId) {
     const head = h('div', { class: 'trade-head' },
       h('div', { class: 'side-l' }, `${m.name}の積荷`),
       h('div', { class: 'hint' }, '＋は買う（町→積荷）／－は売る（積荷→町）', h('span', { class: 'kbd-hint' }, h('br'), 'Shift: 10個ずつ　Ctrl: 100個ずつ')),
-      h('div', { class: 'side-r' }, `${city.name}の市場`, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(city))}・人口 ${fmt(city.pop)}・糖度 ${Math.round(city.glucose)}${city.rush ? '・🍬ラッシュ中' : ''}${city.crash ? '・💥クラッシュ中' : ''}`)));
+      h('div', { class: 'side-r' }, `${city.name}の市場`, h('div', { class: 'dim', style: { fontSize: '12px', fontWeight: 500 } }, `${G.tierName(G.cityTier(city))}・人口 ${fmt(city.pop)}・糖度 ${Math.round(city.glucose)}${city.rush ? '・🍬ラッシュ中' : ''}${city.crash ? '・💥クラッシュ中' : ''}${G.rushRipe(world, city) ? (city.ignite != null ? '・🔥火が入った（明日ラッシュ）' : '・🔥熟した') : ''}`)));
 
     const tools = h('div', { class: 'trade-tools' },
       h('span', { class: 'dim' }, '並び替え:'),
