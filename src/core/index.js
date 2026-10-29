@@ -28,7 +28,7 @@ export { BALANCE } from '../data/balance.js';
 export { SCENARIOS, SCENARIO_ORDER } from '../data/scenarios.js';
 export { TALENTS, TALENT_IDS } from '../data/talents.js';
 export { HEIRLOOMS, heirloomText, heirloomFor } from '../data/heirlooms.js';
-export { validateOrder, baseStops } from './orders.js';
+export { validateOrder, baseStops, runOrder } from './orders.js';
 export { knownBlights, blightActive, blightStateText } from './blights.js';
 export { knownMarkets, marketActive, marketOn, marketStateText, portRoomLeft, portRoom, shipText as marketShipText, trialLeft, portWhy, marketDepart } from './markets.js';
 export { knownGangs, gangActive, gangZone, gangStateText, inGangZone, gangCrossings, gangCrossText, travelGangCrossings, safeDepartDay, gambleDepartDay, setOrderGangWait, gangChanceOn, gangBoostOn } from './gangs.js';

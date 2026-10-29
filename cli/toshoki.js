@@ -88,6 +88,17 @@ function rushGap(glucose, sweet, plan = null, line = 140, city = null) {
   const g = Math.round(glucose);
   const s = Math.round(sweet * 100);
   const need = [];
+  // 火入れ: 熟す目安と、火を入れる量（35回目の Sol: 線を越えれば起きる古い案内と、熟す目安が並んでいた）
+  if (G.BALANCE.rushIgnite) {
+    if (city?.ignite != null) return '火が入った（明日ラッシュが始まる）';
+    const rl = line - G.BALANCE.rushRipeGap, rs = Math.round(G.BALANCE.rushRipeSweet * 100);
+    if (g < rl) need.push(`糖度をあと${rl - g}（今${g}。食べ物を何種類も届ける）`);
+    if (s < rs) need.push(`甘味の摂取をあと${rs - s}%（今${s}%）`);
+    if (need.length) return `熟すまで ${need.join('、')}。熟したら、甘味をまとめて売った翌日にラッシュ（売らなければ起きない）`;
+    const kinds = G.BALANCE.rushIgniteKinds ?? 2;
+    const sw = city ? Object.keys(city.stock).filter((k) => GOODS[k]?.kind === 'sweet') : [];
+    return `🔥熟している。甘味をその日まとめて売ると火が入る${city ? `（${sw.length ? sw.slice(0, 3).map((k) => `${GOODS[k].name}なら${G.igniteNeed(city, k)}個`).join('・') : '町の画面の個数'}）` : ''}${kinds > 1 ? `。そのとき町に甘味が${kinds}種類以上要る` : ''}`;
+  }
   if (g < line) need.push(`糖度をあと${line - g}（今${g}。食べ物を何種類も届ける）`);
   if (s < G.BALANCE.rushSweetLine * 100) need.push(`甘味の摂取をあと${Math.round(G.BALANCE.rushSweetLine * 100) - s}%（今${s}%＝今日の甘味の必要量のうち食べた割合。甘味を2種類以上まとめて届ける${plan?.length ? `。目安は ${plan.slice(0, 2).map((p) => `${GOODS[p.good].name} 1日約${Math.ceil(p.perDay)}個（20日ごとの便なら1回に約${Math.ceil(p.perDay * 20)}個。まとめて届けて火をつけるなら、ラッシュまでの約1週間もつ${Math.ceil(p.perDay * 7)}個以上）`).join(' ＋ ')}。届けた日だけでなく、毎日切らさないこと（ほかの甘味でもよい）` : ''}）`);
   return need.length ? `ラッシュまで ${need.join('、')}` : '条件はそろっている（明日にもラッシュ）';
@@ -343,7 +354,7 @@ function cityText(world, id) {
     if (why) out.push(`伸びを止めているもの: ${why}`);
     const look = G.cityOutlook(world, c);
     if (look.length) out.push(`これから: ${look.map((o) => o.text).join(' / ')}`);
-    out.push(`糖度の目安: 40未満=飢え（人口減） 40〜110=安定（成長） 110〜140=活況（急成長） 140以上で甘味を大量に食べるとシュガーラッシュ → その後クラッシュ`);
+    out.push(`糖度の目安: 40未満=飢え（人口減） 40〜110=安定（成長） 110〜140=活況（急成長） ${G.BALANCE.rushIgnite ? `${G.rushLineOf(world) - G.BALANCE.rushRipeGap}以上で甘味を食べていると熟し、甘味をまとめて売るとシュガーラッシュ` : `${G.rushLineOf(world)}以上で甘味を大量に食べるとシュガーラッシュ`} → その後クラッシュ`);
     const diet = Object.entries(c.diet || {}).sort((a, b) => b[1] - a[1]);
     out.push(dwellingLine(world, c));
     const refuse = world.scenario.goods.filter((g) => !G.cityWants(c, g));
@@ -519,6 +530,7 @@ function parseStop(str, world) {
       if (kind === 'sell') { const [good, min] = item.split('@'); stop.sell.push({ good, min: min ? Number(min) : 0 }); }
       else if (kind === 'buy') { const [gq, max] = item.split('@'); const [good, qty] = gq.split('*'); stop.buy.push({ good, qty: Number(qty || 999), max: max ? Number(max) : Infinity }); }
       else if (kind === 'keep') { const [good, qty] = item.split('*'); stop.sell.filter((x) => x.good === good).forEach((x) => { x.keep = Number(qty || 0); }); stop.keepList = [...(stop.keepList || []), { good, qty: Number(qty || 0) }]; }
+      else if (kind === 'fire') (stop.fireList ||= []).push(item);
       else if (kind === 'unload' || kind === 'load') stop[kind].push(item);
       else if (kind === 'wait') { const [good, qty] = item.split('*'); stop.waitFor = { good, qty: Number(qty || 1) }; }
       else throw new Error(`停泊地の書き方が不正: ${p}`);
@@ -529,6 +541,12 @@ function parseStop(str, world) {
     if (s) s.keep = k.qty;
   }
   delete stop.keepList;
+  // fire:品 熟した町では、その品をまとめて売って火を入れる（売る品になければ足す）
+  for (const good of stop.fireList || []) {
+    const s = stop.sell.find((x) => x.good === good);
+    if (s) s.fire = true; else stop.sell.push({ good, min: 0, fire: true });
+  }
+  delete stop.fireList;
   return stop;
 }
 
@@ -601,6 +619,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
                                          unload:品        積んでいる分を全部、自分の倉庫へ下ろす（工房の材料）
                                          load:品[*数]     倉庫にある分を、積めるだけ（数を書けばその数まで）積む（工房の製品）
                                          wait:品*数       その品がその数だけ積めるまで、この町で待つ（最大30日。空荷の往復を防ぐ）
+                                         fire:品          （火入れがあるとき）熟した町ではその品をまとめて売って火を入れる。熟していなければ火入れの分を残して売り、熟す手前なら数日待つ
                                        処理の順番は 下ろす → 積む → 売る → 買う
   order list                           定期便ごとの損益
   order edit <停泊地の番号> "<町 ...>"  停泊地を1つだけ書き直す（番号は、その商人の定期便の停泊地の順。-m で商人を選ぶ）

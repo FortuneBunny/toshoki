@@ -1,4 +1,4 @@
-import { dailyDemand } from './city.js';
+import { dailyDemand, rushRipe, igniteNeed, rushLineOf } from './city.js';
 import { canBuyTransportAt, buyTransport } from './actions.js';
 // 到着時の処理と定期便（自動化）
 // order = { stops: [{ city, sell: [{ good, min }], buy: [{ good, qty, max }], unload: [good], load: [good] }], next: 0, paused: false }
@@ -60,6 +60,24 @@ export function arriveAt(world, m) {
   emit(world, { type: 'arrive', merchant: m.id, city: m.city, text: `${m.name}が${world.cities[m.city].name}に到着した` });
 }
 
+// 定期便の火入れ（35回目の相談: 熟した日と便の着く日が噛み合わず、流すだけの便では火が入らなかった）
+// 返り値: keep = 売らずに残す数（火入れの分）、wait = 熟すのを待つか
+function fireAtStop(world, m, city, stop, notes) {
+  const out = { keep: {}, wait: false };
+  const goods = (stop.sell || []).filter((s) => s.fire && (m.cargo[s.good] || 0) >= 1 && cityWants(city, s.good)).map((s) => s.good);
+  if (!B.rushIgnite || !goods.length || city.rush > 0 || city.crash > 0 || city.ignite != null) return out;
+  const names = goods.map((g) => GOODS[g].name).join('・');
+  if (rushRipe(world, city)) {
+    executeTrade(world, m, goods.map((g) => ({ good: g, qty: -Math.floor(m.cargo[g]) })), { auto: true });
+    notes.push(city.ignite != null ? `熟した${city.name}に${names}をまとめて売り、火を入れた` : `熟した${city.name}に${names}をまとめて売ったが、火は入らなかった（量か、町にある甘味の種類が足りない）`);
+    return out;
+  }
+  for (const g of goods) out.keep[g] = igniteNeed(city, g);
+  // 熟す手前（糖度が熟す目安の10手前から）なら待つ
+  out.wait = city.glucose >= rushLineOf(world) - B.rushRipeGap - 10;
+  return out;
+}
+
 export function runOrder(world, m, { depart = true } = {}) {
   const o = m.order;
   switchAlt(world, m, { arrive: true });
@@ -94,9 +112,11 @@ export function runOrder(world, m, { depart = true } = {}) {
       o.holding = true;
       return;
     }
+    // 火入れ（売る品の fire）: 熟した町では、その品をまとめて1回で売って火を入れる。熟していなければ、火入れの分を残して売る
+    const fire = fireAtStop(world, m, city, stop, notes);
     // 売り: 最低価格を下回るなら売らずに持ち越す（赤字売りを防ぐ）
     for (const s of stop.sell || []) {
-      const have = (m.cargo[s.good] || 0) - (s.keep || 0);
+      const have = (m.cargo[s.good] || 0) - (s.keep || 0) - (fire.keep[s.good] || 0);
       if (have <= 0 || !cityWants(city, s.good)) continue;
       // 隊商市への臨時の便を予約していて、まだ切り替わっていないなら、その品は市のために残す
       // （予約してから切り替わるまでの間に、いつもの売り場で売り切って、空荷で市に着いた。32回目の Sol）
@@ -154,6 +174,16 @@ export function runOrder(world, m, { depart = true } = {}) {
       if (world.day - o.holdSince < 30) { o.holding = true; return; }
       notes.push(`${GOODS[stop.waitFor.good].name}が${stop.waitFor.qty}個そろわないまま30日たったので出発`);
     }
+    // 熟す手前の町なら、熟すまで待つ（最大 fireWaitDays 日。待つ間も、毎日売り買いをやり直す）
+    if (fire.wait) {
+      o.fireSince = o.fireSince ?? world.day;
+      if (world.day - o.fireSince < B.fireWaitDays) {
+        if (!o.holding) emit(world, { type: 'orderNote', merchant: m.id, city: m.city, text: `${m.name}（定期便）: ${city.name}が熟すのを待つ（${B.fireWaitDays}日まで。火入れの分を残している）` });
+        o.holding = true;
+        return;
+      }
+    }
+    o.fireSince = null;
     o.holding = false;
     o.holdSince = null;
     o.next = (o.next + 1) % o.stops.length;

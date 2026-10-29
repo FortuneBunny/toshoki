@@ -49,7 +49,10 @@ export const BALANCE = {
   rushIgnite: false,
   rushRipeGap: 10,
   rushRipeSweet: 0.4,
-  rushIgniteDays: 3,
+  rushIgniteDays: 2,         // 35回目の相談の Opus: 3日分は都市の祭都で荷車1便を超えた
+  rushRipeHold: 3,           // 熟す判定の甘味の摂取は、この日数のうちの最高（1便が数日で食べ尽くされ、熟すのが1〜3日だった）
+  fireWaitDays: 4,           // 定期便の「火入れ」: 熟す手前の町で、熟すのを待つ日数
+  rushIgniteKinds: 2, // 火が入るのに町にそろっている甘味の種類
 
   // 生産
   productionNoise: 0.25,      // 毎日の生産量のぶれ

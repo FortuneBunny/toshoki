@@ -1476,3 +1476,85 @@ test('火入れ（34回目の相談の試作、B.rushIgnite）: 熟した町に�
     assert.ok(c.rush > 0);
   } finally { B.rushIgnite = keep; }
 });
+
+test('火入れは取引をまとめて見る（35回目の Sol）: 町にない2種類目を同じ取引で売っても火が入る', () => {
+  const B = G.BALANCE;
+  const keep = B.rushIgnite;
+  B.rushIgnite = true;
+  try {
+    const w = G.createWorld('s5', { seed: 3 });
+    if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+    const st = G.foundSites(w, 1)[0];
+    G.foundPost(w, st.x, st.y);
+    const c = w.cities.saito;
+    c.glucose = 200; c.glucoseTarget = 200; c.sweetLevel = 0.9;
+    const [a, b] = w.scenario.goods.filter((g) => G.GOODS[g].kind === 'sweet');
+    c.stock[a] = 0; c.stock[b] = 0;
+    const m = w.player.merchants[0];
+    m.city = 'saito'; m.travel = null;
+    const need = G.igniteNeed(c, a);
+    m.cargo = { [a]: need, [b]: 1 }; m.cost = { [a]: 1, [b]: 1 };
+    const r = G.trade(w, m.id, [{ good: a, qty: -need }, { good: b, qty: -1 }]);
+    assert.ok(r.ok, r.error);
+    assert.equal(c.ignite, w.day);
+  } finally { B.rushIgnite = keep; }
+});
+
+test('火入れ（35回目の相談）: 売り戻しでは火が入らない・定期便の fire で火が入る・anyAfter を過ぎたら線で起きる', () => {
+  const B = G.BALANCE;
+  const keep = B.rushIgnite;
+  B.rushIgnite = true;
+  try {
+    const mk = () => {
+      const w = G.createWorld('s5', { seed: 3 });
+      if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+      const st = G.foundSites(w, 1)[0];
+      G.foundPost(w, st.x, st.y);
+      const c = w.cities.saito;
+      c.glucose = 200; c.glucoseTarget = 200; c.sweetLevel = 0.9;
+      const [a, b] = w.scenario.goods.filter((g) => G.GOODS[g].kind === 'sweet');
+      c.stock[a] = 50; c.stock[b] = 50;
+      const m = w.player.merchants[0];
+      m.city = 'saito'; m.travel = null; w.player.silver = 5000;
+      return { w, c, a, b, m };
+    };
+    // 売り戻し
+    {
+      const { w, c, a, m } = mk();
+      const n = G.igniteNeed(c, a) + 2;
+      assert.ok(G.trade(w, m.id, [{ good: a, qty: n }]).ok);
+      assert.ok(G.trade(w, m.id, [{ good: a, qty: -n }]).ok);
+      assert.equal(c.ignite, undefined, '買って売り戻すだけでは火が入らない');
+    }
+    // 定期便の fire
+    {
+      const { w, c, a, m } = mk();
+      const need = G.igniteNeed(c, a);
+      m.cargo = { [a]: need + 3 }; m.cost = { [a]: 1 };
+      m.order = { stops: [{ city: 'saito', sell: [{ good: a, min: 0, fire: true }], buy: [], unload: [], load: [] }, { city: 'satou', sell: [], buy: [], unload: [], load: [] }], next: 0 };
+      G.runOrder(w, m, { depart: false });
+      assert.equal(c.ignite, w.day, '熟した町で、まとめて売って火を入れる');
+    }
+    // 熟していなければ、火入れの分を残して売る
+    {
+      const { w, c, a, m } = mk();
+      c.glucose = 60; c.glucoseTarget = 60; c.sweetHist = [0]; c.sweetLevel = 0;
+      const need = G.igniteNeed(c, a);
+      m.cargo = { [a]: need + 3 }; m.cost = { [a]: 0.1 };
+      m.order = { stops: [{ city: 'saito', sell: [{ good: a, min: 0, fire: true }], buy: [], unload: [], load: [] }, { city: 'satou', sell: [], buy: [], unload: [], load: [] }], next: 0 };
+      G.runOrder(w, m, { depart: false });
+      assert.equal(m.cargo[a], need, '火入れの分を残す');
+      assert.equal(c.ignite, undefined);
+    }
+    // 救い
+    {
+      const { w, c } = mk();
+      w.day = 366;
+      c.glucose = 200; c.glucoseTarget = 200;
+      const sweets = w.scenario.goods.filter((g) => G.GOODS[g].kind === 'sweet');
+      for (const g of sweets) c.stock[g] = 500;
+      G.advance(w, 2, silent);
+      assert.ok(c.rush > 0 || c.rushCount > 0, '365日を過ぎたら、線を越えた目標の町は火を入れなくても起きる');
+    }
+  } finally { B.rushIgnite = keep; }
+});

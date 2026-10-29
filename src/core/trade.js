@@ -100,6 +100,7 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
   let profit = 0;
   let sold = 0;
   let hit = null;
+  const sweetSold = {};
   for (const { good, qty } of lines) {
     if (!qty) continue;
     const g = GOODS[good];
@@ -136,7 +137,8 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       notePortSale(world, m, city, good, n);
       // 町に届いた量の記録（町の画面で「届いた量と食べる量」を並べる。5回目の Sol）
       if (['food', 'sweet'].includes(g.kind)) { (city.supplyLog ??= []).push([world.day, good, n]); while (city.supplyLog.length && city.supplyLog[0][0] < world.day - 30) city.supplyLog.shift(); }
-      if (g.kind === 'sweet') igniteCheck(world, city, good, n);
+      // 売り戻しは火入れに数えない（35回目の Opus: その町の甘味を買って売り戻すだけで火が入った）
+      if (g.kind === 'sweet' && counted > 0) sweetSold[good] = (sweetSold[good] || 0) + counted;
       // ラッシュの決算に数える（city.js の rushCycle）
       if (city.rush > 0 && city.rushTake && g.kind === 'sweet') { city.rushTake.qty += n; city.rushTake.silver += gain; }
       m.cargo[good] -= n;
@@ -162,6 +164,8 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       if (counted > 0) contractProgress(world, city, good, counted, fx);
     }
   }
+  // 火入れは取引をまとめて見る（35回目の Sol: 1行ずつ見ていて、同じ取引で売った2種類目が数えられなかった）
+  for (const [good, n] of Object.entries(sweetSold)) igniteCheck(world, city, good, n);
   if (sold > 0) {
     world.stats.profit += profit;
     world.stats.sales += 1;
