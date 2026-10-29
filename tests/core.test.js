@@ -1494,7 +1494,11 @@ test('火入れは取引をまとめて見る（35回目の Sol）: 町にない
     m.city = 'saito'; m.travel = null;
     const need = G.igniteNeed(c, a);
     m.cargo = { [a]: need, [b]: 1 }; m.cost = { [a]: 1, [b]: 1 };
-    const r = G.trade(w, m.id, [{ good: a, qty: -need }, { good: b, qty: -1 }]);
+    m.cargo[a] += need; m.cargo[b] += 1;
+    assert.ok(G.trade(w, m.id, [{ good: a, qty: -need }, { good: b, qty: -1 }]).ok);
+    assert.equal(c.ignite, undefined, 'ふつうに売っても火は入らない（8回目の Sol のボット）');
+    c.stock[a] = 0; c.stock[b] = 0;
+    const r = G.trade(w, m.id, [{ good: a, qty: -need }, { good: b, qty: -1 }], { ignite: true });
     assert.ok(r.ok, r.error);
     assert.equal(c.ignite, w.day);
   } finally { B.rushIgnite = keep; }
@@ -1523,7 +1527,7 @@ test('火入れ（35回目の相談）: 売り戻しでは火が入らない・�
       const { w, c, a, m } = mk();
       const n = G.igniteNeed(c, a) + 2;
       assert.ok(G.trade(w, m.id, [{ good: a, qty: n }]).ok);
-      assert.ok(G.trade(w, m.id, [{ good: a, qty: -n }]).ok);
+      assert.ok(G.trade(w, m.id, [{ good: a, qty: -n }], { ignite: true }).ok);
       assert.equal(c.ignite, undefined, '買って売り戻すだけでは火が入らない');
     }
     // 定期便の fire

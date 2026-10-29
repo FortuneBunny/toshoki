@@ -68,7 +68,7 @@ function fireAtStop(world, m, city, stop, notes) {
   if (!B.rushIgnite || !goods.length || city.rush > 0 || city.crash > 0 || city.ignite != null) return out;
   const names = goods.map((g) => GOODS[g].name).join('・');
   if (rushRipe(world, city)) {
-    executeTrade(world, m, goods.map((g) => ({ good: g, qty: -Math.floor(m.cargo[g]) })), { auto: true });
+    executeTrade(world, m, goods.map((g) => ({ good: g, qty: -Math.floor(m.cargo[g]) })), { auto: true, ignite: true });
     notes.push(city.ignite != null ? `熟した${city.name}に${names}をまとめて売り、火を入れた` : `熟した${city.name}に${names}をまとめて売ったが、火は入らなかった（量か、町にある甘味の種類が足りない）`);
     return out;
   }

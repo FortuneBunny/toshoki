@@ -183,7 +183,7 @@ export const rushRipe = (world, city) => !!B.rushIgnite && !(city.rush > 0) && !
 export const ripeSweet = (city) => Math.max(city.sweetLevel || 0, ...(city.sweetHist || []));
 // 火を入れるのに、その甘味をまとめて何個売るか
 export const igniteNeed = (city, good) => Math.max(5, Math.ceil(B.rushIgniteDays * dailyDemand(city, good, false, NOWILD)));
-// 甘味を売ったとき（trade.js）: 熟した町に、その日まとめて igniteNeed 個以上売り、甘味が rushIgniteKinds 種類以上あれば火が入る
+// 「火を入れて売る」とき（trade.js の ignite）: 熟した町に、その日まとめて igniteNeed 個以上売り、甘味が rushIgniteKinds 種類以上あれば火が入る
 export function igniteCheck(world, city, good, n) {
   if (!rushRipe(world, city) || city.ignite != null) return;
   if (city.igniteBuf?.day !== world.day) city.igniteBuf = { day: world.day, q: {} };
@@ -230,7 +230,7 @@ function rushCycle(world, city) {
   // 熟したら一度だけ知らせる（自分の交易所と目標の町）
   if (B.rushIgnite) {
     const ripe = rushRipe(world, city);
-    if (ripe && !city.ripeNoted && isMine(world, city)) emit(world, { type: 'rushRipe', city: city.id, mine: true, text: `🔥${city.name}が熟した（糖度${Math.round(city.glucose)}）。甘味をまとめて売ると、翌日シュガーラッシュが始まる。売らなければ起きない` });
+    if (ripe && !city.ripeNoted && isMine(world, city)) emit(world, { type: 'rushRipe', city: city.id, mine: true, text: `🔥${city.name}が熟した（糖度${Math.round(city.glucose)}）。取引の画面の「🔥火を入れて売る」で甘味をまとめて売ると、翌日シュガーラッシュが始まる。ふつうに売っても起きない` });
     city.ripeNoted = ripe;
   }
   const crossed = city.glucose >= rushLineOf(world) && (city.sweetLevel || 0) >= B.rushSweetLine;
@@ -368,9 +368,9 @@ export function cityOutlook(world, city) {
   else if (city.crash > 0) out.push({ kind: 'crash', text: `💥クラッシュ中（あと${city.crash}日）。甘味が売れにくく、町も育たない${city.founded && B.crashGrowth < 0 ? '（人口が少しずつ減る）' : ''}` });
   else if (B.rushIgnite && rushRipe(world, city)) {
     const sweets = world.scenario.goods.filter((g) => GOODS[g].kind === 'sweet');
-    out.push({ kind: 'rushSoon', text: `🔥熟した（糖度${Math.round(city.glucose)}・甘味の摂取${Math.round((city.sweetLevel || 0) * 100)}%）。甘味を1日にまとめて売ると（${sweets.slice(0, 3).map((g) => `${GOODS[g].name}なら${igniteNeed(city, g)}個`).join('・')}）${(B.rushIgniteKinds ?? 2) > 1 ? `、甘味が${B.rushIgniteKinds ?? 2}種類そろっていれば` : ''}翌日ラッシュが始まる。売らなければ起きない${cost}` });
+    out.push({ kind: 'rushSoon', text: `🔥熟した（糖度${Math.round(city.glucose)}・甘味の摂取${Math.round((city.sweetLevel || 0) * 100)}%）。取引の画面の「🔥火を入れて売る」で甘味をまとめて売ると（${sweets.slice(0, 3).map((g) => `${GOODS[g].name}なら${igniteNeed(city, g)}個`).join('・')}）${(B.rushIgniteKinds ?? 2) > 1 ? `、甘味が${B.rushIgniteKinds ?? 2}種類そろっていれば` : ''}翌日ラッシュが始まる。ふつうに売っても起きない${cost}` });
   } else if (B.rushIgnite && city.glucose >= line - 45 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet')) {
-    out.push({ kind: 'rushSoon', text: `🍬もうすぐ熟す（糖度${Math.round(city.glucose)}/${line - B.rushRipeGap}・甘味の摂取${Math.round((city.sweetLevel || 0) * 100)}%/${Math.round(B.rushRipeSweet * 100)}%）。熟すと、甘味をまとめて売った翌日にラッシュを起こせる` });
+    out.push({ kind: 'rushSoon', text: `🍬もうすぐ熟す（糖度${Math.round(city.glucose)}/${line - B.rushRipeGap}・甘味の摂取${Math.round((city.sweetLevel || 0) * 100)}%/${Math.round(B.rushRipeSweet * 100)}%）。熟すと、「火を入れて売る」で甘味をまとめて売った翌日にラッシュを起こせる` });
   } else if (city.glucose >= line - 15 && world.scenario.goods.some((g) => GOODS[g].kind === 'sweet')) {
     // このままなら何日で線を越えるか（34回目の Opus: 大祭の2日前に起きて、反動が大祭に重なった）
     const eta = rushEta(world, city);

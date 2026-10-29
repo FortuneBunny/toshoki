@@ -58,6 +58,7 @@ function parseArgs(argv) {
     else if (a === '--nowait') opts.nowait = true;
     else if (a === '--force') opts.force = true;
     else if (a === '--hold') opts.hold = true;
+    else if (a === '--fire') opts.fire = true;
     else if (a.startsWith('--')) opts[a.slice(2)] = argv[++i];
     else if (a === '-m') opts.merchant = argv[++i];
     else pos.push(a);
@@ -94,10 +95,10 @@ function rushGap(glucose, sweet, plan = null, line = 140, city = null) {
     const rl = line - G.BALANCE.rushRipeGap, rs = Math.round(G.BALANCE.rushRipeSweet * 100);
     if (g < rl) need.push(`糖度をあと${rl - g}（今${g}。食べ物を何種類も届ける）`);
     if (s < rs) need.push(`甘味の摂取をあと${rs - s}%（今${s}%）`);
-    if (need.length) return `熟すまで ${need.join('、')}。熟したら、甘味をまとめて売った翌日にラッシュ（売らなければ起きない）`;
+    if (need.length) return `熟すまで ${need.join('、')}。熟したら、火を入れて売る（trade ... --fire）と翌日にラッシュ（ふつうに売っても起きない）`;
     const kinds = G.BALANCE.rushIgniteKinds ?? 2;
     const sw = city ? Object.keys(city.stock).filter((k) => GOODS[k]?.kind === 'sweet') : [];
-    return `🔥熟している。甘味をその日まとめて売ると火が入る${city ? `（${sw.length ? sw.slice(0, 3).map((k) => `${GOODS[k].name}なら${G.igniteNeed(city, k)}個`).join('・') : '町の画面の個数'}）` : ''}${kinds > 1 ? `。そのとき町に甘味が${kinds}種類以上要る` : ''}`;
+    return `🔥熟している。甘味をまとめて火を入れて売ると（trade ... --fire）火が入る${city ? `（${sw.length ? sw.slice(0, 3).map((k) => `${GOODS[k].name}なら${G.igniteNeed(city, k)}個`).join('・') : '町の画面の個数'}）` : ''}${kinds > 1 ? `。そのとき町に甘味が${kinds}種類以上要る` : ''}`;
   }
   if (g < line) need.push(`糖度をあと${line - g}（今${g}。食べ物を何種類も届ける）`);
   if (s < G.BALANCE.rushSweetLine * 100) need.push(`甘味の摂取をあと${Math.round(G.BALANCE.rushSweetLine * 100) - s}%（今${s}%＝今日の甘味の必要量のうち食べた割合。甘味を2種類以上まとめて届ける${plan?.length ? `。目安は ${plan.slice(0, 2).map((p) => `${GOODS[p.good].name} 1日約${Math.ceil(p.perDay)}個（20日ごとの便なら1回に約${Math.ceil(p.perDay * 20)}個。まとめて届けて火をつけるなら、ラッシュまでの約1週間もつ${Math.ceil(p.perDay * 7)}個以上）`).join(' ＋ ')}。届けた日だけでなく、毎日切らさないこと（ほかの甘味でもよい）` : ''}）`);
@@ -578,6 +579,7 @@ const HELP = `糖商記 〜Great Glucose Empire〜  CLI版
 【動く】（商人が複数いるときは -m <番号> を付ける）
   quote buy wheat 20 sell dates 10    取引の見積もり（確定しない）
   trade buy wheat 20 sell dates 10    取引を確定（数量に all も使える。買いの all は積載の空き・在庫・銀の一番少ない所まで、売りの all は積荷すべて）
+  trade sell rawsugar all --fire       （火入れがあるとき）熟した町で、甘味をまとめて売って火を入れる
   travel <町id> [--guards n] [--nowait]  出発して、到着か事件まで日を進める（--nowait なら時間を進めない）
   wait <日数> [-m 番号]                日を進める（最大120日。手動の商人の到着や重要な出来事で止まる。-m を付けるとその商人が町に着いたら止まる）
   shop                                 雇用・輸送手段・工房・道の費用と条件（どこで買えるか）
@@ -886,7 +888,8 @@ function run(world, cmd, pos, opts) {
         const avg = G.quote(world, city, l.good, l.qty) / l.qty;
         if (avg > first * 1.4) out.push(`⚠ ${gname(l.good)}はまとめて買うと値上がりする（1個目 ${fmt(first)} → 平均 ${fmt(avg)}）。少なめに買うか quote で確かめよう`);
       }
-      const r = after(G.trade(world, m.id, lines));
+      const r = after(G.trade(world, m.id, lines, { ignite: !!opts.fire }));
+      if (opts.fire) { const c = world.cities[m.city]; out.push(c.ignite === world.day ? `🔥${c.name}に火が入った。明日シュガーラッシュが始まる` : `火は入らなかった（${!G.BALANCE.rushIgnite ? '火入れのない決まり' : !G.rushRipe(world, c) ? '町が熟していない' : '量か、町にある甘味の種類が足りない'}）`); }
       for (const row of r.rows) out.push(`  ${row.qty > 0 ? '買' : '売'} ${gname(row.good)} ×${Math.abs(row.qty)}  ${row.total > 0 ? '+' : ''}${fmt(row.total)} 銀${row.capped ? `（${row.capped}個のうち、買い取りの上限で${Math.abs(row.qty)}個だけ）` : ''}`);
       out.push(`銀 ${Math.floor(world.player.silver)}（${r.silverDelta >= 0 ? '+' : ''}${fmt(r.silverDelta)}）  積載 ${G.cargoUsed(m)}/${G.cargoCap(m)}`);
       for (const f of r.fx) {

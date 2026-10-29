@@ -90,7 +90,7 @@ export function previewTrade(world, m, lines) {
   return { ok: errors.length === 0, errors, silverDelta, rows, cargoAfter: used };
 }
 
-export function executeTrade(world, m, lines, { auto = false } = {}) {
+export function executeTrade(world, m, lines, { auto = false, ignite = false } = {}) {
   // 売りを先に（売った銀で買えるように）
   lines = mergeLines(lines).sort((a, b) => a.qty - b.qty);
   const pv = previewTrade(world, m, lines);
@@ -164,8 +164,9 @@ export function executeTrade(world, m, lines, { auto = false } = {}) {
       if (counted > 0) contractProgress(world, city, good, counted, fx);
     }
   }
-  // 火入れは取引をまとめて見る（35回目の Sol: 1行ずつ見ていて、同じ取引で売った2種類目が数えられなかった）
-  for (const [good, n] of Object.entries(sweetSold)) igniteCheck(world, city, good, n);
+  // 火入れは「火を入れて売る」ときだけ（35回目の相談の8回目の Sol のボット: ふつうの売りでも火が入り、大祭の前に起きて反動が重なった）。
+  // 取引をまとめて見る（35回目の Sol: 1行ずつ見ていて、同じ取引で売った2種類目が数えられなかった）
+  if (ignite) for (const [good, n] of Object.entries(sweetSold)) igniteCheck(world, city, good, n);
   if (sold > 0) {
     world.stats.profit += profit;
     world.stats.sales += 1;

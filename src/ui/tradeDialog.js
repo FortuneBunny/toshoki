@@ -269,7 +269,9 @@ export function openTrade(app, merchantId) {
       h('span', { style: { flex: 1 } }),
       h('button', { class: 'btn', onclick: () => { close(); app.pickDestination(m.id, { toggle: false }); } }, '取引せずに出発…'),
       h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, true) }, '確定して出発…'),
-      h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, false) }, '取引を確定'));
+      h('button', { class: 'btn primary', disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, false) }, '取引を確定'),
+      // 火入れ（35回目の相談）: 熟した町でだけ出す。ふつうの確定では火は入らない
+      G.BALANCE.rushIgnite && G.rushRipe(world, city) && city.ignite == null ? h('button', { class: 'btn primary', title: `甘味をまとめて売って火を入れる。翌日シュガーラッシュが始まる（${G.BALANCE.rushIgniteKinds ?? 2}種類の甘味が町にそろい、1品を${G.BALANCE.rushIgniteDays}日分以上）`, disabled: !lines().length || !pv.ok || undefined, onclick: (e) => accept(e, false, true) }, '🔥火を入れて売る') : null);
 
     add(modal, header, h('div', { class: 'body' }, h('div', { class: 'trade' }, h('div', { class: 'trade-main' }, head, tools, whyBox, table, whBox), summary)), brief, footer);
     if (refocus) {
@@ -292,11 +294,12 @@ export function openTrade(app, merchantId) {
     app.render();
   }
 
-  function accept(e, thenDepart) {
+  function accept(e, thenDepart, ignite = false) {
     const btn = e.currentTarget.getBoundingClientRect();
     const before = world.player.silver;
-    const r = G.trade(world, m.id, lines());
+    const r = G.trade(world, m.id, lines(), { ignite });
     if (!r.ok) { app.error(r.error); return; }
+    if (ignite && city.ignite !== world.day) app.error('火は入らなかった（量か、町にある甘味の種類が足りない）');
     // 演出は地図の上の町から出す（閉じたダイアログのボタンの位置だと、右の欄の文字に重なった）
     const c = world.cities[m.city];
     const [tx, ty] = app.map?.screenPos ? app.map.screenPos(c.x, c.y) : [btn.left + btn.width / 2, btn.top];

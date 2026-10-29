@@ -46,11 +46,11 @@ export function preview(world, mid, lines) {
   return err || previewTrade(world, m, lines);
 }
 
-export function trade(world, mid, lines) {
+export function trade(world, mid, lines, { ignite = false } = {}) {
   const [m, err] = idle(world, mid);
   if (err) return err;
   if (lines.some((l) => !Number.isInteger(l.qty))) return fail('数量は整数で指定する');
-  const r = executeTrade(world, m, lines);
+  const r = executeTrade(world, m, lines, { ignite });
   if (r.ok) checkGoals(world);
   return r.ok ? r : fail(r.errors.join(' / '));
 }
