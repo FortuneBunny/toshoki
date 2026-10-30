@@ -10,7 +10,7 @@ import { dwellingDemand, updateDwellingSat, dwellingStatus, assignDwelling } fro
 import { gainRep } from './trade.js';
 import { shiftNotes } from './shifts.js';
 import { blightNotes } from './blights.js';
-import { festivalNotes, festivalOn, festRushSuffix } from './festivals.js';
+import { festivalNotes, festivalOn, festivalOnDay, festRushSuffix } from './festivals.js';
 import { gangNotes } from './gangs.js';
 import { marketNotes } from './markets.js';
 
@@ -207,6 +207,12 @@ export function igniteWhy(world, city, sold = {}) {
   return null;
 }
 
+// 火入れに要るもの（熟した知らせ・町の画面・定期便の🔥火入れに出す。画面だけのテスト8回目の Opus: 「甘味が2種類要る」を、火入れに失敗して初めて知った）
+export function igniteNeedText(world, city) {
+  const sweets = world.scenario.goods.filter((g) => GOODS[g].kind === 'sweet');
+  return `火入れに要るもの: 甘味のどれか1品をその日まとめて（${sweets.slice(0, 4).map((g) => `${GOODS[g].name}${igniteNeed(city, g)}個`).join('・')}）、売ったあと町に甘味が${B.rushIgniteKinds ?? 2}種類`;
+}
+
 export function igniteCheck(world, city, good, n) {
   if (!rushRipe(world, city) || city.ignite != null) return;
   if (city.igniteBuf?.day !== world.day) city.igniteBuf = { day: world.day, q: {} };
@@ -252,7 +258,7 @@ function rushCycle(world, city) {
   // 熟したら一度だけ知らせる（自分の交易所と目標の町）
   if (B.rushIgnite) {
     const ripe = rushRipe(world, city);
-    if (ripe && !city.ripeNoted && isMine(world, city)) emit(world, { type: 'rushRipe', city: city.id, mine: true, text: `🔥${city.name}が熟した（糖度${Math.round(city.glucose)}）。取引の画面の「🔥火を入れて売る」で甘味をまとめて売ると、翌日シュガーラッシュが始まる。ふつうに売っても起きない` });
+    if (ripe && !city.ripeNoted && isMine(world, city)) emit(world, { type: 'rushRipe', city: city.id, mine: true, text: `🔥${city.name}が熟した（糖度${Math.round(city.glucose)}）。取引の画面の「🔥火を入れて売る」で甘味をまとめて売ると、翌日シュガーラッシュが始まる。ふつうに売っても起きない。${igniteNeedText(world, city)}` });
     city.ripeNoted = ripe;
   }
   const crossed = city.glucose >= rushLineOf(world) && (city.sweetLevel || 0) >= B.rushSweetLine;
@@ -261,6 +267,7 @@ function rushCycle(world, city) {
   const rescue = B.rushIgnite && rushRipe(world, city) && (world.scenario.goals || []).some((g) => g.type === 'rushes' && g.city === city.id && g.anyAfter && world.day >= g.anyAfter);
   if (B.rushIgnite ? city.ignite != null || rescue : crossed) {
     const byRescue = B.rushIgnite && city.ignite == null;
+    const litDay = city.ignite;
     delete city.ignite;
     // 熟したままの印も消す（反動のあとは、もう一度熟す条件から。11回目の Sol）
     delete city.ripeNoted;
@@ -270,8 +277,9 @@ function rushCycle(world, city) {
     city.rushPop0 = city.pop;
     city.rushTake = { qty: 0, silver: 0 };
     world.stats.rushes = (world.stats.rushes || 0) + 1;
-    // 大祭の期間に始まったラッシュ（目標の during: 'festival' で数える）
-    const fest = festivalOn(world, city.id);
+    // 大祭の期間に始まったラッシュ（目標の during: 'festival' で数える）。大祭の最終日に火を入れたものも数える
+    // （画面だけのテスト8回目の Sol: 最終日に着いた便で火が入り、翌日の大祭の外で始まって数えられなかった）
+    const fest = festivalOn(world, city.id) || (litDay != null && festivalOnDay(world, city.id, litDay));
     if (fest) city.festRushCount = (city.festRushCount || 0) + 1;
     emit(world, { type: 'rush', city: city.id, big: true, mine: isMine(world, city), text: `${city.name}でシュガーラッシュ！甘味が飛ぶように売れる${festRushSuffix(world, city.id, fest)}${byRescue ? '（救い: 火を入れなくても起きた）' : ''}` });
   }

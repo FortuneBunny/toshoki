@@ -290,7 +290,8 @@ function flushEvents({ skipTrade = false, quiet = false, events = null } = {}) {
       case 'tierDown': fx.toast(e.text, { kind: 'bad', icon: 'ui/famine' }); sfx.bad(); break;
       // 自分の交易所・目標の町のラッシュは大きく出す（34回目の Opus: 町の成長の知らせに埋もれた）
       case 'rush': if (e.mine) fx.banner('シュガーラッシュ！', e.text.replace(/^.*?シュガーラッシュ！/, ''), 'ui/rush'); else fx.toast(e.text, { kind: 'rare', icon: 'ui/rush' }); sfx.rush(); fx.burst(at[0], at[1], e.mine ? 34 : 22, { size: 16 }); break;
-      case 'crash': fx.toast(e.text, { kind: 'bad', icon: 'ui/crash' }); sfx.crash(); break;
+      // 自分の町・目標の町のラッシュの決算は、始まりと同じく大きく出す（画面だけのテスト8回目の Sol: 決算が右下のログだけだった）
+      case 'crash': if (e.mine) { fx.banner('ラッシュの決算', e.text.replace(/^.*?終わった。/, '').replace(/。これから.*$/, ''), 'ui/rush'); fx.toast(e.text, { icon: 'ui/crash' }); } else fx.toast(e.text, { kind: 'bad', icon: 'ui/crash' }); sfx.crash(); break;
       case 'crashEnd': if (e.mine) fx.toast(e.text, { icon: 'ui/crash' }); break;
       case 'rushRipe': fx.toast(e.text, { kind: 'rare', icon: 'ui/rush' }); break;
       // 自分の町・目標の町の火入れは大きく出す（画面だけのテスト7回目の Opus: ⏭ の1回で火入れ・ラッシュ・達成が続けて過ぎた）
@@ -633,7 +634,7 @@ function renderMerchants() {
       h('img', { class: 'portrait', src: `assets/svg/transport/${m.portrait}.svg`, alt: '' }),
       h('div', { class: 'info' },
         h('div', { class: 'name' }, h('span', { title: m.talent ? G.TALENTS[m.talent].text : '' }, `${m.id}. ${m.name}`, m.talent ? h('small', { class: 'talent' }, ` ${G.TALENTS[m.talent].name}`) : null), h('span', { class: 'dim', style: { fontWeight: 500, fontSize: '12px' } }, icon(`transport/${m.transport}`, 'icon-sm'), ` ${used}/${cap}`)),
-        h('div', { class: 'where' }, where, m.order ? (m.order.paused ? ' ・定期便(停止)' : m.order.altOn ? ' ・臨時の便' : ' ・定期便') : '', ...G.orderShiftWarnings(w, m).filter((x) => !x.covered).map((x) => h('span', { class: 'bad', title: x.text, style: { cursor: 'help' } }, ' ⚠売り先が安くなる')), m.settlers ? ` ・開拓団${m.settlers.n}人→${w.cities[m.settlers.to].name}` : ''),
+        h('div', { class: 'where' }, where, m.order ? (m.order.paused ? ' ・定期便(停止)' : m.order.altOn ? ((m.order.alts || []).find((a) => a.id === m.order.altOn)?.until <= w.day ? ' ・臨時の便（期間が過ぎた。次の町でいつもの便に戻す）' : ' ・臨時の便') : ' ・定期便') : '', ...G.orderShiftWarnings(w, m).filter((x) => !x.covered).map((x) => h('span', { class: 'bad', title: x.text, style: { cursor: 'help' } }, ' ⚠売り先が安くなる')), m.settlers ? ` ・開拓団${m.settlers.n}人→${w.cities[m.settlers.to].name}` : ''),
         h('div', { class: 'cargo-bar' }, h('i', { style: { width: `${(used / cap) * 100}%` } })),
         m.travel ? h('div', { class: 'progress-bar' }, h('i', { style: { width: `${Math.min(100, (m.travel.elapsed / Math.max(1, m.travel.totalDays)) * 100)}%` } })) : null,
         h('div', { style: { display: 'flex', gap: '2px', flexWrap: 'wrap', minHeight: '18px' } }, cargo.slice(0, 6).map(([g, q]) => h('span', { title: `${GOODS[g].name} ${q}` }, goodIcon(g, 'icon-sm'), h('small', { class: 'num' }, q)))),

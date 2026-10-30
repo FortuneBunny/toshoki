@@ -5,7 +5,7 @@ import { quote, cityWants } from './market.js';
 import { settlersAllowed, settlerCost, settleCheck, settlerSourceCheck } from './settlers.js';
 import { routeInfo, merchantCap, hireCost, branchesAllowed, branchCost, branchCheck, donateCost, hasPresence } from './actions.js';
 import { dailyCost } from './world.js';
-import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan, growthPlanText, rushLineOf, rushRipe } from './city.js';
+import { glucoseNeed, cityTier, dailyDemand, rushSweetPlan, growthPlanText, rushLineOf, rushRipe, igniteNeed } from './city.js';
 import { dwellingStatus } from './dwelling.js';
 import { goalsStatus } from './scoring.js';
 import { knowledgeAge } from './knowledge.js';
@@ -281,7 +281,7 @@ export const goalPlanText = (world, city, target) => [upgradeNote(world, city), 
 // 自分が知っている範囲（最後に商人がいたときの様子）で示す。正解は決めつけず、何が足りないかを見せる
 // （s2 で「麦の里を町に育てる」の手の打ち方が分からず、2人の画面だけのテストが迷った）
 // 食卓の短い1行: 食べている食べ物の糖度への寄与と、食卓にない食べ物（画面だけのテスト7回目の Opus: 熟すのに何が足りないかが、町の画面の下まで見ないと分からなかった）
-function dietLine(world, c) {
+export function dietLine(world, c) {
   const have = Object.entries(c.diet || {}).filter(([g, v]) => GOODS[g].kind === 'food' && v > 0.02).sort((a, b) => b[1] - a[1]).map(([g, v]) => `${GOODS[g].name}+${Math.round(v * 100)}`);
   const miss = world.scenario.goods.filter((g) => GOODS[g].kind === 'food' && dailyDemand(c, g, false) > 0 && !(c.diet?.[g] > 0.02)).map((g) => GOODS[g].name);
   return `${have.join('・') || 'なし'}${miss.length ? ` → 足りない: ${miss.join('・')}` : ''}`;
@@ -341,7 +341,7 @@ export function goalHints(world) {
       } else parts.push('このままでは育たない');
     }
     // 線はシナリオの値（s5 は130）。火入れでは熟す目安を出す（画面だけのテスト7回目の Opus: 帯の「140以上」と町の画面の「熟す120」が並んで迷った）
-    if (g.type === 'rushes') parts.push(B.rushIgnite ? `糖度 ${Math.round(k.glucose)}（${age === 0 && rushRipe(world, c) ? '🔥熟した。大祭の間に火を入れる' : `${rushLineOf(world) - B.rushRipeGap}以上で熟す${age === 0 ? `。食卓 ${dietLine(world, c)}` : ''}`}）` : `糖度 ${Math.round(k.glucose)}（ラッシュは ${rushLineOf(world)} 以上）`);
+    if (g.type === 'rushes') parts.push(B.rushIgnite ? `糖度 ${Math.round(k.glucose)}（${age === 0 && rushRipe(world, c) ? `🔥熟した。大祭の間に火を入れる（甘味1品を${Math.min(...world.scenario.goods.filter((g) => GOODS[g].kind === 'sweet').map((g) => igniteNeed(c, g)))}個〜・町に甘味${B.rushIgniteKinds ?? 2}種類）` : `${rushLineOf(world) - B.rushRipeGap}以上で熟す${age === 0 ? `。食卓 ${dietLine(world, c)}` : ''}`}）` : `糖度 ${Math.round(k.glucose)}（ラッシュは ${rushLineOf(world)} 以上）`);
     const block = k.blocker ? `止めているもの: ${k.blocker}` : late ? `このままでは期限（残り${left}日）に間に合わない。食べ物の種類と量を増やす${settlersAllowed(world) && c.founded ? '・開拓団を送る' : ''}` : '順調。届け続ける';
     // 次の一手（何を何個届ければ、何日で届くか）。今の様子が分かる町だけ（画面だけのテスト4回目）
     const plan = target && (age === 0 || c.founded) ? goalPlanText(world, c, target) : '';

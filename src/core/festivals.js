@@ -7,6 +7,7 @@ import { hashSeed } from './rng.js';
 import { emit } from './events.js';
 import { BALANCE as B } from '../data/balance.js';
 import { rushRipe } from './city.js';
+import { dietLine } from './advice.js';
 
 // シナリオの定義: festivals: { city, first: [最初の開始日の幅], gap: [休みの幅], lead: 予告の日数, days: 続く日数 }
 export function planFestivals(world) {
@@ -34,6 +35,7 @@ export function knownFestivals(world) {
 }
 export const festivalActive = (world, x) => world.day >= x.start && world.day < x.end;
 export const festivalOn = (world, cityId) => (world.festivals || []).some((x) => x.city === cityId && festivalActive(world, x));
+export const festivalOnDay = (world, cityId, day) => (world.festivals || []).some((x) => x.city === cityId && day >= x.start && day < x.end);
 export const festivalStateText = (world, x) => (festivalActive(world, x) ? `今（あと${x.end - world.day}日、${x.end - 1}日目まで）` : `${x.start - world.day}日後から（${x.start}〜${x.end - 1}日目）`);
 
 const nm = (world, id) => world.cities[id]?.name || id;
@@ -41,7 +43,7 @@ const nm = (world, id) => world.cities[id]?.name || id;
 function countText(world, cityId) {
   const g = (world.scenario.goals || []).find((x) => x.type === 'rushes' && x.city === cityId);
   if (!g) return '';
-  if (g.during === 'festival') return '目標のラッシュは、大祭の期間に始まったものだけを数える';
+  if (g.during === 'festival') return B.rushIgnite ? '目標のラッシュは、大祭の期間に火を入れたもの（始まったもの）だけを数える' : '目標のラッシュは、大祭の期間に始まったものだけを数える';
   if (g.festivalWeight) return `大祭の期間に始まったラッシュは、目標に${g.festivalWeight}回ぶん数える`;
   return '';
 }
@@ -81,7 +83,7 @@ export function updateFestivals(world) {
     if (world.day === x.start) x.countAtStart = city?.festRushCount || 0;
     // 大祭の間に届いた最高の糖度と甘味の摂取（逃したわけに、実際の値を出す。34回目の Opus）
     if (city && world.day >= x.start && world.day < x.end) { x.peakGlu = Math.max(x.peakGlu || 0, city.glucose); x.peakSweet = Math.max(x.peakSweet || 0, city.sweetLevel || 0); }
-    if (world.day === x.end && city && (city.festRushCount || 0) === (x.countAtStart ?? 0)) emit(world, { type: 'grandFestMissed', city: x.city, text: `${c}の大祭で、ラッシュが起きなかった。${missReason(world, city, x)}` });
+    if (world.day === x.end && city && (city.festRushCount || 0) === (x.countAtStart ?? 0) && !(city.ignite != null && city.ignite >= x.start)) emit(world, { type: 'grandFestMissed', city: x.city, text: `${c}の大祭で、ラッシュが起きなかった。${missReason(world, city, x)}` });
     if (world.day === x.start) emit(world, { type: 'grandFestStart', city: x.city, text: `${c}の大祭が始まった（${x.end - 1}日目まで）。今ラッシュが始まれば、${world.scenario.goals?.some((g) => g.type === 'rushes' && g.festivalWeight) ? '目標に多く数える' : '目標に数える'}${B.rushIgnite && world.cities[x.city] ? (rushRipe(world, world.cities[x.city]) ? `。${c}は🔥熟している。甘味を持った商人で「🔥火を入れて売る」と、翌日ラッシュ` : `。${c}はまだ熟していない（糖度${Math.round(world.cities[x.city].glucose)}/${(world.scenario.rushLine ?? B.rushLine) - B.rushRipeGap}）。食べ物と甘味を届けて熟させよ`) : ''}` });
     if (world.day === x.end) emit(world, { type: 'grandFestEnd', city: x.city, text: `${c}の大祭が終わった` });
   }
@@ -93,7 +95,7 @@ export function festGluForecast(world, city, x) {
   const to = city.glucoseTarget ?? city.glucose;
   const g = to + (city.glucose - to) * Math.pow(1 - B.glucoseFollow, t);
   const ripe = (world.scenario.rushLine ?? B.rushLine) - B.rushRipeGap;
-  return `今の届け方なら、大祭の初日の糖度は約${Math.round(g)}（${g >= ripe ? `熟す目安${ripe}に届く` : `熟す目安${ripe}に届かない。食べ物の種類と量を増やす`}）`;
+  return `今の届け方なら、大祭の初日の糖度は約${Math.round(g)}（${g >= ripe ? `熟す目安${ripe}に届く` : `熟す目安${ripe}に約${ripe - Math.round(g)}届かない。食べ物の種類と量を増やす。食卓 ${dietLine(world, city)}`}）`;
 }
 
 // 大祭を逃したわけ（事後の1行）

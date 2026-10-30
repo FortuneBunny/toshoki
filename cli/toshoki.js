@@ -889,7 +889,7 @@ function run(world, cmd, pos, opts) {
         if (avg > first * 1.4) out.push(`⚠ ${gname(l.good)}はまとめて買うと値上がりする（1個目 ${fmt(first)} → 平均 ${fmt(avg)}）。少なめに買うか quote で確かめよう`);
       }
       const r = after(G.trade(world, m.id, lines, { ignite: !!opts.fire }));
-      if (opts.fire) { const c = world.cities[m.city]; out.push(c.ignite === world.day ? `🔥${c.name}に火が入った。明日シュガーラッシュが始まる` : `火は入らなかった（${!G.BALANCE.rushIgnite ? '火入れのない決まり' : !G.rushRipe(world, c) ? '町が熟していない' : '量か、町にある甘味の種類が足りない'}）`); }
+      if (opts.fire) { const c = world.cities[m.city]; out.push(c.ignite === world.day ? `🔥${c.name}に火が入った。明日シュガーラッシュが始まる` : `火は入らなかった（${c.igniteFail?.why || G.igniteWhy(world, c) || '甘味を売らなかった'}）`); }
       for (const row of r.rows) out.push(`  ${row.qty > 0 ? '買' : '売'} ${gname(row.good)} ×${Math.abs(row.qty)}  ${row.total > 0 ? '+' : ''}${fmt(row.total)} 銀${row.capped ? `（${row.capped}個のうち、買い取りの上限で${Math.abs(row.qty)}個だけ）` : ''}`);
       out.push(`銀 ${Math.floor(world.player.silver)}（${r.silverDelta >= 0 ? '+' : ''}${fmt(r.silverDelta)}）  積載 ${G.cargoUsed(m)}/${G.cargoCap(m)}`);
       for (const f of r.fx) {

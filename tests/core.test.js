@@ -1588,3 +1588,22 @@ test('定期便: 残す銀を割って空荷になるなら、残す銀も使っ
   assert.ok((m.cargo[good] || 0) >= 1, '空荷で出ない');
   assert.ok(w.player.silver >= 0);
 });
+
+test('大祭の最終日に火を入れたラッシュも、大祭のラッシュに数える（画面だけのテスト8回目の Sol）', () => {
+  const w = G.createWorld('s5', { seed: 7 });
+  if (G.setupStage(w) === 'family') G.chooseFamily(w, G.familyList(w)[0].id);
+  const s = G.foundSites(w, 1)[0];
+  G.foundPost(w, s.x, s.y);
+  const x = w.festivals[0];
+  const c = w.cities.saito;
+  while (w.day < x.end - 1) G.advance(w, 1, { stopOn: new Set() });
+  c.rush = 0; c.crash = 0; c.glucose = 200; c.glucoseTarget = 200; c.sweetLevel = 0.9;
+  const n0 = c.festRushCount || 0;
+  c.ignite = w.day;
+  G.drainEvents(w);
+  G.advance(w, 1, { stopOn: new Set() });
+  assert.ok(!G.festivalOn(w, 'saito'), '翌日は大祭の外');
+  assert.ok(c.rush > 0);
+  assert.equal(c.festRushCount, n0 + 1);
+  assert.ok(!G.drainEvents(w).some((e) => e.type === 'grandFestMissed'), '逃したと出さない');
+});
