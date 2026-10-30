@@ -278,7 +278,8 @@ img { user-select: none; }
 #toasts { position: fixed; top: 112px; right: 356px; z-index: 75; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; pointer-events: none; max-width: min(460px, 60vw); }
 @media (max-width: 900px) { #toasts { right: 8px; left: 8px; align-items: center; max-width: none; } }
 /* ダイアログを開いている間は、知らせを下に出す（見出しや「買う」欄の上に重なって読めなかった） */
-body:has(.modal-back) #toasts { display: none; } /* 出来事の欄には残る。ダイアログのボタンに重なっていた */
+body:has(.modal-back) #toasts { top: 16px; } /* ダイアログの間は、上に寄せる */
+body:has(.modal-back) #toasts .toast:not(.bad) { display: none; } /* 出来事の欄には残る。ダイアログのボタンに重なっていた。失敗の知らせだけは出す（画面だけのテスト7回目の Opus: 定期便が始まらず、エラー音だけだった） */
 .toast { background: linear-gradient(#3b2d18, #241a10); border: 1px solid #c79a42; border-radius: 30px; padding: 8px 18px 8px 8px; display: flex; align-items: center; gap: 10px; font-weight: 900; box-shadow: var(--shadow); animation: toastIn 0.35s cubic-bezier(0.2, 1.5, 0.4, 1), toastOut 0.4s 3.2s forwards; }
 .toast.bad { border-color: #c75a42; background: linear-gradient(#3b1c18, #24100c); }
 .toast.rare { border-color: var(--crystal-deep); }

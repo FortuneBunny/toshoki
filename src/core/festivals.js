@@ -76,7 +76,7 @@ export function updateFestivals(world) {
   }
   for (const x of world.festivals || []) {
     const c = nm(world, x.city);
-    if (world.day === x.announce) emit(world, { type: 'grandFest', big: true, city: x.city, festival: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}で大祭が開かれる。${countText(world, x.city)}。ラッシュのあとには、甘味を受けつけないクラッシュ（約${B.crashDays}日）が来るので、大祭の前にラッシュを起こすと大祭を逃す。${B.rushIgnite ? '甘味と食べ物を届け続けて町を熟させ、大祭に入ってから甘味をまとめて売って火を入れよ' : '甘味の便を止めて、大祭に合わせて2種類まとめて届けよ'}` });
+    if (world.day === x.announce) emit(world, { type: 'grandFest', big: true, city: x.city, festival: x.id, text: `【予告】${x.start - world.day}日後（${x.start}〜${x.end - 1}日目の${sc.days}日間）、${c}で大祭が開かれる。${countText(world, x.city)}。ラッシュのあとには、甘味を受けつけないクラッシュ（約${B.crashDays}日）が来るので、大祭の前にラッシュを起こすと大祭を逃す。${B.rushIgnite ? '甘味と食べ物を届け続けて町を熟させ、大祭に入ってから甘味をまとめて売って火を入れよ' : '甘味の便を止めて、大祭に合わせて2種類まとめて届けよ'}${B.rushIgnite && world.cities[x.city] ? `。${festGluForecast(world, world.cities[x.city], x)}` : ''}` });
     const city = world.cities[x.city];
     if (world.day === x.start) x.countAtStart = city?.festRushCount || 0;
     // 大祭の間に届いた最高の糖度と甘味の摂取（逃したわけに、実際の値を出す。34回目の Opus）
@@ -85,6 +85,15 @@ export function updateFestivals(world) {
     if (world.day === x.start) emit(world, { type: 'grandFestStart', city: x.city, text: `${c}の大祭が始まった（${x.end - 1}日目まで）。今ラッシュが始まれば、${world.scenario.goals?.some((g) => g.type === 'rushes' && g.festivalWeight) ? '目標に多く数える' : '目標に数える'}${B.rushIgnite && world.cities[x.city] ? (rushRipe(world, world.cities[x.city]) ? `。${c}は🔥熟している。甘味を持った商人で「🔥火を入れて売る」と、翌日ラッシュ` : `。${c}はまだ熟していない（糖度${Math.round(world.cities[x.city].glucose)}/${(world.scenario.rushLine ?? B.rushLine) - B.rushRipeGap}）。食べ物と甘味を届けて熟させよ`) : ''}` });
     if (world.day === x.end) emit(world, { type: 'grandFestEnd', city: x.city, text: `${c}の大祭が終わった` });
   }
+}
+
+// 今の届け方が続いたら、大祭の初日の糖度は（画面だけのテスト7回目の Opus: 予告の時点で、届けている量が足りるかが分からなかった）
+export function festGluForecast(world, city, x) {
+  const t = Math.max(0, x.start - world.day);
+  const to = city.glucoseTarget ?? city.glucose;
+  const g = to + (city.glucose - to) * Math.pow(1 - B.glucoseFollow, t);
+  const ripe = (world.scenario.rushLine ?? B.rushLine) - B.rushRipeGap;
+  return `今の届け方なら、大祭の初日の糖度は約${Math.round(g)}（${g >= ripe ? `熟す目安${ripe}に届く` : `熟す目安${ripe}に届かない。食べ物の種類と量を増やす`}）`;
 }
 
 // 大祭を逃したわけ（事後の1行）
@@ -110,7 +119,7 @@ function missReason(world, city, x) {
 export function festivalNotes(world, city) {
   const out = [];
   for (const x of knownFestivals(world).filter((y) => y.city === city.id)) {
-    out.push({ kind: festivalActive(world, x) ? 'up' : 'shift', text: `🎆大祭 ${festivalStateText(world, x)}。${countText(world, city.id) || 'この間に始まったラッシュは祝いが大きい'}` });
+    out.push({ kind: festivalActive(world, x) ? 'up' : 'shift', text: `🎆大祭 ${festivalStateText(world, x)}。${countText(world, city.id) || 'この間に始まったラッシュは祝いが大きい'}${B.rushIgnite && !festivalActive(world, x) && !rushRipe(world, city) ? `。${festGluForecast(world, city, x)}` : ''}` });
     // 今ラッシュが起きると、反動が大祭に重なる（29回目の相談の Opus）
     const left = x.start - world.day;
     if (B.rushIgnite) { if (left > 0 && left < B.rushDays + B.crashDays && rushRipe(world, city)) out.push({ kind: 'down', text: `⚠今火を入れると、クラッシュ（${B.crashDays}日）が${left}日後の大祭に重なる。火を入れるのは大祭に入ってから（熟した町は、売らなければ起きない）` }); }
